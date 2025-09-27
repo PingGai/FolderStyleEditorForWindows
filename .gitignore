@@ -1,11 +1,17 @@
-# Windows desktop.ini
-desktop.ini
-《WindowsFolderStyleEditor》.txt
-history.json
-TEMP/
-开发记录/
+# IDE
 .vscode/
 .vs/
 .kilocode/
-WindowsFolderStyleEditor_Avalonia/bin/
-publish/
+
+# 临时与本地资料
+TEMP/
+开发记录/
+desktop.ini
+《WindowsFolderStyleEditor》.txt
+history.json
+
+# 构建产物（任何子目录下都忽略）
+/publish/
+/**/bin/
+/**/obj/
+*.zip
