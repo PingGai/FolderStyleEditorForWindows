@@ -1,0 +1,36 @@
+LanguageName: "简体中文 (zh-CN)"
+# HomeView
+Home_DragZone_Part1: "将"
+Home_DragZone_Part2: "文件夹"
+Home_DragZone_Part3: "拖拽到此处以自定义"
+Home_ClickHint: "点击以选择文件夹"
+Home_History_Title: "最近编辑"
+Home_History_Clear: "清除"
+Home_History_Empty: "去开始第一次编辑以创建记录~"
+
+# EditView
+Edit_Title: "编辑文件夹样式"
+Edit_Directory_Title: "目录"
+Edit_Directory_OpenExplorer: "在资源管理器打开"
+Edit_Directory_Select: "选择目录"
+Edit_Directory_Invalid: "⊗ 此目录无效"
+Edit_DragTip: "拖拽 文件夹/图标/别名 到此窗口以应用"
+Edit_Info_Title: "信息"
+Edit_Alias_Label: "文件夹别名（可拖拽到此窗口）"
+Edit_Alias_Watermark: "例如：我的图片"
+Edit_Icon_Label: "文件夹图标（可拖拽到此窗口）"
+Edit_Icon_Watermark: "desktop.ini 中的 IconResource"
+Edit_Icon_Select: "选择图标"
+Edit_Icon_Loading: "正在提取图标..."
+Edit_Icon_Reset: "重置图标"
+Edit_Icon_AutoGet: "自动获取图标"
+Edit_Reset_Title: "重置"
+Edit_Reset_ClearAll: "清除所有样式"
+Edit_SaveButton: "保存"
+
+# Shared
+Window_Title: "Windows Folder Style Editor"
+Drag_ReleaseToApply: "松开以应用"
+
+# C#
+Toast_SaveSuccess: "保存成功"

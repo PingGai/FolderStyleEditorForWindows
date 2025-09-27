@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:WindowsFolderStyleEditor_Avalonia.ViewModels"
+             xmlns:models="using:WindowsFolderStyleEditor_Avalonia.Models"
+             xmlns:i="using:Avalonia.Xaml.Interactivity"
+             xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
+             mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="300"
+             x:Class="WindowsFolderStyleEditor_Avalonia.Views.LanguageMenuView"
+             x:DataType="vm:LanguageMenuViewModel">
+    <UserControl.Styles>
+        <!-- Apply opacity to the container of the button -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="Padding" Value="4,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0.2" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        
+        <!-- Force full opacity when not hovered -->
+        <Style Selector="ListBoxItem:not(:pointerover)">
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+
+        <!-- On hover, change opacity and remove default background highlight -->
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- The button itself just needs a background, no opacity -->
+        <Style Selector="Button.LangBtn">
+            <Setter Property="Background" Value="#E6FFFFFF"/>
+        </Style>
+    </UserControl.Styles>
+    <UserControl.DataContext>
+        <vm:LanguageMenuViewModel/>
+    </UserControl.DataContext>
+    <Border Background="Transparent"
+            CornerRadius="{StaticResource RadiusMd}"
+            BorderThickness="0">
+        <ScrollViewer MaxHeight="180"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <i:Interaction.Behaviors>
+                <ia:VerticalScrollViewerAnimatedBehavior/>
+            </i:Interaction.Behaviors>
+            <ListBox ItemsSource="{Binding AvailableLanguages}" Background="Transparent" BorderThickness="0" Width="180">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="models:LanguageInfo">
+                        <Button Classes="Btn BtnGhost LangBtn"
+                                Command="{Binding $parent[UserControl].DataContext.SwitchLanguageCommand}"
+                                CommandParameter="{Binding}"
+                                HorizontalContentAlignment="Stretch"
+                                MinWidth="160"
+                                Padding="8,4"
+                                Margin="0,0,0,-4">
+                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource Fg1Brush}"/>
+                        </Button>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </ScrollViewer>
+    </Border>
+</UserControl>

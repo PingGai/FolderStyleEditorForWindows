@@ -1,0 +1,206 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!-- TextBlock Styles -->
+    <Style Selector="TextBlock.Subtitle">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{StaticResource Fg1Brush}"/>
+    </Style>
+    <Style Selector="TextBlock.Body">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Foreground" Value="{StaticResource Fg2Brush}"/>
+    </Style>
+    <Style Selector="TextBlock.Note">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{StaticResource Fg3Brush}"/>
+    </Style>
+    <Style Selector="TextBlock.ErrorTip">
+        <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="IsVisible" Value="False"/>
+        <Setter Property="Margin" Value="0,6,0,0"/>
+    </Style>
+
+    <!-- Card Style -->
+    <Style Selector="Border.Card">
+        <Setter Property="Background" Value="{StaticResource GlassStrongBrush}"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}"/>
+        <Setter Property="Padding" Value="20"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BoxShadow" Value="{StaticResource Shadow1}"/>
+    </Style>
+
+    <!-- Base Input Style -->
+    <Style Selector="TextBox.Input">
+        <Setter Property="Background" Value="{StaticResource Bg1Brush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="ClipToBounds" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        BoxShadow="{StaticResource Shadow1}"
+                        Padding="{TemplateBinding Padding}">
+                    <ScrollViewer Name="PART_ScrollViewer"
+                                HorizontalScrollBarVisibility="Hidden"
+                                VerticalScrollBarVisibility="Hidden">
+                        <TextPresenter Name="PART_TextPresenter"
+                                     Text="{TemplateBinding Text}"
+                                     CaretBrush="{TemplateBinding CaretBrush}"
+                                     SelectionBrush="{TemplateBinding SelectionBrush}"
+                                     SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                                     CaretIndex="{TemplateBinding CaretIndex}"
+                                     SelectionStart="{TemplateBinding SelectionStart}"
+                                     SelectionEnd="{TemplateBinding SelectionEnd}"
+                                     TextWrapping="{TemplateBinding TextWrapping}"
+                                     PasswordChar="{TemplateBinding PasswordChar}"
+                                     RevealPassword="{TemplateBinding RevealPassword}"
+                                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                     HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                    </ScrollViewer>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0.2"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ComboBox.Input">
+        <Setter Property="Background" Value="{StaticResource Bg1Brush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="BorderBrush" Duration="0.2"/>
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="TextBox.Input:focus">
+        <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+        <!-- BoxShadow is not a direct property of TextBox, moved to template if needed -->
+    </Style>
+
+    <!-- Base Button Style -->
+    <Style Selector="Button.Btn">
+        <Setter Property="Background" Value="{StaticResource Bg1Brush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Fg1Brush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="ClipToBounds" Value="False"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        BoxShadow="{StaticResource Shadow1}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0.2" Easing="CubicEaseOut"/>
+            </Transitions>
+        </Setter>
+    </Style>
+   <!-- Button Variants -->
+    <Style Selector="Button.BtnPill">
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}"/>
+        <Setter Property="Padding" Value="20,0"/>
+    </Style>
+    <Style Selector="Button.BtnGhost">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="Button.BtnDanger">
+        <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+      <Setter Property="Background" Value="#40FFFFFF"/>
+  </Style>
+  <Style Selector="Button.BtnDanger.Light">
+      <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
+      <Setter Property="Opacity" Value="0.7"/>
+ </Style>
+ <Style Selector="Button.BtnClearHistory">
+     <Setter Property="Template">
+         <ControlTemplate>
+             <Border Name="PART_Border"
+                     Background="{TemplateBinding Background}"
+                     BorderBrush="{TemplateBinding BorderBrush}"
+                     BorderThickness="{TemplateBinding BorderThickness}"
+                     CornerRadius="{TemplateBinding CornerRadius}"
+                     Padding="{TemplateBinding Padding}">
+                 <ContentPresenter Name="PART_ContentPresenter"
+                               Content="{TemplateBinding Content}"
+                               ContentTemplate="{TemplateBinding ContentTemplate}"
+                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+             </Border>
+         </ControlTemplate>
+     </Setter>
+ </Style>
+<!-- 阻止BtnHistory按钮在悬停时变灰 -->
+<Style Selector="Button.BtnHistory /template/ Border">
+    <Setter Property="BoxShadow" Value="{StaticResource ShadowHistory}"/>
+</Style>
+<Style Selector="Button.BtnHistory:pointerover">
+    <Setter Property="Background" Value="{Binding RelativeSource={RelativeSource Self}, Path=Background}"/>
+    <Setter Property="BorderBrush" Value="{Binding RelativeSource={RelativeSource Self}, Path=BorderBrush}"/>
+</Style>
+   
+   <!-- Icon Picker -->
+   <Style Selector="Border.IconPicker">
+       <Setter Property="Background" Value="{StaticResource Bg1Brush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="14"/>
+        <Setter Property="Padding" Value="4"/>
+       <Setter Property="BoxShadow" Value="{StaticResource Shadow1}"/>
+   </Style>
+
+   <!-- Let the text in the button have no background by default -->
+   <Style Selector="Button /template/ ContentPresenter">
+       <Setter Property="TextElement.Background" Value="Transparent"/>
+   </Style>
+
+   <!-- Keep it transparent when hovering/pressing (to prevent upstream rules from changing color) -->
+   <Style Selector="Button:pointerover /template/ ContentPresenter, Button:pressed /template/ ContentPresenter">
+       <Setter Property="TextElement.Background" Value="Transparent"/>
+   </Style>
+
+   <!-- Further disable text selection in buttons to avoid the "looks selected" feeling -->
+   <Style Selector="Button TextBlock">
+      <Setter Property="Background" Value="Transparent"/>
+  </Style>
+
+</Styles>
