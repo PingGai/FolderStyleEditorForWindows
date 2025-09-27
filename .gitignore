@@ -21,3 +21,4 @@ history.json
 git rm -r -f --cached --ignore-unmatch -- **/bin **/obj publish
 git add .gitignore
 git commit -m "chore: ignore build artifacts and untrack bin/ obj/ publish"
+# test
