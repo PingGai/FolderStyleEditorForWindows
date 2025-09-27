@@ -1,17 +1,23 @@
-# IDE
+# 确保忽略规则递归生效
+Set-Content .gitignore @"
+# Build artifacts
+/publish/
+/**/bin/
+/**/obj/
+*.zip
+
+# IDE & local
 .vscode/
 .vs/
 .kilocode/
-
-# 临时与本地资料
 TEMP/
 开发记录/
 desktop.ini
 《WindowsFolderStyleEditor》.txt
 history.json
+"@
 
-# 构建产物（任何子目录下都忽略）
-/publish/
-/**/bin/
-/**/obj/
-*.zip
+# 把已被跟踪的构建产物移出索引（不删文件）
+git rm -r -f --cached --ignore-unmatch -- **/bin **/obj publish
+git add .gitignore
+git commit -m "chore: ignore build artifacts and untrack bin/ obj/ publish"
