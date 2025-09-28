@@ -61,6 +61,12 @@ WindowsFolderStyleEditor 是一款基于 Avalonia UI 框架和 .NET 9.0 开发�
 - **自动获取图标**: 应用程序会自动解析选定的 `.exe` 或 `.dll` 文件中的所有图标，并在下方以缩略图形式展示。您可以从中选择一个图标，应用程序会自动将其路径填充到输入框中。
 - **重置图标**: 如果您想清除当前图标设置，可以使用“重置图标”按钮，这将使文件夹恢复默认图标。
 
+## 图片
+- 软件界面
+<img width="672" height="1224" alt="QQ_1759019903575" src="https://github.com/user-attachments/assets/ab5070c9-e6fa-4ac2-85a5-ae4622087648" />
+- 修改后的文件夹样式
+<img width="713" height="616" alt="QQ_1759019766132" src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548" />
+
 ## 技术概述
 
 本项目采用 C# 和 .NET 9.0 开发，界面使用 Avalonia UI 框架构建，并遵循 MVVM 设计模式。通过这种架构，实现了模块化的代码结构、响应式的用户界面和高效的数据绑定。
