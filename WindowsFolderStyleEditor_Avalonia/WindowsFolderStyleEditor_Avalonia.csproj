@@ -1,10 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <!-- 目标与输出 -->
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
 
-    <!-- 保持你现有设置 -->
+    <!-- 现有设置 -->
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -15,48 +16,70 @@
     <!-- 单文件 + 自包含 -->
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
-
-    <!-- 关键：把本机库也打进单文件，运行时自解压到临时目录 -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
 
-    <!-- 稳妥：关闭裁剪，避免 Avalonia/Skia 反射路径被裁掉 -->
+    <!-- 稳妥：关闭裁剪 -->
     <PublishTrimmed>false</PublishTrimmed>
 
     <!-- 体积与一致性优化 -->
     <InvariantGlobalization>true</InvariantGlobalization>
 
-    <!-- 明确不是 AOT（你可按需切换） -->
+    <!-- 明确不是 AOT（如需 AOT 再改 true） -->
     <PublishAot>false</PublishAot>
+
+    <!-- ===== 版本 / 元数据 / 许可证 ===== -->
+    <Version>1.0.0-beta.1</Version>
+    <PackageVersion>1.0.0-beta.1</PackageVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+
+    <Authors>PingGai</Authors>
+    <Company>PingGai</Company>
+    <RepositoryUrl>https://github.com/PingGai/WindowsFolderStyleEditor</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- 可复现构建 -->
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
   </PropertyGroup>
 
-  <!-- Release 专用优化：不生成/不携带 PDB，启用优化与去符号 -->
+  <!-- Release：优化、去掉 PDB -->
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <Optimize>true</Optimize>
     <DebugType>none</DebugType>
     <StripSymbols>true</StripSymbols>
   </PropertyGroup>
 
+  <!-- 仅 Debug 引用诊断面板（Release 不包含） -->
+  <ItemGroup Condition="'$(Configuration)'=='Debug'">
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.4" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.4" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.4" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.4" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.4" />
-    <!-- Release 下移除调试工具 -->
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.4">
-      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-      <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-    </PackageReference>
-
     <PackageReference Include="Egolds.Avalonia.Xaml.Interactions.Animated" Version="11.2.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.9" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
-  <!-- 你的多语言 YML 作为内嵌资源，随程序集走 -->
+  <!-- 多语言 yml 作为内嵌资源 -->
   <ItemGroup>
     <EmbeddedResource Include="Lang\*.yml" />
+  </ItemGroup>
+
+  <!-- 发行物携带：主 LICENSE、第三方清单、/licenses、README（都在上一级目录） -->
+  <ItemGroup>
+    <None Include="..\LICENSE" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\licenses\**\*" Pack="true" PackagePath="licenses\" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
