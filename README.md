@@ -37,7 +37,7 @@ WindowsFolderStyleEditor 是一款基于 Avalonia UI 框架和 .NET 9.0 开发�
 3. **恢复 NuGet 包**:
    Visual Studio 会自动恢复所需的 NuGet 包。
 4. **构建项目**:
-   在 Visual Studio 中，选择 "构建" -> "构建解决方案"。您也可以使用 `build/` 目录下的打包脚本进行构建。
+   在 Visual Studio 中，选择 "构建" -> "构建解决方案"。您也可以使用 `build/` 目录下的打包脚本进行构建（需要先安装dotnet9开发环境）。
 5. **运行程序**:
    构建成功后，您可以运行 `WindowsFolderStyleEditor_Avalonia` 项目。
 
