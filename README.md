@@ -63,7 +63,7 @@ WindowsFolderStyleEditor 是一款基于 Avalonia UI 框架和 .NET 9.0 开发�
 
 ## 图片
 - 软件界面
-<img width="224" height="408" alt="QQ_1759019903575" src="https://github.com/user-attachments/assets/ab5070c9-e6fa-4ac2-85a5-ae4622087648" />
+<img width="224" height="408" alt="QQ_1759019903575" src="[https://github.com/user-attachments/assets/ab5070c9-e6fa-4ac2-85a5-ae4622087648](https://github.com/user-attachments/assets/adf9a324-3ad1-4c07-8370-4e7ca8ac6608)" />
 
 - 修改后的文件夹样式
 <img width="238" height="205" alt="QQ_1759019766132" src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548" />
