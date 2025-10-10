@@ -1,8 +1,8 @@
-# 默认构建 x64 + x86
+# 默认构建 x64 + x86（Both x64 + x86）
 pwsh ./build/build.ps1
 
-# 只构建 x64
+# 只构建 x64（Only x64）
 pwsh ./build/build.ps1 -Runtime win-x64
 
-# 只构建 x86
+# 只构建 x86 （Only x86）
 pwsh ./build/build.ps1 -Runtime win-x86
