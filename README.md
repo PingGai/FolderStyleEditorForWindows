@@ -1,11 +1,11 @@
-# WindowsFolderStyleEditor
+# FolderStyleEditorForWindows
 
 这是一个可以快速修改 Windows 系统上文件夹别名，和快速将一个应用的文件夹设置成它内部的应用图标的工具。
 
 ## 快速概览
 
 ### 项目描述
-WindowsFolderStyleEditor 是一款基于 Avalonia UI 框架和 .NET 9.0 开发的桌面应用程序，旨在为用户提供一个现代化、美观的界面，以便通过对desktop.ini进行可视化编辑，轻松自定义 Windows 文件夹的样式，包括修改文件夹的别名和图标。
+FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开发的桌面应用程序，旨在为用户提供一个现代化、美观的界面，以便通过对desktop.ini进行可视化编辑，轻松自定义 Windows 文件夹的样式，包括修改文件夹的别名和图标。
 
 ### 核心功能
 - **文件夹别名修改**: 快速设置或修改文件夹的显示名称。
@@ -29,8 +29,8 @@ WindowsFolderStyleEditor 是一款基于 Avalonia UI 框架和 .NET 9.0 开发�
 ### 构建
 1. **克隆仓库**:
    ```bash
-   git clone https://github.com/PingGai/WindowsFolderStyleEditor
-   cd WindowsFolderStyleEditor
+   git clone https://github.com/PingGai/FolderStyleEditorForWindows
+   cd FolderStyleEditorForWindows
    ```
 2. **打开解决方案**:
    使用 Visual Studio 2022 或更高版本打开 `2025-8-23_Develop_WindowsFolderStyle.sln` 解决方案文件。
