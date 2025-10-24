@@ -2,11 +2,15 @@
 
 # FolderStyleEditorForWindows
 
+---
+
 <div align="center">
     <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="128"/>
     <br/>
     <strong>A Modern Windows Folder Style Editor</strong>
 </div>
+
+---
 
 This is a tool that allows you to quickly modify folder aliases on Windows systems and set a folder's icon to the icon of an application within it.
 
