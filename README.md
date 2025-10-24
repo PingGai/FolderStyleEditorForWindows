@@ -1,4 +1,12 @@
+[简体中文] | [English](./README.en-US.md)
+
 # FolderStyleEditorForWindows
+
+<div align="center">
+    <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="512"/>
+    <br/>
+    <strong>一个现代化的 Windows 文件夹样式编辑器</strong>
+</div>
 
 这是一个可以快速修改 Windows 系统上文件夹别名，和快速将一个应用的文件夹设置成它内部的应用图标的工具。
 
@@ -62,10 +70,17 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 - **重置图标**: 如果您想清除当前图标设置，可以使用“重置图标”按钮，这将使文件夹恢复默认图标。
 
 ## 图片
-- 软件界面
+
+<div align="center">
+    <strong>软件界面</strong>
+</div>
+
 <img width="1061" height="800" alt="image" src="https://github.com/user-attachments/assets/f953988f-4d0c-47d9-ae4e-dd2b572fed51" />
 
-- 修改后的文件夹样式
+<div align="center">
+    <strong>修改后的文件夹样式</strong>
+</div>
+
 <img width="238" height="205" alt="QQ_1759019766132" src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548" />
 
 

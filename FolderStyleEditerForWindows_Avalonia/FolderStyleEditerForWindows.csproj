@@ -9,6 +9,7 @@
     <!-- 现有设置 -->
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Resources\FSM_Image_Multi.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
     <!-- 同时支持 x64/x86，发布时用 -r 选择 -->
@@ -74,6 +75,10 @@
   <!-- 多语言 yml 作为内嵌资源 -->
   <ItemGroup>
     <EmbeddedResource Include="Lang\*.yml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Resources\FSM_Image_Multi.ico" />
   </ItemGroup>
 
   <!-- 发行物携带：主 LICENSE、第三方清单、/licenses、README（都在上一级目录） -->
