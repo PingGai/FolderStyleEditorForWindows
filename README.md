@@ -3,7 +3,7 @@
 # FolderStyleEditorForWindows
 
 <div align="center">
-    <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="512"/>
+    <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="128"/>
     <br/>
     <strong>一个现代化的 Windows 文件夹样式编辑器</strong>
 </div>

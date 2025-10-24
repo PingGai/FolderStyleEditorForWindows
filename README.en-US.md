@@ -3,7 +3,7 @@
 # FolderStyleEditorForWindows
 
 <div align="center">
-    <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="512"/>
+    <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="128"/>
     <br/>
     <strong>A Modern Windows Folder Style Editor</strong>
 </div>
