@@ -19,19 +19,27 @@ This is a tool that allows you to quickly modify folder aliases on Windows syste
 ### Project Description
 FolderStyleEditorForWindows is a desktop application developed with the Avalonia UI framework and .NET 9.0. It aims to provide users with a modern, beautiful interface to easily customize the style of Windows folders by visually editing `desktop.ini`, including modifying folder aliases and icons.
 
-### Core Features
-- **Modify Folder Alias**: Quickly set or change the display name of a folder.
-- **Customize Folder Icon**: Supports setting an application's internal icon as the folder icon, or using custom icons (supports icons from ICO, EXE, DLL files, etc.).
-- **Drag and Drop**: Supports global drag-and-drop, allowing users to drag folders and icon files directly into the application window.
-- **Intuitive UI**: Adopts a modern UI design for a smooth user experience.
+## Features
+
+### Implemented Features
+
+*   **Portable Icon Paths**: Icons are stored with relative paths, ensuring styles remain intact when folders are moved (e.g., to a USB drive). External icons are auto-saved to a hidden `.ICON` folder for self-contained management.
+*   **Comprehensive Drag-and-Drop**:
+    -   **Target**: Drag a **folder** to specify the editing target.
+    -   **Icon**: Drag `.ico`, `.exe`, or `.dll` files to extract and set icons.
+    -   **Alias**: Drag **text** to quickly populate the alias.
+*   **Smart Icon Recognition**: One-click scan to display all icons from `.exe` or `.dll` files within a folder. Local icons are referenced by path, not duplicated.
+*   **Quick Alias Editing**: Intuitively modify the folder's display name.
+
+### Roadmap
+
+*   **Advanced Permission Handling**: Support for modifying system folders that require administrator privileges.
+*   **One-Click & Batch Operations**: Instantly apply an app's icon by dragging its executable; support for batch processing multiple folders.
+*   **Automatic Image Conversion**: Convert images like `.png` and `.jpg` to `.ico` format automatically.
 
 ### Tech Stack
 - **C# / .NET 9.0**: For building high-performance Windows desktop applications.
 - **Avalonia UI**: A cross-platform UI framework for modern user interfaces.
-
-### Key Features
-- **Global Drag-and-Drop with Visual Feedback**: The entire window area supports file drag-and-drop with rich visual feedback.
-- **Permission Management**: Intelligently handles folder modification permissions.
 
 ## Installation and Running Guide
 
