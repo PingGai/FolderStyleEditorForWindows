@@ -10,8 +10,8 @@ param(
   [string]$Configuration = "Release",
 
   # 基础名（想改就改），用于重命名 exe
-  [string]$BaseName = "WindowsFolderStyleEditor",
-
+  [string]$BaseName = "FolderStyleEditorForWindows",
+  
   # 是否把 csproj 的 <Version> 追加到文件名（如 -WithVersion => ...-v1.0.0-beta.1.exe）
   [switch]$WithVersion
 )
@@ -25,7 +25,7 @@ $ScriptDir = Split-Path -Parent $ScriptRealPath
 $RepoRoot  = (Get-Item -Path $ScriptDir).Parent.FullName
 
 # 项目路径与输出根目录（基于脚本所在位置拼出来）
-$ProjRel   = "FolderStyleEditerForWindows_Avalonia\FolderStyleEditerForWindows.csproj"
+$ProjRel   = "FolderStyleEditorForWindows_Avalonia\FolderStyleEditorForWindows.csproj"
 $ProjPath  = Join-Path $RepoRoot $ProjRel
 $PubRoot   = Join-Path $RepoRoot "publish"
 

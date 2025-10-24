@@ -47,19 +47,38 @@ FolderStyleEditorForWindows is a desktop application developed with the Avalonia
 - **Operating System**: Windows 10/11
 
 ### Building
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/PingGai/FolderStyleEditorForWindows
-   cd FolderStyleEditorForWindows
-   ```
-2. **Open the solution**:
-   Open the `2025-8-23_Develop_WindowsFolderStyle.sln` solution file with Visual Studio 2022 or later.
-3. **Restore NuGet packages**:
-   Visual Studio will automatically restore the required NuGet packages.
-4. **Build the project**:
-   In Visual Studio, select "Build" -> "Build Solution". You can also use the packaging script in the `build/` directory (requires .NET 9 development environment to be installed first).
-5. **Run the program**:
-   After a successful build, you can run the `WindowsFolderStyleEditor_Avalonia` project.
+
+#### Recommended Method: Use the Packaging Script (for Single-File Executable)
+
+It is **highly recommended** to use the `build.ps1` script located in the `build/` directory to build the application. This script handles all dependencies and packages the application into a **single executable file**, making it easy to distribute and use.
+
+1.  **Ensure Environment**:
+    *   Install [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
+    *   Windows PowerShell 5.1 or PowerShell 7+.
+2.  **Execute the Script**:
+    Open a PowerShell terminal and run one of the following commands:
+    ```powershell
+    # Build both x64 and x86 versions
+    .\build\build.ps1
+    
+    # Or build a specific version
+    .\build\build.ps1 -Runtime win-x64
+    ```
+    After a successful build, the single-file application will be available in the `publish/` directory.
+
+#### Alternative Method: Use Visual Studio
+
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/PingGai/FolderStyleEditorForWindows
+    cd FolderStyleEditorForWindows
+    ```
+2.  **Open the solution**:
+    Open `FolderStyleEditorForWindows.sln` with **Visual Studio 2022** or a later version.
+3.  **Build the project**:
+    In Visual Studio, select the `Release` configuration and click "Build Solution". This will generate the application files in the `FolderStyleEditorForWindows_Avalonia/bin/Release` directory.
+4.  **Run the program**:
+    You can directly start the `FolderStyleEditorForWindows_Avalonia` project from within Visual Studio for debugging.
 
 ## How to Use
 
