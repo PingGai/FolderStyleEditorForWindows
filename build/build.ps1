@@ -19,12 +19,13 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# 仓库根目录：脚本在 /build 下，所以取其父目录
-$ScriptDir = Split-Path -Parent $PSCommandPath
-$RepoRoot  = Split-Path -Parent $ScriptDir
+# 仓库根目录：解析脚本的真实路径，确保无论从哪里执行都能找到根目录
+$ScriptRealPath = (Get-Item -LiteralPath $PSCommandPath).FullName
+$ScriptDir = Split-Path -Parent $ScriptRealPath
+$RepoRoot  = (Get-Item -Path $ScriptDir).Parent.FullName
 
 # 项目路径与输出根目录（基于脚本所在位置拼出来）
-$ProjRel   = "WindowsFolderStyleEditor_Avalonia\WindowsFolderStyleEditor_Avalonia.csproj"
+$ProjRel   = "FolderStyleEditerForWindows_Avalonia\FolderStyleEditerForWindows.csproj"
 $ProjPath  = Join-Path $RepoRoot $ProjRel
 $PubRoot   = Join-Path $RepoRoot "publish"
 
