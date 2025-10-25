@@ -51,19 +51,37 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 ### 构建
 
-1. **克隆仓库**:
-   ```bash
-   git clone https://github.com/PingGai/FolderStyleEditorForWindows
-   cd FolderStyleEditorForWindows
-   ```
-2. **打开解决方案**:
-   使用 Visual Studio 2022 或更高版本打开 `2025-8-23_Develop_WindowsFolderStyle.sln` 解决方案文件。
-3. **恢复 NuGet 包**:
-   Visual Studio 会自动恢复所需的 NuGet 包。
-4. **构建项目**:
-   在 Visual Studio 中，选择 "构建" -> "构建解决方案"。您也可以使用 `build/` 目录下的打包脚本进行构建（需要先安装dotnet9开发环境）。
-5. **运行程序**:
-   构建成功后，您可以运行 `WindowsFolderStyleEditor_Avalonia` 项目。
+#### 推荐方式：使用打包脚本（生成单文件）
+
+**强烈推荐**使用项目根目录 `build/` 下的 `build.ps1` 脚本来构建应用程序。该脚本会自动处理所有依赖，并将应用打包为 **单个可执行文件**，方便分发和使用。
+
+1.  **确保环境**:
+    *   安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
+    *   Windows PowerShell 5.1 或 PowerShell 7+。
+2.  **执行脚本**:
+    打开 PowerShell 终端，并运行以下命令之一：
+    ```powershell
+    # 构建 x64 和 x86 两个版本
+    .\build\build.ps1
+    
+    # 或只构建指定版本
+    .\build\build.ps1 -Runtime win-x64
+    ```
+    构建成功后，单文件应用将输出到 `publish/` 目录下。
+
+#### 其他方式：使用 Visual Studio
+
+1.  **克隆仓库**:
+    ```bash
+    git clone https://github.com/PingGai/FolderStyleEditorForWindows
+    cd FolderStyleEditorForWindows
+    ```
+2.  **打开解决方案**:
+    使用 **Visual Studio 2022** 或更高版本打开 `FolderStyleEditorForWindows.sln`。
+ 3.  **构建项目**:
+    在 Visual Studio 中，选择 `Release` 配置并点击 "生成解决方案"。这将在 `FolderStyleEditorForWindows_Avalonia/bin/Release` 目录下生成零散的程序文件。
+ 4.  **运行程序**:
+    可以直接在 Visual Studio 中启动 `FolderStyleEditorForWindows_Avalonia` 项目进行调试。
 
 ## 如何使用
 

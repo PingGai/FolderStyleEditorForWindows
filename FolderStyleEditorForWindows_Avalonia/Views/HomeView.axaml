@@ -1,0 +1,153 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
+             xmlns:services="using:FolderStyleEditorForWindows.Services"
+             xmlns:c="using:Avalonia.Controls"
+             xmlns:i="using:Avalonia.Xaml.Interactivity"
+             xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
+             mc:Ignorable="d" d:DesignWidth="404" d:DesignHeight="762"
+             x:Class="FolderStyleEditorForWindows.Views.HomeView"
+             x:DataType="vm:MainViewModel">
+   <Grid RowDefinitions="54, 1*, 1*">
+        
+        <!-- Title Bar Area -->
+        <DockPanel Grid.Row="0">
+            <Grid ColumnDefinitions="*,Auto" Margin="12,0">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <Button Name="btnMin" Width="38" Height="28" CornerRadius="10" Background="{StaticResource GlassBrush}" BorderThickness="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                    <Path Data="M6 12h12" Stroke="{StaticResource Fg2}" StrokeThickness="2" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                </Button>
+                <Button Name="btnClose" Width="38" Height="28" CornerRadius="10" Background="{StaticResource GlassBrush}" BorderThickness="0" VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                    <Path Data="M6 6l12 12M18 6l-12 12" Stroke="{StaticResource Fg2}" StrokeThickness="2" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,6,6"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </DockPanel>
+
+        <!-- Drop Zone Display-->
+        <Border Grid.Row="1" Name="dropZone" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" Margin="0" Cursor="Hand" Background="Transparent">
+            <StackPanel Spacing="16" HorizontalAlignment="Center">
+                <TextBlock FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center" Foreground="{StaticResource Fg2Brush}" Opacity="0.9" Margin="28 0">
+                    <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part1]}"/>
+                    <Run Text=" "/>
+                    <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part2]}">
+                        <Run.Foreground>
+                            <LinearGradientBrush StartPoint="0%,50%" EndPoint="200%,50%">
+                                <GradientStop Color="#7b61ff" Offset="0"/>
+                                <GradientStop Color="#46c4ff" Offset="0.25"/>
+                                <GradientStop Color="#40dd88" Offset="0.5"/>
+                                <GradientStop Color="#ffb848" Offset="0.75"/>
+                                <GradientStop Color="#ff7a99" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Run.Foreground>
+                    </Run>
+                    <Run Text=" "/>
+                    <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part3]}"/>
+                </TextBlock>
+                <TextBlock Name="ClickHintText" Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_ClickHint]}" Foreground="{StaticResource Fg2Brush}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Background="Transparent" Cursor="Hand"/>
+            </StackPanel>
+        </Border>
+
+        <!-- History -->
+       <DockPanel Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0 16 0 0">
+           <Border Width="358" CornerRadius="{StaticResource RadiusLg}" Background="#66FFFFFF" BoxShadow="{StaticResource Shadow1}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="14"
+                   ClipToBounds="False"> <!-- 修复阴影裁剪问题 -->
+               <StackPanel>
+                  <Grid ColumnDefinitions="*,Auto" Margin="0 0 0 12">
+                      <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Title]}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Fg1Brush}" VerticalAlignment="Center"/>
+                    <Button Name="btnClearHistory" Classes="Btn BtnGhost BtnDanger Light" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Clear]}" Height="28" Padding="10,0"
+                            Command="{Binding ClearHistoryCommand}" IsVisible="{Binding History.Count}" Grid.Column="1" Background="Transparent"
+                            Margin="0,-2,0,0"/>
+                  </Grid>
+                   <ScrollViewer MaxHeight="188.4" IsVisible="{Binding History.Count}"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  ClipToBounds="False">
+                       <i:Interaction.Behaviors>
+                           <ia:VerticalScrollViewerAnimatedBehavior/>
+                       </i:Interaction.Behaviors>
+                       <ListBox Name="historyList" ItemsSource="{Binding History}" Background="Transparent" BorderThickness="0">
+                           <ListBox.ItemContainerTheme>
+                               <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                   <Setter Property="Padding" Value="0"/>
+                                   <Setter Property="Margin" Value="0,0,0,10"/>
+                                   <Setter Property="ClipToBounds" Value="False"/>
+                                   <Style Selector="^:pointerover /template/ ContentPresenter">
+                                       <Setter Property="Background" Value="Transparent"/>
+                                   </Style>
+                                   <Style Selector="^:selected /template/ ContentPresenter">
+                                       <Setter Property="Background" Value="Transparent"/>
+                                   </Style>
+                                   <Style Selector="^:selected:focus /template/ ContentPresenter">
+                                       <Setter Property="Background" Value="Transparent"/>
+                                   </Style>
+                               </ControlTheme>
+                           </ListBox.ItemContainerTheme>
+                           <ListBox.ItemTemplate>
+                               <DataTemplate>
+                                   <Button Classes="Btn BtnHistory" Command="{Binding $parent[UserControl].DataContext.OpenFromHistoryCommand}" CommandParameter="{Binding}"
+                                           Height="30.8" HorizontalContentAlignment="Stretch"
+                                           Background="Transparent" BorderThickness="0">
+                                       <Grid HorizontalAlignment="Stretch">
+                                           <Grid.ColumnDefinitions>
+                                               <ColumnDefinition Width="*"/>
+                                               <ColumnDefinition Width="Auto"/>
+                                           </Grid.ColumnDefinitions>
+                                           
+                                           <!-- 父路径部分 -->
+                                           <TextBlock Grid.Column="0"
+                                                      Text="{Binding Converter={StaticResource PathDisplayConverter}}"
+                                                      Foreground="{StaticResource Fg2Brush}"
+                                                      VerticalAlignment="Center"
+                                                      FontWeight="SemiBold"
+                                                      TextTrimming="CharacterEllipsis"
+                                                      Margin="0"/>
+                                           
+                                           <!-- 文件夹名称标签 -->
+                                           <Border Grid.Column="1"
+                                                   Name="folderTag"
+                                                   Background="{StaticResource FolderTagBgLightBrush}"
+                                                   BorderBrush="{StaticResource FolderTagBorderBrush}"
+                                                   BorderThickness="1"
+                                                   CornerRadius="14"
+                                                   Height="28"
+                                                   Padding="8,0"
+                                                   VerticalAlignment="Center"
+                                                   HorizontalAlignment="Right"
+                                                   Margin="0,-0,-14,0"> <!-- 调整Margin，抵消Button的右侧内边距 -->
+                                               <TextBlock Text="{Binding Converter={StaticResource FolderNameConverter}}"
+                                                          Foreground="{StaticResource Fg2Brush}"
+                                                          VerticalAlignment="Center"
+                                                          FontWeight="SemiBold"
+                                                          FontSize="12"
+                                                          TextTrimming="CharacterEllipsis"/>
+                                           </Border>
+                                           
+                                           <!-- 渐变遮罩 -->
+                                           <Border Grid.Column="0"
+                                                   ZIndex="1"
+                                                   HorizontalAlignment="Right"
+                                                   Width="{Binding #folderTag.Bounds.Width}"
+                                                   IsVisible="{Binding #folderTag.IsVisible}">
+                                               <Border.Background>
+                                                   <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
+                                                       <GradientStop Color="#00FFFFFF" Offset="0"/>
+                                                       <GradientStop Color="#BFFFFFFF" Offset="0.7"/>
+                                                       <GradientStop Color="#FFFFFFFF" Offset="1"/>
+                                                   </LinearGradientBrush>
+                                               </Border.Background>
+                                           </Border>
+                                       </Grid>
+                                   </Button>
+                               </DataTemplate>
+                           </ListBox.ItemTemplate>
+                       </ListBox>
+                   </ScrollViewer>
+                    <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Empty]}" Foreground="{StaticResource Fg3Brush}" FontSize="12"
+                               IsVisible="{Binding !History.Count}" HorizontalAlignment="Center" Margin="0,20"/>
+               </StackPanel>
+             </Border>
+         </DockPanel>
+     </Grid>
+</UserControl>
