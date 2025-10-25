@@ -21,4 +21,4 @@ V0.1.1- 功能与流程优化 - 已更新
 + 集成 OpenSpec 工作流 (`openspec/`)
 + 填充项目上下文 `openspec/project.md`
 + 将项目重命名为 `FolderStyleEditorForWindows`
-+ 更新 `.gitignore`
++ 更新 `.gitignore` 
