@@ -217,21 +217,31 @@ namespace FolderStyleEditorForWindows.ViewModels
                 if (!string.IsNullOrEmpty(IconPath))
                 {
                     var iconSettings = await PathHelper.ProcessIconPathAsync(FolderPath, IconPath);
-                    foreach (var setting in iconSettings)
-                    {
-                        DesktopIniHelper.WriteValue(FolderPath, setting.key, setting.value);
-                    }
-                }
-                else
-                {
-                    // If no icon is set, clear the icon settings
+                    
+                    // Clear all possible icon-related keys first to avoid conflicts
                     DesktopIniHelper.WriteValue(FolderPath, "IconResource", null);
                     DesktopIniHelper.WriteValue(FolderPath, "IconFile", null);
                     DesktopIniHelper.WriteValue(FolderPath, "IconIndex", null);
+
+                    string finalIconPathForRefresh = "";
+                    foreach (var (key, value) in iconSettings)
+                    {
+                        DesktopIniHelper.WriteValue(FolderPath, key, value);
+                        if (key == "IconResource") finalIconPathForRefresh = value;
+                        if (key == "IconFile") finalIconPathForRefresh = value;
+                    }
+                    
+                    ShellHelper.SetFolderIcon(FolderPath, finalIconPathForRefresh);
+                }
+                else
+                {
+                    // If no icon is set, clear all settings and refresh
+                    DesktopIniHelper.WriteValue(FolderPath, "IconResource", null);
+                    DesktopIniHelper.WriteValue(FolderPath, "IconFile", null);
+                    DesktopIniHelper.WriteValue(FolderPath, "IconIndex", null);
+                    ShellHelper.RemoveFolderIcon(FolderPath);
                 }
                 
-                // Refresh the shell
-                ShellHelper.SetFolderIcon(FolderPath, IconPath);
                 AddToHistory(FolderPath);
 
                 ToastMessage = $"✔ {LocalizationManager.Instance["Toast_SaveSuccess"]}";
