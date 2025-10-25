@@ -212,21 +212,26 @@ namespace FolderStyleEditorForWindows.ViewModels
         {
             try
             {
-                string finalIconPath = IconPath;
+                DesktopIniHelper.WriteValue(FolderPath, "LocalizedResourceName", IsAliasAsPlaceholder ? "" : Alias);
 
-                // 如果用户只修改了别名而没有修改图标，保持原有的图标设置
                 if (!string.IsNullOrEmpty(IconPath))
                 {
-                    finalIconPath = await PathHelper.ProcessIconPathAsync(FolderPath, IconPath);
+                    var iconSettings = await PathHelper.ProcessIconPathAsync(FolderPath, IconPath);
+                    foreach (var setting in iconSettings)
+                    {
+                        DesktopIniHelper.WriteValue(FolderPath, setting.key, setting.value);
+                    }
                 }
                 else
                 {
-                    // 如果没有设置图标，使用默认的文件夹图标
-                    finalIconPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll,4");
+                    // If no icon is set, clear the icon settings
+                    DesktopIniHelper.WriteValue(FolderPath, "IconResource", null);
+                    DesktopIniHelper.WriteValue(FolderPath, "IconFile", null);
+                    DesktopIniHelper.WriteValue(FolderPath, "IconIndex", null);
                 }
-
-                DesktopIniHelper.WriteValue(FolderPath, "LocalizedResourceName", IsAliasAsPlaceholder ? "" : Alias);
-                ShellHelper.SetFolderIcon(FolderPath, finalIconPath);
+                
+                // Refresh the shell
+                ShellHelper.SetFolderIcon(FolderPath, IconPath);
                 AddToHistory(FolderPath);
 
                 ToastMessage = $"✔ {LocalizationManager.Instance["Toast_SaveSuccess"]}";
@@ -273,8 +278,18 @@ namespace FolderStyleEditorForWindows.ViewModels
         public ICommand GoHomeCommand { get; }
         public ICommand ResetIconCommand { get; }
         public ICommand ClearAllStylesCommand { get; }
-        public Action<string>? NavigateToEditView { get; set; }
+        public Action<string, string?>? NavigateToEditView { get; set; }
         public Action? NavigateToHomeView { get; set; }
+        
+        public void StartEditSession(string folderPath, string? iconSourcePath = null)
+        {
+            FolderPath = folderPath;
+            if (!string.IsNullOrEmpty(iconSourcePath))
+            {
+                IconPath = iconSourcePath;
+            }
+            NavigateToEditView?.Invoke(folderPath, iconSourcePath);
+        }
  
         [SupportedOSPlatform("windows")]
         public MainViewModel()
@@ -294,7 +309,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         private void OpenFromHistory(string? path)
         {
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-            NavigateToEditView?.Invoke(path);
+            StartEditSession(path);
         }
 
         private void LoadHistory()

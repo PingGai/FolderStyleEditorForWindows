@@ -32,7 +32,7 @@ namespace FolderStyleEditorForWindows
 
             _viewModel = new MainViewModel();
             _sessionManager = new EditSessionManager(_viewModel);
-            _viewModel.NavigateToEditView = GoToEditView;
+            _viewModel.NavigateToEditView = (folderPath, iconSourcePath) => GoToEditView(folderPath, iconSourcePath);
             this.DataContext = _viewModel;
             
             _homeView = this.FindControl<HomeView>("HomeView");
@@ -53,6 +53,7 @@ namespace FolderStyleEditorForWindows
                 }
             };
 
+            // MainWindow now handles all drag-drop logic globally.
             this.AddHandler(DragDrop.DragEnterEvent, DragAndDropTarget_DragEnter);
             this.AddHandler(DragDrop.DragOverEvent, DragAndDropTarget_DragOver);
             this.AddHandler(DragDrop.DragLeaveEvent, DragAndDropTarget_DragLeave);
@@ -143,24 +144,41 @@ namespace FolderStyleEditorForWindows
         private void DragAndDropTarget_Drop(object? sender, DragEventArgs e)
         {
             _viewModel.IsDragOver = false;
-
-            if (e.Data.GetFiles()?.FirstOrDefault(item => item is IStorageFolder) is IStorageFolder folder)
-            {
-                var folderPath = folder.Path.LocalPath;
-                if (!string.IsNullOrEmpty(folderPath) && Directory.Exists(folderPath))
-                {
-                    GoToEditView(folderPath);
-                }
-            }
             e.Handled = true;
+
+            if (e.Data.GetFiles()?.FirstOrDefault() is not { } firstItem) return;
+            
+            var path = firstItem.Path.LocalPath;
+            if (string.IsNullOrEmpty(path)) return;
+
+            string folderPath;
+            string? iconSourcePath = null;
+
+            if (Directory.Exists(path))
+            {
+                folderPath = path;
+            }
+            else if (File.Exists(path))
+            {
+                // If a file is dropped, just update the icon path of the current session
+                _viewModel.IconPath = path;
+                return; // End the operation here
+            }
+            else
+            {
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(folderPath))
+            {
+                _viewModel.StartEditSession(folderPath, iconSourcePath);
+            }
         }
 
         [SupportedOSPlatform("windows")]
-        public void GoToEditView(string folderPath)
+        public void GoToEditView(string folderPath, string? iconSourcePath)
         {
             if (_homeView == null || _editView == null) return;
-
-            _viewModel.FolderPath = folderPath;
             
             _homeView.ZIndex = 0;
             _editView.ZIndex = 1;

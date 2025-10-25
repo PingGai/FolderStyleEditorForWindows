@@ -161,7 +161,7 @@ namespace FolderStyleEditorForWindows.Views
                         {
                             new FilePickerFileType("图标文件")
                             {
-                                Patterns = new[] { "*.ico", "*.png", "*.jpg", "*.jpeg", "*.svg", "*.gif", "*.bmp" }
+                                Patterns = new[] { "*.ico", "*.exe", "*.dll", "*.png", "*.jpg", "*.jpeg", "*.svg", "*.gif", "*.bmp" }
                             }
                         }
                     });

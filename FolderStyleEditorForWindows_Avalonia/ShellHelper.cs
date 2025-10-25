@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Avalonia.Media.Imaging;
-using FolderStyleEditorForWindows;
 
 namespace FolderStyleEditorForWindows
 {
     [SupportedOSPlatform("windows")]
     public static class ShellHelper
     {
+        #region P/Invoke Definitions
+
         [DllImport("Shell32.dll", CharSet = CharSet.Auto)]
         private static extern uint SHGetSetFolderCustomSettings(ref LPSHFOLDERCUSTOMSETTINGS pfcs, string pszPath, uint dwReadWrite);
 
@@ -39,14 +39,72 @@ namespace FolderStyleEditorForWindows
             public uint cchLogo;
         }
 
+        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+        private static extern uint ExtractIconEx(string szFileName, int nIconIndex, IntPtr[]? phiconLarge, IntPtr[]? phiconSmall, uint nIcons);
+        
         private const uint FCSM_ICONFILE = 0x00000010;
         private const uint FCS_FORCEWRITE = 0x00000002;
+        
+        #endregion
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ICONINFO
+        {
+            public bool fIcon;
+            public uint xHotspot;
+            public uint yHotspot;
+            public IntPtr hbmMask;
+            public IntPtr hbmColor;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAPINFOHEADER
+        {
+            public uint biSize;
+            public int biWidth;
+            public int biHeight;
+            public ushort biPlanes;
+            public ushort biBitCount;
+            public uint biCompression;
+            public uint biSizeImage;
+            public int biXPelsPerMeter;
+            public int biYPelsPerMeter;
+            public uint biClrUsed;
+            public uint biClrImportant;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct BITMAPINFO
+        {
+            public BITMAPINFOHEADER bmiHeader;
+        }
+
+        [DllImport("gdi32.dll")]
+        private static extern int GetDIBits(IntPtr hdc, IntPtr hbmp, uint uStartScan, uint cScanLines, [Out] byte[]? lpvBits, ref BITMAPINFO lpbi, uint uUsage);
+        
+        [DllImport("gdi32.dll")]
+        private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+        
+        [DllImport("gdi32.dll")]
+        private static extern bool DeleteDC(IntPtr hdc);
+        
+        [DllImport("gdi32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool DeleteObject(IntPtr hObject);
+
+        private const int BI_RGB = 0;
+        private const uint DIB_RGB_COLORS = 0;
 
         /// <summary>
         /// 使用 SHGetSetFolderCustomSettings API 设置文件夹图标，可即时生效。
         /// </summary>
-        /// <param name="folderPath">文件夹的完整路径。</param>
-        /// <param name="iconResource">图标资源路径，格式为 "C:\path\to\icon.ico,0"。</param>
         public static void SetFolderIcon(string folderPath, string iconResource)
         {
             string iconFile;
@@ -76,7 +134,6 @@ namespace FolderStyleEditorForWindows
             uint hr = SHGetSetFolderCustomSettings(ref settings, folderPath, FCS_FORCEWRITE);
             if (hr != 0)
             {
-                // 可以添加错误处理
                 Console.WriteLine($"设置图标失败，HRESULT: 0x{hr:X}");
             }
         }
@@ -84,7 +141,6 @@ namespace FolderStyleEditorForWindows
         /// <summary>
         /// 移除文件夹的自定义图标。
         /// </summary>
-        /// <param name="folderPath">文件夹路径。</param>
         public static void RemoveFolderIcon(string folderPath)
         {
             var settings = new LPSHFOLDERCUSTOMSETTINGS
@@ -101,7 +157,6 @@ namespace FolderStyleEditorForWindows
                 Console.WriteLine($"移除图标失败，HRESULT: 0x{hr:X}");
             }
 
-            // API调用后，清理desktop.ini中的相关条目
             string desktopIniPath = Path.Combine(folderPath, "desktop.ini");
             if (File.Exists(desktopIniPath))
             {
@@ -118,7 +173,6 @@ namespace FolderStyleEditorForWindows
                 }
             }
             
-            // 确保文件夹的只读属性被移除，因为设置图标会自动添加它
             try
             {
                 var dirInfo = new DirectoryInfo(folderPath);
@@ -133,18 +187,12 @@ namespace FolderStyleEditorForWindows
             }
         }
         
-        [DllImport("user32.dll", SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool DestroyIcon(IntPtr hIcon);
-        
-        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
-        private static extern uint ExtractIconEx(string szFileName, int nIconIndex, IntPtr[]? phiconLarge, IntPtr[]? phiconSmall, uint nIcons);
-        
         public static bool HasIcons(string filePath)
         {
             if (string.IsNullOrEmpty(filePath)) return false;
             try
             {
+                // A simple check: if ExtractIconEx reports at least one icon, we consider it to have icons.
                 return ExtractIconEx(filePath, -1, null, null, 0) > 0;
             }
             catch
@@ -153,9 +201,26 @@ namespace FolderStyleEditorForWindows
             }
         }
         
-        public static List<Bitmap> ExtractIconsFromFile(string filePath)
+        public static void SaveIconToFile(string sourceFile, int iconIndex, string destinationPath)
         {
-            var extractedIcons = new List<Bitmap>();
+            if (string.IsNullOrEmpty(sourceFile) || !File.Exists(sourceFile))
+            {
+                throw new FileNotFoundException("源文件未找到。", sourceFile);
+            }
+
+            var icoBytes = IconExtractor.ExtractIconGroupAsIco(sourceFile, iconIndex);
+
+            if (icoBytes == null || icoBytes.Length == 0)
+            {
+                throw new Exception($"无法从 '{sourceFile}' 提取图标。");
+            }
+
+            File.WriteAllBytes(destinationPath, icoBytes);
+        }
+
+        public static List<Avalonia.Media.Imaging.Bitmap> ExtractIconsForPreview(string filePath)
+        {
+            var extractedIcons = new List<Avalonia.Media.Imaging.Bitmap>();
             if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
             {
                 return extractedIcons;
@@ -178,21 +243,13 @@ namespace FolderStyleEditorForWindows
             {
                 IntPtr hIcon = largeIconHandles[i];
                 if (hIcon == IntPtr.Zero) continue;
-                
+
                 try
                 {
-                    using (var icon = System.Drawing.Icon.FromHandle(hIcon))
+                    var avaloniaBitmap = CreateAvaloniaBitmapFromIconHandle(hIcon);
+                    if (avaloniaBitmap != null)
                     {
-                        using (var gdiBitmap = icon.ToBitmap())
-                        {
-                            using (var ms = new MemoryStream())
-                            {
-                                gdiBitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-                                ms.Seek(0, SeekOrigin.Begin);
-                                var avaloniaBitmap = new Bitmap(ms);
-                                extractedIcons.Add(avaloniaBitmap);
-                            }
-                        }
+                        extractedIcons.Add(avaloniaBitmap);
                     }
                 }
                 catch (Exception ex)
@@ -208,41 +265,124 @@ namespace FolderStyleEditorForWindows
             return extractedIcons;
         }
 
-        /// <summary>
-        /// 从指定文件中提取单个图标并将其保存为 .ico 文件。
-        /// </summary>
-        /// <param name="sourceFile">包含图标的源文件路径 (.exe, .dll)。</param>
-        /// <param name="iconIndex">要提取的图标的索引。</param>
-        /// <param name="destinationPath">保存 .ico 文件的目标路径。</param>
-        public static void SaveIconToFile(string sourceFile, int iconIndex, string destinationPath)
+        private static Avalonia.Media.Imaging.Bitmap? CreateAvaloniaBitmapFromIconHandle(IntPtr hIcon)
         {
-            if (string.IsNullOrEmpty(sourceFile) || !File.Exists(sourceFile))
-            {
-                throw new FileNotFoundException("源文件未找到。", sourceFile);
-            }
+            if (hIcon == IntPtr.Zero) return null;
+            if (!GetIconInfo(hIcon, out ICONINFO iconInfo))
+                return null;
 
-            var iconHandles = new IntPtr[1];
-            uint extractedCount = ExtractIconEx(sourceFile, iconIndex, iconHandles, null, 1);
-
-            if (extractedCount == 0 || iconHandles[0] == IntPtr.Zero)
-            {
-                throw new Exception($"无法从 '{sourceFile}' 提取索引为 {iconIndex} 的图标。");
-            }
-
-            IntPtr hIcon = iconHandles[0];
             try
             {
-                using (var icon = System.Drawing.Icon.FromHandle(hIcon))
+                var dc = CreateCompatibleDC(IntPtr.Zero);
+                if (dc == IntPtr.Zero) return null;
+
+                try
                 {
-                    using (var fs = new FileStream(destinationPath, FileMode.Create, FileAccess.Write))
+                    var bmi = new BITMAPINFO();
+                    bmi.bmiHeader.biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>();
+
+                    if (GetDIBits(dc, iconInfo.hbmColor, 0, 0, null, ref bmi, DIB_RGB_COLORS) == 0)
+                        return null;
+
+                    int width = bmi.bmiHeader.biWidth;
+                    int height = Math.Abs(bmi.bmiHeader.biHeight);
+                    if (width <= 0 || height <= 0) return null;
+
+                    if (bmi.bmiHeader.biBitCount != 32)
+                        return null;
+
+                    bmi.bmiHeader.biPlanes = 1;
+                    bmi.bmiHeader.biBitCount = 32;
+                    bmi.bmiHeader.biCompression = BI_RGB;
+                    bmi.bmiHeader.biHeight = -height;
+                    int stride = checked(width * 4);
+                    var pixels = new byte[stride * height];
+
+                    if (GetDIBits(dc, iconInfo.hbmColor, 0, (uint)height, pixels, ref bmi, DIB_RGB_COLORS) == 0)
+                        return null;
+
+                    bool alphaAllZero = true;
+                    for (int i = 3; i < pixels.Length; i += 4)
                     {
-                        icon.Save(fs);
+                        if (pixels[i] != 0) { alphaAllZero = false; break; }
                     }
+
+                    if (alphaAllZero && iconInfo.hbmMask != IntPtr.Zero)
+                    {
+                        var maskBmi = new BITMAPINFO();
+                        maskBmi.bmiHeader.biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>();
+                        if (GetDIBits(dc, iconInfo.hbmMask, 0, 0, null, ref maskBmi, DIB_RGB_COLORS) != 0)
+                        {
+                            int mw = maskBmi.bmiHeader.biWidth;
+                            int mh = Math.Abs(maskBmi.bmiHeader.biHeight);
+                            if (mw == width && mh >= height)
+                            {
+                                int maskStride = ((mw + 31) / 32) * 4;
+                                var maskBits = new byte[maskStride * height];
+                                maskBmi.bmiHeader.biPlanes = 1;
+                                maskBmi.bmiHeader.biBitCount = 1;
+                                maskBmi.bmiHeader.biCompression = BI_RGB;
+                                maskBmi.bmiHeader.biHeight = -height;
+
+                                if (GetDIBits(dc, iconInfo.hbmMask, 0, (uint)height, maskBits, ref maskBmi, DIB_RGB_COLORS) != 0)
+                                {
+                                    for (int y = 0; y < height; y++)
+                                    {
+                                        int rowOffset = y * stride;
+                                        int mrow = y * maskStride;
+                                        for (int x = 0; x < width; x++)
+                                        {
+                                            int mbyte = mrow + (x >> 3);
+                                            int mbit = 7 - (x & 7);
+                                            bool isTransparent = (maskBits[mbyte] & (1 << mbit)) != 0;
+                                            pixels[rowOffset + x * 4 + 3] = (byte)(isTransparent ? 0 : 255);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < pixels.Length; i += 4)
+                    {
+                        byte b = pixels[i];
+                        byte g = pixels[i + 1];
+                        byte r = pixels[i + 2];
+                        byte a = pixels[i + 3];
+
+                        if (a == 0)
+                        {
+                            pixels[i] = pixels[i + 1] = pixels[i + 2] = 0;
+                        }
+                        else if (a < 255)
+                        {
+                            pixels[i] = (byte)((b * a + 127) / 255);
+                            pixels[i + 1] = (byte)((g * a + 127) / 255);
+                            pixels[i + 2] = (byte)((r * a + 127) / 255);
+                        }
+                    }
+
+                    var bmp = new Avalonia.Media.Imaging.WriteableBitmap(
+                        new Avalonia.PixelSize(width, height),
+                        new Avalonia.Vector(96, 96),
+                        Avalonia.Platform.PixelFormat.Bgra8888,
+                        Avalonia.Platform.AlphaFormat.Premul);
+
+                    using (var fb = bmp.Lock())
+                    {
+                        System.Runtime.InteropServices.Marshal.Copy(pixels, 0, fb.Address, pixels.Length);
+                    }
+                    return bmp;
+                }
+                finally
+                {
+                    if (dc != IntPtr.Zero) DeleteDC(dc);
                 }
             }
             finally
             {
-                DestroyIcon(hIcon);
+                if (iconInfo.hbmColor != IntPtr.Zero) DeleteObject(iconInfo.hbmColor);
+                if (iconInfo.hbmMask != IntPtr.Zero) DeleteObject(iconInfo.hbmMask);
             }
         }
     }

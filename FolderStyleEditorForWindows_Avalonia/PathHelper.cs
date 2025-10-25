@@ -2,90 +2,113 @@ using System;
 using System.IO;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
-using FolderStyleEditorForWindows;
 
 namespace FolderStyleEditorForWindows
 {
     [SupportedOSPlatform("windows")]
     public static class PathHelper
     {
-        /// <summary>
-        /// 将给定的图标路径处理成最终要写入 desktop.ini 的相对路径。
-        /// </summary>
-        /// <param name="targetFolderPath">正在编辑的目标文件夹。</param>
-        /// <param name="rawIconPath">原始的图标路径（可能包含索引）。</param>
-        /// <returns>一个表示相对路径的字符串。</returns>
-        public static async Task<string> ProcessIconPathAsync(string targetFolderPath, string rawIconPath)
+        public static async Task<(string key, string value)[]> ProcessIconPathAsync(
+            string targetFolderPath, string rawIconPath)
         {
             if (string.IsNullOrEmpty(rawIconPath))
             {
-                return "";
+                return Array.Empty<(string, string)>();
             }
 
             var parts = rawIconPath.Split(',');
             var iconFilePath = parts[0];
             int.TryParse(parts.Length > 1 ? parts[1] : "0", out int iconIndex);
 
-            // 检查 iconFilePath 是否已经是相对路径
             if (!Path.IsPathRooted(iconFilePath))
             {
-                return rawIconPath; // 已经是相对路径，直接返回
+                return new[] { ("IconResource", rawIconPath) };
             }
 
-            // 检查图标文件是否在目标文件夹内
             if (iconFilePath.StartsWith(targetFolderPath, StringComparison.OrdinalIgnoreCase))
             {
-                return GetRelativePath(targetFolderPath, iconFilePath) + "," + iconIndex;
+                return new[] { ("IconResource", GetRelativePath(targetFolderPath, iconFilePath) + "," + iconIndex) };
             }
-            
-            // 处理外部图标
+
             return await HandleExternalIconAsync(targetFolderPath, iconFilePath, iconIndex);
         }
 
-        private static async Task<string> HandleExternalIconAsync(string targetFolderPath, string iconFilePath, int iconIndex)
+        private static async Task<(string key, string value)[]> HandleExternalIconAsync(
+            string targetFolderPath, string iconFilePath, int chosenGroupIndex)
         {
-            // 检查是否是系统 shell32.dll
-            var systemPath = Environment.GetFolderPath(Environment.SpecialFolder.System);
-            var shell32Path = Path.Combine(systemPath, "shell32.dll");
-            if (string.Equals(iconFilePath, shell32Path, StringComparison.OrdinalIgnoreCase))
+            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows).TrimEnd(Path.DirectorySeparatorChar);
+            string system = Environment.GetFolderPath(Environment.SpecialFolder.System).TrimEnd(Path.DirectorySeparatorChar);
+
+            bool underSystem = IsUnder(iconFilePath, system);
+
+            if (underSystem)
             {
-                return $"{iconFilePath},{iconIndex}"; // 如果是，则直接返回原始路径
+                var groups = IconExtractor.ListIconGroups(iconFilePath);
+                if (chosenGroupIndex < 0 || chosenGroupIndex >= groups.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(chosenGroupIndex), $"索引超出范围（共有 {groups.Count} 个 RT_GROUP_ICON）");
+                }
+
+                ushort groupId = ParseGroupId(groups[chosenGroupIndex]);
+                string norm = NormalizeToSystem32(iconFilePath, windows, system);
+                string env = norm.Replace(windows, "%SystemRoot%", StringComparison.OrdinalIgnoreCase);
+
+                return new[] {
+                    ("IconResource", $"{env},-{groupId}")
+                };
             }
 
-            var iconDir = Path.Combine(targetFolderPath, ".ICON");
+            string iconDir = Path.Combine(targetFolderPath, ".ICON");
             if (!Directory.Exists(iconDir))
             {
                 var di = Directory.CreateDirectory(iconDir);
                 di.Attributes |= FileAttributes.Hidden | FileAttributes.System;
             }
 
-            var extension = Path.GetExtension(iconFilePath).ToLowerInvariant();
-            var newIconName = Path.GetFileNameWithoutExtension(iconFilePath) + $"_{iconIndex}" + ".ico";
-            var destinationPath = Path.Combine(iconDir, newIconName);
+            string newIconName = Path.GetFileNameWithoutExtension(iconFilePath) + $"_{chosenGroupIndex}.ico";
+            string destination = Path.Combine(iconDir, newIconName);
 
-            if (extension == ".ico" || extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".bmp")
+            byte[]? icoBytes = IconExtractor.ExtractIconGroupAsIco(iconFilePath, chosenGroupIndex);
+            if (icoBytes != null)
             {
-                await Task.Run(() => File.Copy(iconFilePath, destinationPath, true));
-                return GetRelativePath(targetFolderPath, destinationPath) + ",0";
-            }
-            
-            if (extension == ".exe" || extension == ".dll")
-            {
-                await Task.Run(() => ShellHelper.SaveIconToFile(iconFilePath, iconIndex, destinationPath));
-                return GetRelativePath(targetFolderPath, destinationPath) + ",0";
+                await File.WriteAllBytesAsync(destination, icoBytes);
 
+                string rel = GetRelativePath(targetFolderPath, destination);
+
+                return new[] {
+                    ("IconFile", rel),
+                    ("IconIndex", "0")
+                };
             }
 
-            // 对于不支持的类型，返回其原始的绝对路径作为回退
-            return $"{iconFilePath},{iconIndex}";
+            return new[] { ("IconResource", $"{iconFilePath},{chosenGroupIndex}") };
         }
 
-        /// <summary>
-        /// 计算从一个路径到另一个路径的相对路径。
-        /// </summary>
-        /// <param name="fromPath">起始文件夹。</param>
-        /// <param name="toPath">目标文件。</param>
-        /// <returns>相对路径字符串。</returns>
+        private static ushort ParseGroupId(string name)
+        {
+            if (name.Length > 1 && name[0] == '#' && ushort.TryParse(name.AsSpan(1), out var id))
+                return id;
+            throw new NotSupportedException($"该组名不是整数资源：{name}（请走提取 .ico 路径）");
+        }
+
+        private static bool IsUnder(string path, string root)
+        {
+            var full = Path.GetFullPath(path);
+            var r = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
+            return full.StartsWith(r, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeToSystem32(string src, string windows, string system32)
+        {
+            string syswow64 = Path.Combine(windows, "SysWOW64");
+            if (src.StartsWith(syswow64, StringComparison.OrdinalIgnoreCase))
+            {
+                string file = Path.GetFileName(src);
+                return Path.Combine(system32, file);
+            }
+            return src;
+        }
+
         public static string GetRelativePath(string fromPath, string toPath)
         {
             var fromUri = new Uri(fromPath.EndsWith(Path.DirectorySeparatorChar.ToString()) ? fromPath : fromPath + Path.DirectorySeparatorChar);

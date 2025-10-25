@@ -88,12 +88,34 @@ namespace FolderStyleEditorForWindows
         {
             return Task.Run(() =>
             {
-                var icons = ShellHelper.ExtractIconsFromFile(filePath);
                 var iconViewModels = new List<IconViewModel>();
-                for (int i = 0; i < icons.Count; i++)
+                var extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+                if (extension == ".ico")
                 {
-                    iconViewModels.Add(new IconViewModel(icons[i], filePath, i));
+                    try
+                    {
+                        var icoBytes = File.ReadAllBytes(filePath);
+                        using (var ms = new MemoryStream(icoBytes))
+                        {
+                            var bitmap = new Bitmap(ms);
+                            iconViewModels.Add(new IconViewModel(bitmap, filePath, 0));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to load .ico file: {ex.Message}");
+                    }
                 }
+                else // For .exe, .dll
+                {
+                    var icons = ShellHelper.ExtractIconsForPreview(filePath);
+                    for (int i = 0; i < icons.Count; i++)
+                    {
+                        iconViewModels.Add(new IconViewModel(icons[i], filePath, i));
+                    }
+                }
+                
                 return iconViewModels;
             });
         }

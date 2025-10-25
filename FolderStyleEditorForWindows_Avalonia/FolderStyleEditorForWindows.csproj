@@ -31,6 +31,9 @@
     <!-- 明确不是 AOT（如需 AOT 再改 true） -->
     <PublishAot>false</PublishAot>
 
+    <!-- 允许不安全代码（用于 IconExtractor） -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
     <!-- ===== 版本 / 元数据 / 许可证 ===== -->
     <Version>1.0.0-beta.1</Version>
     <PackageVersion>1.0.0-beta.1</PackageVersion>

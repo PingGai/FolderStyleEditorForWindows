@@ -34,11 +34,11 @@ namespace FolderStyleEditorForWindows.Views
                 btnClose.Click += BtnClose_Click;
             }
             
-           var dropZone = this.FindControl<Border>("dropZone");
-           if (dropZone != null)
-           {
-               dropZone.PointerPressed += DropZone_PointerPressed;
-           }
+            var dropZone = this.FindControl<Border>("dropZone");
+            if (dropZone != null)
+            {
+                dropZone.PointerPressed += DropZone_PointerPressed;
+            }
 
             var clickHintText = this.FindControl<TextBlock>("ClickHintText");
             if (clickHintText != null)
@@ -71,6 +71,91 @@ namespace FolderStyleEditorForWindows.Views
             }
         }
  
+        private void HomeView_DragOver(object? sender, DragEventArgs e)
+        {
+            // Default to no drop
+            e.DragEffects = DragDropEffects.None;
+
+            if (e.Data.GetFiles() is { } files && files.Any())
+            {
+                var firstItemPath = files.First().Path.LocalPath;
+                if (IsSupportedDropItem(firstItemPath))
+                {
+                    e.DragEffects = DragDropEffects.Copy;
+                }
+            }
+            e.Handled = true;
+        }
+
+        private void HomeView_Drop(object? sender, DragEventArgs e)
+        {
+            if (e.Data.GetFiles() is { } files && files.Any())
+            {
+                var firstItemPath = files.First().Path.LocalPath;
+                if (string.IsNullOrEmpty(firstItemPath)) return;
+
+                string folderPath;
+                string? iconSourcePath = null;
+
+                if (Directory.Exists(firstItemPath))
+                {
+                    // Case 1: A directory is dropped
+                    folderPath = firstItemPath;
+                }
+                else if (File.Exists(firstItemPath) && IsSupportedDropItem(firstItemPath))
+                {
+                    // Case 2: A supported file is dropped
+                    folderPath = Path.GetDirectoryName(firstItemPath) ?? "";
+                    iconSourcePath = firstItemPath;
+                }
+                else
+                {
+                    // Not a supported item, do nothing
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(folderPath) && this.VisualRoot is MainWindow mainWindow)
+                {
+                    // Navigate to Edit View with both folder path and icon source path
+                    mainWindow.GoToEditView(folderPath, iconSourcePath);
+                }
+            }
+            e.Handled = true;
+        }
+
+        private bool IsSupportedDropItem(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            // Case 1: It's a directory
+            if (Directory.Exists(path))
+            {
+                return true;
+            }
+
+            // Case 2: It's a file
+            if (File.Exists(path))
+            {
+                var extension = Path.GetExtension(path).ToLowerInvariant();
+                switch (extension)
+                {
+                    case ".ico":
+                        return true;
+                    case ".exe":
+                    case ".dll":
+                        // For executables and libraries, check if they actually contain icons
+                        return ShellHelper.HasIcons(path);
+                    default:
+                        return false;
+                }
+            }
+
+            return false;
+        }
+
         private async void DropZone_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var topLevel = TopLevel.GetTopLevel(this);
@@ -85,9 +170,9 @@ namespace FolderStyleEditorForWindows.Views
                 if (folder.Count > 0)
                 {
                     var folderPath = folder[0].Path.LocalPath;
-                    if (this.VisualRoot is MainWindow mainWindow)
+                    if (this.DataContext is MainViewModel vm)
                     {
-                        mainWindow.GoToEditView(folderPath);
+                        vm.StartEditSession(folderPath);
                     }
                 }
             }
