@@ -8,7 +8,7 @@
     <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="128"/>
     <br/>
     <br/>
-    <strong>现代化的一个 Windows 文件夹样式编辑器</strong>
+    <strong>[&nbsp;现代化的一个 Windows 文件夹样式编辑器&nbsp;]</strong>
 </div>
 <br/>
 <br/>
