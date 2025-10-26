@@ -34,7 +34,10 @@
 
 ---
 
-This is a tool that allows you to quickly modify folder aliases on Windows systems and set a folder's icon to the icon of an application within it.
+This is a tool to quickly modify folder aliases on Windows systems, and to quickly set a folder's icon to that of an application inside it.
+
+- **Modify Alias**: Change its display name without modifying the path name, based on the Windows Desktop.ini configuration.
+- **Modify Icon**: Use a relative path to call the icon of a file within the folder. If an icon or a file with an icon is selected from outside the folder, the icon will be extracted and placed under the `.ICON` directory in the current folder.
 
 ## Quick Overview
 
