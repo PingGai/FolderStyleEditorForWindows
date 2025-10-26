@@ -7,8 +7,10 @@
 <div align="center">
     <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="128"/>
     <br/>
+    <br/>
     <strong>现代化的一个 Windows 文件夹样式编辑器</strong>
 </div>
+<br/>
 <br/>
 <div align="center">
     <a href="https://github.com/PingGai/FolderStyleEditorForWindows/releases">
@@ -44,19 +46,19 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 ### 已实现功能
 
-*   **图标路径便携化**: 图标采用相对路径存储，确保移动文件夹（如存入U盘）后样式依然生效。外部图标会自动存入文件夹内的 `.ICON` 隐藏目录，实现一体化管理。
-*   **全方位拖拽操作**:
-    -   **目标**: 拖拽 **文件夹** 以指定编辑目标。
-    -   **图标**: 拖拽 `.ico`, `.exe`, `.dll` 文件以提取和设置图标。
-    -   **别名**: 拖拽 **文本** 以快速填充别名。
-*   **图标智能识别**: 一键扫描并展示文件夹内 `.exe` 或 `.dll` 包含的所有图标。本地图标只引用路径，不冗余复制。
-*   **别名快速编辑**: 直观地修改文件夹的显示名称。
+* **图标路径便携化**: 图标采用相对路径存储，确保移动文件夹（如存入U盘）后样式依然生效。外部图标会自动存入文件夹内的 `.ICON` 隐藏目录，实现一体化管理。
+* **全方位拖拽操作**:
+  - **目标**: 拖拽 **文件夹** 以指定编辑目标。
+  - **图标**: 拖拽 `.ico`, `.exe`, `.dll` 文件以提取和设置图标。
+  - **别名**: 拖拽 **文本** 以快速填充别名。
+* **图标智能识别**: 一键扫描并展示文件夹内 `.exe` 或 `.dll` 包含的所有图标。本地图标只引用路径，不冗余复制。
+* **别名快速编辑**: 直观地修改文件夹的显示名称。
 
 ### 阶段性目标
 
-*   **高级权限处理**: 支持对需要管理员权限的系统文件夹进行修改。
-*   **一键与批量操作**: 拖入含应用的可执行文件，一键应用其图标；支持对多个文件夹进行批量处理。
-*   **图片自动转换**: 支持将 `.png`, `.jpg` 等格式的图片自动转换为 `.ico` 图标。
+* **高级权限处理**: 支持对需要管理员权限的系统文件夹进行修改。
+* **一键与批量操作**: 拖入含应用的可执行文件，一键应用其图标；支持对多个文件夹进行批量处理。
+* **图片自动转换**: 支持将 `.png`, `.jpg` 等格式的图片自动转换为 `.ico` 图标。
 
 ### 技术栈
 
@@ -75,33 +77,34 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 **强烈推荐**使用项目根目录 `build/` 下的 `build.ps1` 脚本来构建应用程序。该脚本会自动处理所有依赖，并将应用打包为 **单个可执行文件**，方便分发和使用。
 
-1.  **确保环境**:
-    *   安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
-    *   Windows PowerShell 5.1 或 PowerShell 7+。
-2.  **执行脚本**:
-    打开 PowerShell 终端，并运行以下命令之一：
-    ```powershell
-    # 构建 x64 和 x86 两个版本
-    .\build\build.ps1
-    
-    # 或只构建指定版本
-    .\build\build.ps1 -Runtime win-x64
-    ```
-    构建成功后，单文件应用将输出到 `publish/` 目录下。
+1. **确保环境**:
+   * 安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
+   * Windows PowerShell 5.1 或 PowerShell 7+。
+2. **执行脚本**:
+   打开 PowerShell 终端，并运行以下命令之一：
+   ```powershell
+   # 构建 x64 和 x86 两个版本
+   .\build\build.ps1
+
+   # 或只构建指定版本
+   .\build\build.ps1 -Runtime win-x64
+   ```
+
+   构建成功后，单文件应用将输出到 `publish/` 目录下。
 
 #### 其他方式：使用 Visual Studio
 
-1.  **克隆仓库**:
-    ```bash
-    git clone https://github.com/PingGai/FolderStyleEditorForWindows
-    cd FolderStyleEditorForWindows
-    ```
-2.  **打开解决方案**:
-    使用 **Visual Studio 2022** 或更高版本打开 `FolderStyleEditorForWindows.sln`。
- 3.  **构建项目**:
-    在 Visual Studio 中，选择 `Release` 配置并点击 "生成解决方案"。这将在 `FolderStyleEditorForWindows_Avalonia/bin/Release` 目录下生成零散的程序文件。
- 4.  **运行程序**:
-    可以直接在 Visual Studio 中启动 `FolderStyleEditorForWindows_Avalonia` 项目进行调试。
+1. **克隆仓库**:
+   ```bash
+   git clone https://github.com/PingGai/FolderStyleEditorForWindows
+   cd FolderStyleEditorForWindows
+   ```
+2. **打开解决方案**:
+   使用 **Visual Studio 2022** 或更高版本打开 `FolderStyleEditorForWindows.sln`。
+3. **构建项目**:
+   在 Visual Studio 中，选择 `Release` 配置并点击 "生成解决方案"。这将在 `FolderStyleEditorForWindows_Avalonia/bin/Release` 目录下生成零散的程序文件。
+4. **运行程序**:
+   可以直接在 Visual Studio 中启动 `FolderStyleEditorForWindows_Avalonia` 项目进行调试。
 
 ## 如何使用
 
