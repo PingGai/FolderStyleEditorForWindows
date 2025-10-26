@@ -9,7 +9,7 @@
     <br/>
     <strong>A Modern Windows Folder Style Editor</strong>
 </div>
-
+<br/>
 <div align="center">
     <a href="https://github.com/PingGai/FolderStyleEditorForWindows/releases">
       <img alt="GitHub release" src="https://img.shields.io/github/v/release/PingGai/FolderStyleEditorForWindows?display_name=release">

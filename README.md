@@ -9,7 +9,7 @@
     <br/>
     <strong>现代化的一个 Windows 文件夹样式编辑器</strong>
 </div>
-
+<br/>
 <div align="center">
     <a href="https://github.com/PingGai/FolderStyleEditorForWindows/releases">
       <img alt="GitHub release" src="https://img.shields.io/github/v/release/PingGai/FolderStyleEditorForWindows?display_name=release">
