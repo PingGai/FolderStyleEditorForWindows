@@ -74,6 +74,12 @@ namespace FolderStyleEditorForWindows.Views
                 aliasInput.GotFocus += AliasInput_GotFocus;
                 aliasInput.LostFocus += AliasInput_LostFocus;
             }
+            
+            var iconInput = this.FindControl<TextBox>("iconInput");
+            if (iconInput != null)
+            {
+                iconInput.LostFocus += IconInput_LostFocus;
+            }
         }
 
         private void AliasInput_GotFocus(object? sender, RoutedEventArgs e)
@@ -88,11 +94,15 @@ namespace FolderStyleEditorForWindows.Views
         {
             if (DataContext is ViewModels.MainViewModel vm)
             {
-                if (string.IsNullOrEmpty(vm.Alias) || vm.Alias == new System.IO.DirectoryInfo(vm.FolderPath).Name)
-                {
-                    vm.IsAliasAsPlaceholder = true;
-                    vm.Alias = new System.IO.DirectoryInfo(vm.FolderPath).Name;
-                }
+                vm.RestoreDefaultAliasIfNeeded();
+            }
+        }
+
+        private void IconInput_LostFocus(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                vm.RestoreDefaultIconIfNeeded();
             }
         }
  

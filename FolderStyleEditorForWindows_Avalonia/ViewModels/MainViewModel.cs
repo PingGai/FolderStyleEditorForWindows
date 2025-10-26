@@ -46,7 +46,22 @@ namespace FolderStyleEditorForWindows.ViewModels
                 if (_alias == value) return;
                 _alias = value;
                 OnPropertyChanged();
-                UpdateAliasPlaceholderState();
+                // When user types, remove the placeholder state
+                if (IsAliasAsPlaceholder && !string.IsNullOrEmpty(value))
+                {
+                    if (Directory.Exists(FolderPath))
+                    {
+                        var directoryName = new DirectoryInfo(FolderPath).Name;
+                        if (value != directoryName)
+                        {
+                            IsAliasAsPlaceholder = false;
+                        }
+                    }
+                    else
+                    {
+                        IsAliasAsPlaceholder = false;
+                    }
+                }
             }
         }
 
@@ -436,25 +451,6 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
        }
    
-       private void UpdateAliasPlaceholderState()
-       {
-            if (!Directory.Exists(FolderPath)) return;
-
-            var directoryName = new DirectoryInfo(FolderPath).Name;
-            if (IsAliasAsPlaceholder && Alias != directoryName)
-            {
-                IsAliasAsPlaceholder = false;
-            }
-            else if (!IsAliasAsPlaceholder && (string.IsNullOrEmpty(Alias) || Alias == directoryName))
-            {
-                IsAliasAsPlaceholder = true;
-                if (string.IsNullOrEmpty(Alias))
-                {
-                    Alias = directoryName;
-                }
-            }
-       }
-
        [SupportedOSPlatform("windows")]
        private async Task LoadIconsFromFileAsync(string? filePath)
        {
@@ -515,5 +511,26 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
        }
        
+       [SupportedOSPlatform("windows")]
+       public void RestoreDefaultAliasIfNeeded()
+       {
+           if (string.IsNullOrEmpty(Alias))
+           {
+               if (Directory.Exists(FolderPath))
+               {
+                   Alias = new DirectoryInfo(FolderPath).Name;
+                   IsAliasAsPlaceholder = true;
+               }
+           }
+       }
+
+       [SupportedOSPlatform("windows")]
+       public void RestoreDefaultIconIfNeeded()
+       {
+           if (string.IsNullOrEmpty(IconPath))
+           {
+               ResetIcon();
+           }
+       }
     }
 }

@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
 using Avalonia.Controls.Shapes;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using System;
 using System.IO;
 using System.Linq;
@@ -45,14 +46,6 @@ namespace FolderStyleEditorForWindows
                 dragDropIndicator.StrokeDashArray = new Avalonia.Collections.AvaloniaList<double> { 4, 4 };
             }
 
-            this.PointerPressed += (s, e) =>
-            {
-                if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-                {
-                    BeginMoveDrag(e);
-                }
-            };
-
             // MainWindow now handles all drag-drop logic globally.
             this.AddHandler(DragDrop.DragEnterEvent, DragAndDropTarget_DragEnter);
             this.AddHandler(DragDrop.DragOverEvent, DragAndDropTarget_DragOver);
@@ -60,6 +53,37 @@ namespace FolderStyleEditorForWindows
             this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop);
         }
         
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            base.OnPointerPressed(e);
+
+            var source = e.Source as Control;
+
+            // Check if the click is on an interactive control that should retain focus.
+            var isInteractiveControl = source?.FindAncestorOfType<TextBox>() != null ||
+                                       source?.FindAncestorOfType<Button>() != null ||
+                                       source?.FindAncestorOfType<Popup>() != null;
+
+            if (!isInteractiveControl)
+            {
+                // If not an interactive control, clear the focus.
+                // FocusManager.Instance is obsolete. Get it from the TopLevel.
+                var topLevel = TopLevel.GetTopLevel(this);
+                topLevel?.FocusManager?.ClearFocus();
+            }
+            
+            // Check if the window should be dragged.
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                // Only start dragging if the click was not on an interactive control.
+                // This prevents dragging when clicking buttons, etc.
+                if (!isInteractiveControl)
+                {
+                    BeginMoveDrag(e);
+                }
+            }
+        }
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
