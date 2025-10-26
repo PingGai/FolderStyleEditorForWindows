@@ -10,6 +10,26 @@
     <strong>A Modern Windows Folder Style Editor</strong>
 </div>
 
+<div align="center">
+    <a href="https://github.com/PingGai/FolderStyleEditorForWindows/releases">
+      <img alt="GitHub release" src="https://img.shields.io/github/v/release/PingGai/FolderStyleEditorForWindows?display_name=release">
+    </a>
+    <a href="https://github.com/PingGai/FolderStyleEditorForWindows/stargazers">
+      <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/PingGai/FolderStyleEditorForWindows">
+    </a>
+</div>
+<div align="center">
+    <a href="https://github.com/PingGai/FolderStyleEditorForWindows/releases">
+      <img alt="Release date" src="https://img.shields.io/github/release-date/PingGai/FolderStyleEditorForWindows?display_date=published_at">
+    </a>
+    <a href="https://github.com/PingGai/FolderStyleEditorForWindows/commits">
+      <img alt="Commit activity (month)" src="https://img.shields.io/github/commit-activity/m/PingGai/FolderStyleEditorForWindows">
+    </a>
+    <a href="https://github.com/PingGai/FolderStyleEditorForWindows/commits">
+      <img alt="Last commit" src="https://img.shields.io/github/last-commit/PingGai/FolderStyleEditorForWindows">
+    </a>
+</div>
+
 ---
 
 This is a tool that allows you to quickly modify folder aliases on Windows systems and set a folder's icon to the icon of an application within it.
