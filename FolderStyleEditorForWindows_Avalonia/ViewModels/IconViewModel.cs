@@ -1,9 +1,10 @@
 using Avalonia.Media.Imaging;
+using System;
 using System.ComponentModel;
 
 namespace FolderStyleEditorForWindows.ViewModels
 {
-    public class IconViewModel : INotifyPropertyChanged
+    public class IconViewModel : INotifyPropertyChanged, IDisposable
     {
         private bool _isSelected;
 
@@ -27,6 +28,12 @@ namespace FolderStyleEditorForWindows.ViewModels
             Image = image;
             FilePath = filePath;
             Index = index;
+        }
+
+        public void Dispose()
+        {
+            Image.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

@@ -315,6 +315,16 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
             NavigateToEditView?.Invoke(folderPath, iconSourcePath);
         }
+
+        public void ClearIconPreview()
+        {
+            foreach (var icon in Icons)
+            {
+                icon.Dispose();
+            }
+            Icons.Clear();
+            SelectedIcon = null;
+        }
  
         [SupportedOSPlatform("windows")]
         public MainViewModel()
@@ -427,7 +437,7 @@ namespace FolderStyleEditorForWindows.ViewModels
 
            _isFindingIcons = true;
            ((RelayCommand)AutoGetIconCommand).RaiseCanExecuteChanged();
-
+ 
            try
            {
                _foundIconPaths = await _iconFinderService.FindIconsAsync(FolderPath);
@@ -482,24 +492,24 @@ namespace FolderStyleEditorForWindows.ViewModels
            {
                 var newIcons = await Task.Run(() => _iconFinderService.ExtractIconsFromFileAsync(fileName));
 
-                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    SelectedIcon = null;
-                    Icons.Clear();
-                    foreach (var icon in newIcons)
-                    {
-                        Icons.Add(icon);
-                    }
+               await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+               {
+                   SelectedIcon = null;
+                   Icons.Clear();
+                   foreach (var icon in newIcons)
+                   {
+                       Icons.Add(icon);
+                   }
 
-                    if (selectedIndex >= 0 && selectedIndex < Icons.Count)
-                    {
-                        SelectedIcon = Icons[selectedIndex];
-                    }
-                    else
-                    {
-                        SelectedIcon = null;
-                    }
-                });
+                   if (selectedIndex >= 0 && selectedIndex < Icons.Count)
+                   {
+                       SelectedIcon = Icons[selectedIndex];
+                   }
+                   else
+                   {
+                       SelectedIcon = null;
+                   }
+               });
            }
            catch (Exception ex)
            {

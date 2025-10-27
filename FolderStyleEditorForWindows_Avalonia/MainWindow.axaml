@@ -23,52 +23,20 @@
     
     <Grid DragDrop.AllowDrop="True">
         <!-- White Background Layer -->
-        <Border CornerRadius="{StaticResource RadiusXl}" Background="White" />
+        <Border x:Name="BaseLayer" CornerRadius="{StaticResource RadiusXl}" Background="White" />
 
         <!-- Animated Background Layer -->
-        <Border CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource Shadow2}">
+        <Border x:Name="FlowLayer" CornerRadius="{StaticResource RadiusXl}" BoxShadow="{StaticResource Shadow2}">
             <Border.Background>
                 <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
                     <GradientStop Color="#24FF7474" Offset="0" />
                     <GradientStop Color="#1F74A1FF" Offset="1" />
                 </LinearGradientBrush>
             </Border.Background>
-            <Border.Styles>
-                <Style Selector="Border">
-                    <Style.Animations>
-                        <Animation Duration="0:0:16" IterationCount="Infinite" PlaybackDirection="Alternate">
-                            <KeyFrame Cue="0%">
-                                <Setter Property="Background">
-                                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
-                                        <GradientStop Color="#24FF7474" Offset="0" />
-                                        <GradientStop Color="#1F74A1FF" Offset="1" />
-                                    </LinearGradientBrush>
-                                </Setter>
-                            </KeyFrame>
-                            <KeyFrame Cue="50%">
-                                <Setter Property="Background">
-                                    <LinearGradientBrush StartPoint="100%,100%" EndPoint="0%,0%">
-                                        <GradientStop Color="#2E74FFC7" Offset="0" />
-                                        <GradientStop Color="#2EFFCB74" Offset="1" />
-                                    </LinearGradientBrush>
-                                </Setter>
-                            </KeyFrame>
-                            <KeyFrame Cue="100%">
-                                <Setter Property="Background">
-                                    <LinearGradientBrush StartPoint="0%,100%" EndPoint="100%,0%">
-                                        <GradientStop Color="#24FF7474" Offset="0" />
-                                        <GradientStop Color="#1F74A1FF" Offset="1" />
-                                    </LinearGradientBrush>
-                                </Setter>
-                            </KeyFrame>
-                        </Animation>
-                    </Style.Animations>
-                </Style>
-            </Border.Styles>
         </Border>
 
         <!-- Main Content Grid -->
-        <Grid>
+        <Grid x:Name="CardsLayer">
             <views:HomeView Name="HomeView" ZIndex="1" />
             <views:EditView Name="EditView" IsVisible="False" ZIndex="0" />
         </Grid>

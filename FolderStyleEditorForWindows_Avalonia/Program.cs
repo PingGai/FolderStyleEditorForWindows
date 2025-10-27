@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Win32;
 using System;
 
 namespace FolderStyleEditorForWindows;
@@ -17,5 +18,19 @@ class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .WithInterFont()
+            .With(new Win32PlatformOptions
+            {
+                CompositionMode = new[]
+                {
+                    Win32CompositionMode.WinUIComposition,
+                    Win32CompositionMode.DirectComposition,
+                    Win32CompositionMode.RedirectionSurface
+                },
+                RenderingMode = new[]
+                {
+                    Win32RenderingMode.AngleEgl,
+                    Win32RenderingMode.Software
+                }
+            })
             .LogToTrace();
 }

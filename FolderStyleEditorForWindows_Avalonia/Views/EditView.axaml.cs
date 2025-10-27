@@ -11,11 +11,19 @@ using FolderStyleEditorForWindows;
 
 namespace FolderStyleEditorForWindows.Views
 {
-    public partial class EditView : UserControl
+    public partial class EditView : UserControl, IDisposable
     {
         public EditView()
         {
             InitializeComponent();
+        }
+
+        public void Dispose()
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                vm.ClearIconPreview();
+            }
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
