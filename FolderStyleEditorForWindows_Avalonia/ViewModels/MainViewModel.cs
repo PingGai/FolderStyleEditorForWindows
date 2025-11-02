@@ -9,6 +9,7 @@ using System.Runtime.Versioning;
 using System.Security;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia.Media;
 using Newtonsoft.Json;
 using FolderStyleEditorForWindows;
 using FolderStyleEditorForWindows.Services;
@@ -19,6 +20,8 @@ namespace FolderStyleEditorForWindows.ViewModels
     public class MainViewModel : INotifyPropertyChanged
     {
         private readonly IconFinderService _iconFinderService;
+        private readonly IToastService _toastService;
+        private readonly HoverIconService _hoverIconService;
         private List<string> _foundIconPaths = new List<string>();
         private int _currentIconIndex = -1;
         private bool _isFindingIcons = false;
@@ -172,19 +175,6 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
         }
         
-        private string _toastMessage = "";
-        public string ToastMessage
-        {
-            get => _toastMessage;
-            set { if (_toastMessage == value) return; _toastMessage = value; OnPropertyChanged(); }
-        }
-
-        private bool _isToastVisible;
-        public bool IsToastVisible
-        {
-            get => _isToastVisible;
-            set { if (_isToastVisible == value) return; _isToastVisible = value; OnPropertyChanged(); }
-        }
 
         [SupportedOSPlatform("windows")]
         private void LoadFolderSettings()
@@ -259,27 +249,19 @@ namespace FolderStyleEditorForWindows.ViewModels
                 
                 AddToHistory(FolderPath);
 
-                ToastMessage = $"✔ {LocalizationManager.Instance["Toast_SaveSuccess"]}";
-                IsToastVisible = true;
-                await Task.Delay(2000);
-                IsToastVisible = false;
+                _toastService.Show("✔ " + LocalizationManager.Instance["Toast_SaveSuccess"]);
             }
             catch (UnauthorizedAccessException)
             {
                 // TODO: Implement IPC with elevated helper process
                 // For now, we can show a message or try to restart as admin.
-                ToastMessage = $"❌ {LocalizationManager.Instance["Error_AdminRequired"]}";
-                IsToastVisible = true;
-                await Task.Delay(3000);
-                IsToastVisible = false;
+                _toastService.Show("❌ " + LocalizationManager.Instance["Error_AdminRequired"],
+                    new SolidColorBrush(Color.Parse("#EBB762")));
                 // UacHelper.RestartAsAdmin();
             }
             catch (Exception ex) when (ex is IOException || ex is SecurityException)
             {
-                ToastMessage = $"❌ {ex.Message}";
-                IsToastVisible = true;
-                await Task.Delay(3000);
-                IsToastVisible = false;
+                _toastService.Show($"❌ {ex.Message}", new SolidColorBrush(Color.Parse("#EBB762")));
             }
 
             if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -306,6 +288,9 @@ namespace FolderStyleEditorForWindows.ViewModels
         public Action<string, string?>? NavigateToEditView { get; set; }
         public Action? NavigateToHomeView { get; set; }
         
+        public ObservableCollection<ToastViewModel> Toasts => ((ToastService)_toastService).Toasts;
+        public HoverIconViewModel HoverIcon => _hoverIconService.ViewModel;
+        
         public void StartEditSession(string folderPath, string? iconSourcePath = null)
         {
             FolderPath = folderPath;
@@ -327,9 +312,12 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
  
         [SupportedOSPlatform("windows")]
-        public MainViewModel()
+        public MainViewModel(IToastService toastService, HoverIconService hoverIconService)
         {
             _iconFinderService = new IconFinderService();
+            _toastService = toastService;
+            _hoverIconService = hoverIconService;
+            
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(OpenFromHistory);
             ClearHistoryCommand = new RelayCommand(ClearHistory);
@@ -440,7 +428,7 @@ namespace FolderStyleEditorForWindows.ViewModels
  
            try
            {
-               _foundIconPaths = await _iconFinderService.FindIconsAsync(FolderPath);
+                _foundIconPaths = await _iconFinderService.FindIconsAsync(FolderPath);
                if (_foundIconPaths.Any())
                {
                    _currentIconIndex = 0;
@@ -467,27 +455,27 @@ namespace FolderStyleEditorForWindows.ViewModels
            var parts = filePath?.Split(',') ?? Array.Empty<string>();
            var fileName = parts.Length > 0 ? parts[0].Trim() : "";
            int.TryParse(parts.Length > 1 ? parts[1].Trim() : "-1", out int selectedIndex);
-
+ 
            if (string.IsNullOrEmpty(fileName))
            {
                fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll");
                selectedIndex = 4; // 默认使用文件夹图标索引
            }
-
+ 
            // 如果是相对路径，则将其转换为绝对路径
            if (!Path.IsPathRooted(fileName) && !string.IsNullOrEmpty(FolderPath))
            {
                fileName = Path.GetFullPath(Path.Combine(FolderPath, fileName));
            }
- 
+  
            if (!File.Exists(fileName))
            {
                Icons.Clear();
                return;
            }
- 
+  
            IsLoadingIcons = true;
- 
+  
            try
            {
                 var newIcons = await Task.Run(() => _iconFinderService.ExtractIconsFromFileAsync(fileName));

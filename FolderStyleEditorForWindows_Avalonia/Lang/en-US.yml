@@ -34,3 +34,6 @@ Drag_ReleaseToApply: "Release to apply"
 
 # C#
 Toast_SaveSuccess: "Saved successfully"
+Toast_WindowPinned: "Window pinned"
+Toast_WindowUnpinned: "Window unpinned"
+Error_AdminRequired: "Administrator permission required"

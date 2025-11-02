@@ -11,6 +11,8 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
+using FolderStyleEditorForWindows.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
@@ -32,6 +34,8 @@ namespace FolderStyleEditorForWindows
         private MainViewModel _viewModel;
         private EditSessionManager _sessionManager;
         private Popup? _languagePopup;
+        private readonly DispatcherTimer _doubleClickTimer;
+        private int _clickCount;
         
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
@@ -40,16 +44,22 @@ namespace FolderStyleEditorForWindows
         [SupportedOSPlatform("windows")]
         public MainWindow()
         {
-#if DEBUG
-            RendererDiagnostics.DebugOverlays =
-                RendererDebugOverlays.Fps | RendererDebugOverlays.DirtyRects;
-#endif
+// #if DEBUG
+//             RendererDiagnostics.DebugOverlays =
+//                 RendererDebugOverlays.Fps | RendererDebugOverlays.DirtyRects;
+// #endif
             InitializeComponent();
 
-            _viewModel = new MainViewModel();
+            _viewModel = App.Services!.GetRequiredService<MainViewModel>();
             _sessionManager = new EditSessionManager(_viewModel);
             _viewModel.NavigateToEditView = (folderPath, iconSourcePath) => GoToEditView(folderPath, iconSourcePath);
             this.DataContext = _viewModel;
+
+            _doubleClickTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(ConfigManager.Features.Features.PinDoubleClickThreshold)
+            };
+            _doubleClickTimer.Tick += DoubleClickTimer_Tick;
             
             _homeView = this.FindControl<HomeView>("HomeView");
             _editView = this.FindControl<EditView>("EditView");
@@ -91,6 +101,27 @@ namespace FolderStyleEditorForWindows
                 // FocusManager.Instance is obsolete. Get it from the TopLevel.
                 var topLevel = TopLevel.GetTopLevel(this);
                 topLevel?.FocusManager?.ClearFocus();
+                
+                // Handle double-click to pin
+                _clickCount++;
+                var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+
+                if (_clickCount == 1)
+                {
+                    _doubleClickTimer.Start();
+                    hoverIconService.ShowPinIcon("Waiting");
+                }
+                else if (_clickCount == 2)
+                {
+                    _doubleClickTimer.Stop();
+                    _clickCount = 0;
+                    
+                    this.Topmost = !this.Topmost;
+                    var toastService = App.Services!.GetRequiredService<IToastService>();
+                    var message = this.Topmost ? LocalizationManager.Instance["Toast_WindowPinned"] : LocalizationManager.Instance["Toast_WindowUnpinned"];
+                    toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
+                    hoverIconService.ShowPinIcon("Success");
+                }
             }
             
             // Check if the window should be dragged.
@@ -110,12 +141,39 @@ namespace FolderStyleEditorForWindows
             base.OnKeyDown(e);
         }
 
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            if (!_viewModel.IsDragOver)
+            {
+                hoverIconService.ShowPinIcon();
+                hoverIconService.UpdatePosition(e.GetPosition(this));
+            }
+        }
+
+        private void MainWindow_PointerExited(object? sender, PointerEventArgs e)
+        {
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            hoverIconService.Hide();
+        }
+
+        private void DoubleClickTimer_Tick(object? sender, EventArgs e)
+        {
+            _doubleClickTimer.Stop();
+            _clickCount = 0;
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            hoverIconService.ShowPinIcon("Ready");
+        }
+
         private void DragAndDropTarget_DragEnter(object? sender, DragEventArgs e)
         {
             if (e.Data.Contains(DataFormats.Files))
             {
                 _viewModel.IsDragOver = true;
                 e.DragEffects = DragDropEffects.Link;
+                var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+                hoverIconService.ShowFileIcon(e.Data, _viewModel.FolderPath);
             }
             else
             {
@@ -126,13 +184,8 @@ namespace FolderStyleEditorForWindows
 
         private void DragAndDropTarget_DragOver(object? sender, DragEventArgs e)
         {
-            var canvas = this.FindControl<Canvas>("DragAdornerCanvas");
-            if (canvas != null)
-            {
-                var point = e.GetPosition(canvas);
-                _viewModel.DragIconX = point.X + 16;
-                _viewModel.DragIconY = point.Y + 16;
-            }
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            hoverIconService.UpdatePosition(e.GetPosition(this));
 
             var file = e.Data.GetFiles()?.FirstOrDefault();
             string iconKey;
@@ -183,12 +236,16 @@ namespace FolderStyleEditorForWindows
         private void DragAndDropTarget_DragLeave(object? sender, DragEventArgs e)
         {
             _viewModel.IsDragOver = false;
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            hoverIconService.Hide();
             e.Handled = true;
         }
 
         private void DragAndDropTarget_Drop(object? sender, DragEventArgs e)
         {
             _viewModel.IsDragOver = false;
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            hoverIconService.Hide();
             e.Handled = true;
 
             if (e.Data.GetFiles()?.FirstOrDefault() is not { } firstItem) return;

@@ -34,3 +34,6 @@ Drag_ReleaseToApply: "松开以应用"
 
 # C#
 Toast_SaveSuccess: "保存成功"
+Toast_WindowPinned: "窗口已置顶"
+Toast_WindowUnpinned: "窗口已取消置顶"
+Error_AdminRequired: "需要管理员权限"

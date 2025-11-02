@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
+             x:Class="FolderStyleEditorForWindows.Views.HoverIconAdorner"
+             x:DataType="vm:HoverIconViewModel"
+             IsVisible="{Binding IsVisible}"
+             IsHitTestVisible="False">
+    <Canvas>
+        <Grid Canvas.Left="{Binding Position.X}" Canvas.Top="{Binding Position.Y}">
+            <!-- Main Icon (SVG) -->
+            <PathIcon Data="{Binding MainIconPath}"
+                      Width="32"
+                      Height="32"
+                      IsVisible="{Binding !MainIconPngPath}"
+                      Foreground="Black"/>
+            
+            <!-- Main Icon (PNG for Testing) -->
+            <Image Source="{Binding MainIconPngPath}"
+                   Width="32"
+                   Height="32"
+                   IsVisible="{Binding MainIconPngPath, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+            
+            <!-- Badge Icon -->
+            <PathIcon Data="{Binding BadgeIconPath}"
+                      Width="16"
+                      Height="16"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Bottom"
+                      Margin="0,0,-4,-4"
+                      Foreground="Black"/>
+        </Grid>
+    </Canvas>
+</UserControl>

@@ -2,8 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
              x:Class="FolderStyleEditorForWindows.Views.Toast"
-             x:DataType="vm:MainViewModel"
-             IsVisible="{Binding IsToastVisible}">
+             x:DataType="vm:ToastViewModel"
+             IsVisible="{Binding IsVisible}">
     <UserControl.Styles>
         <Style Selector="UserControl">
             <Setter Property="Opacity" Value="0"/>
@@ -15,7 +15,7 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="UserControl:visible">
+        <Style Selector="UserControl[IsVisible=true]">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="RenderTransform" Value="translateY(0)"/>
         </Style>
@@ -23,11 +23,10 @@
     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
         <Border Background="#CCFFFFFF"
                 CornerRadius="20"
-                Padding="24,10"
-                Height="48"
+                Padding="24,12"
                 BoxShadow="0 4 12 0 #20000000">
-            <TextBlock Text="{Binding ToastMessage}"
-                       Foreground="#28a745"
+            <TextBlock Text="{Binding Message}"
+                       Foreground="{Binding Color}"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center"/>
         </Border>

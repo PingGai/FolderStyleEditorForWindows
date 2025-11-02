@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using FolderStyleEditorForWindows.Models;
 using Newtonsoft.Json;
+using Tomlyn;
 
 namespace FolderStyleEditorForWindows.Services
 {
@@ -9,6 +10,9 @@ namespace FolderStyleEditorForWindows.Services
     {
         private static readonly string _appDataDirectory;
         private const string AppConfigFileName = "settings.json";
+        private const string FeaturesConfigFileName = "config.toml";
+
+        public static AppFeaturesConfig Features { get; private set; } = new();
 
         static ConfigManager()
         {
@@ -19,6 +23,8 @@ namespace FolderStyleEditorForWindows.Services
             {
                 Directory.CreateDirectory(_appDataDirectory);
             }
+            
+            LoadFeaturesConfig();
         }
 
         public static string AppDataDirectory => _appDataDirectory;
@@ -57,6 +63,29 @@ namespace FolderStyleEditorForWindows.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error saving app config: {ex.Message}");
+            }
+        }
+        
+        private static void LoadFeaturesConfig()
+        {
+            var configFilePath = Path.Combine(AppContext.BaseDirectory, FeaturesConfigFileName);
+            if (File.Exists(configFilePath))
+            {
+                try
+                {
+                    var content = File.ReadAllText(configFilePath);
+                    Features = Tomlyn.Toml.ToModel<AppFeaturesConfig>(content);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading features config: {ex.Message}");
+                    Features = new AppFeaturesConfig();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Features config file not found: {configFilePath}");
+                Features = new AppFeaturesConfig();
             }
         }
     }

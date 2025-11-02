@@ -1,0 +1,61 @@
+# FolderStyleEditorForWindows 配置文件
+# 版本: 0.1.6
+
+[Features]
+# 窗口置顶功能双击间隔阈值（毫秒）
+PinDoubleClickThreshold = 500
+
+# 悬停图标配置
+[HoverIcon]
+
+  # 主图标默认路径（当未匹配到任何特定规则时）
+  DefaultIcon = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/file.svg"
+  # 错误图标路径
+  ErrorIcon = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/ban.svg"
+
+  # 支持的文件类型组
+  [HoverIcon.FileTypes]
+  # 支持直接处理的类型
+  Supported = ["exe", "dll", "ico"]
+  # 预留，未来用于支持转换的类型
+  SupportedToConvert = ["png", "jpg", "jpeg", "bmp", "svg"]
+
+  # 主图标映射规则 (根据文件后缀)
+  [[HoverIcon.MainIcons]]
+  Extensions = ["exe", "dll"]
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/app-window.svg"
+
+  [[HoverIcon.MainIcons]]
+  Extensions = ["ico"]
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/book-image.svg"
+
+  # 角标图标映射规则 (根据文件类型支持状态)
+  [[HoverIcon.BadgeIcons]]
+  Status = "Supported" 
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/check.svg"
+  
+  [[HoverIcon.BadgeIcons]]
+  Status = "SupportedToConvert"
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/archive-restore.svg"
+  
+  [[HoverIcon.BadgeIcons]]
+  Status = "Error"
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/ban.svg"
+
+# Pin 图标配置
+[PinIcon]
+  MainIcon = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/pin.svg"
+  # 用于诊断渲染问题的PNG图标路径
+  TestPngPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/PNG/test-pin.png"
+  
+  [[PinIcon.BadgeIcons]]
+  State = "Ready" # 默认状态，显示角标 2
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/arrow-down-0-1.svg"
+  
+  [[PinIcon.BadgeIcons]]
+  State = "Waiting" # 单击后，等待双击的状态，显示角标 1
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/arrow-down-1-0.svg"
+
+  [[PinIcon.BadgeIcons]]
+  State = "Success" # 双击成功后，显示对勾
+  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/check.svg"
