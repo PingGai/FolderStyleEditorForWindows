@@ -76,11 +76,23 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 ### 构建
 
-#### 方式一：从 GitHub Releases 下载
+#### 方式一：从 GitHub Releases 下载 (稳定版)
 
 我们推荐直接从 [GitHub Releases](https://github.com/PingGai/FolderStyleEditorForWindows/releases) 页面下载最新的预编译版本。这是最简单、最快捷的获取方式。
 
-#### 方式二：自行构建（生成单文件）
+#### 方式二：获取最新开发版 (通过 Actions)
+
+如果您想体验最新的功能，可以 Fork 本仓库，并利用 GitHub Actions 自行构建：
+
+1.  **Fork 仓库**: 点击本页面右上角的 "Fork" 按钮，将此仓库复制到您自己的 GitHub 账户下。
+2.  **启用 Actions**: 在您 Fork 的仓库页面，进入 "Settings" > "Actions" > "General"，选择 "Allow all actions and reusable workflows" 并保存。
+3.  **运行工作流**:
+    *   进入 "Actions" 标签页。
+    *   在左侧找到名为 "Build Application" 的工作流，并点击它。
+    *   点击 "Run workflow" 下拉框，然后再次点击绿色的 "Run workflow" 按钮。
+4.  **下载产物**: 等待工作流运行完毕后，在工作流的 "Summary" 页面找到名为 "FolderStyleEditorForWindows-Executables" 的构建产物 (Artifacts)，点击下载即可。
+
+#### 方式三：本地手动构建
 
 如果您想自行构建，可以使用项目根目录 `build/` 下的 `build.ps1` 脚本。该脚本会自动处理依赖，并将应用打包为带版本号的单个可执行文件。
 

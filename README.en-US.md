@@ -73,11 +73,23 @@ FolderStyleEditorForWindows is a desktop application developed with the Avalonia
 
 ### Building
 
-#### Method 1: Download from GitHub Releases
+#### Method 1: Download from GitHub Releases (Stable)
 
 We recommend downloading the latest pre-compiled version directly from the [GitHub Releases](https://github.com/PingGai/FolderStyleEditorForWindows/releases) page. This is the easiest and fastest way to get the application.
 
-#### Method 2: Build it Yourself (for Single-File Executable)
+#### Method 2: Get the Latest Development Build (via Actions)
+
+If you want to try the latest features, you can fork this repository and build it yourself using GitHub Actions:
+
+1.  **Fork the Repository**: Click the "Fork" button at the top right of this page to copy this repository to your own GitHub account.
+2.  **Enable Actions**: In your forked repository, go to "Settings" > "Actions" > "General", select "Allow all actions and reusable workflows", and save.
+3.  **Run the Workflow**:
+    *   Go to the "Actions" tab.
+    *   Find the workflow named "Build Application" on the left and click on it.
+    *   Click the "Run workflow" dropdown, then click the green "Run workflow" button again.
+4.  **Download the Artifact**: After the workflow is complete, find the artifact named "FolderStyleEditorForWindows-Executables" on the workflow's "Summary" page and click to download it.
+
+#### Method 3: Build it Yourself Locally
 
 If you prefer to build the application yourself, you can use the `build.ps1` script located in the `build/` directory. This script handles all dependencies and packages the application into a single executable file with a version number.
 
