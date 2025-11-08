@@ -10,10 +10,7 @@ param(
   [string]$Configuration = "Release",
 
   # 基础名（想改就改），用于重命名 exe
-  [string]$BaseName = "FolderStyleEditorForWindows",
-  
-  # 是否把 csproj 的 <Version> 追加到文件名（如 -WithVersion => ...-v1.0.0-beta.1.exe）
-  [switch]$WithVersion
+  [string]$BaseName = "FolderStyleEditorForWindows"
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,24 +32,16 @@ if (-not (Test-Path $ProjPath)) {
   exit 1
 }
 
-# 读取 <Version>，用于 -WithVersion
-function Get-ProjectVersion {
-  param([string]$csprojPath)
-  try {
-    [xml]$xml = Get-Content -LiteralPath $csprojPath -Raw
-    foreach ($pg in $xml.Project.PropertyGroup) {
-      if ($pg.Version -and $pg.Version.Trim().Length -gt 0) {
-        return $pg.Version.Trim()
-      }
-    }
-    return $null
-  } catch { return $null }
+# 从 build/version.txt 读取版本号
+$VersionFile = Join-Path $RepoRoot "build\version.txt"
+if (-not (Test-Path $VersionFile)) {
+  Write-Host "❌ 找不到版本文件：$VersionFile" -ForegroundColor Red
+  exit 1
 }
-
-$verSuffix = ""
-if ($WithVersion) {
-  $v = Get-ProjectVersion -csprojPath $ProjPath
-  if ($v) { $verSuffix = "-v$($v)" }
+$Version = (Get-Content -LiteralPath $VersionFile -Raw).Trim()
+if (-not $Version) {
+  Write-Host "❌ 版本文件为空：$VersionFile" -ForegroundColor Red
+  exit 1
 }
 
 # 需要构建的 RID 列表
@@ -84,7 +73,7 @@ foreach ($rid in $rids) {
   # 规则：选择输出目录里体积最大的 .exe 作为主程序（单文件发布通常只有一个）
   $exe = Get-ChildItem $OutDir -File -Filter *.exe | Sort-Object Length -Descending | Select-Object -First 1
   if ($exe) {
-    $targetName = "$BaseName-$rid$verSuffix.exe"
+    $targetName = "$BaseName-$Version-$rid.exe"
     $targetPath = Join-Path $OutDir $targetName
     if (Test-Path $targetPath) { Remove-Item $targetPath -Force }
     Move-Item $exe.FullName $targetPath

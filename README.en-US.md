@@ -73,23 +73,24 @@ FolderStyleEditorForWindows is a desktop application developed with the Avalonia
 
 ### Building
 
-#### Recommended Method: Use the Packaging Script (for Single-File Executable)
+#### Method 1: Download from GitHub Releases
 
-It is **highly recommended** to use the `build.ps1` script located in the `build/` directory to build the application. This script handles all dependencies and packages the application into a **single executable file**, making it easy to distribute and use.
+We recommend downloading the latest pre-compiled version directly from the [GitHub Releases](https://github.com/PingGai/FolderStyleEditorForWindows/releases) page. This is the easiest and fastest way to get the application.
+
+#### Method 2: Build it Yourself (for Single-File Executable)
+
+If you prefer to build the application yourself, you can use the `build.ps1` script located in the `build/` directory. This script handles all dependencies and packages the application into a single executable file with a version number.
 
 1.  **Ensure Environment**:
     *   Install [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0).
     *   Windows PowerShell 5.1 or PowerShell 7+.
 2.  **Execute the Script**:
-    Open a PowerShell terminal and run one of the following commands:
+    Open a PowerShell terminal and run the following command:
     ```powershell
-    # Build both x64 and x86 versions
+    # Build all supported versions (x64 and x86)
     .\build\build.ps1
-    
-    # Or build a specific version
-    .\build\build.ps1 -Runtime win-x64
     ```
-    After a successful build, the single-file application will be available in the `publish/` directory.
+    After a successful build, the application will be available in the `publish/` directory, automatically named according to the content of `build/version.txt`.
 
 #### Alternative Method: Use Visual Studio
 
