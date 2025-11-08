@@ -203,4 +203,46 @@
       <Setter Property="Background" Value="Transparent"/>
   </Style>
 
+    <!-- TitleBar Button Styles -->
+    <Style Selector="Button.TitleBarButton">
+        <Setter Property="Width" Value="38"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Background" Value="{StaticResource GlassBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Button.TitleBarButton Path">
+        <Setter Property="Stroke" Value="{StaticResource Fg2}"/>
+        <Setter Property="StrokeThickness" Value="2"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Button#btnBack">
+        <Setter Property="Padding" Value="3,3,8,6"/>
+    </Style>
+    <Style Selector="Button#btnBack Path">
+        <Setter Property="Margin" Value="0,0,4,4"/>
+    </Style>
+
+    <Style Selector="Button#btnMin">
+        <Setter Property="Padding" Value="4,3,8,6"/>
+    </Style>
+    <Style Selector="Button#btnMin Path">
+        <Setter Property="Margin" Value="0,0,0,12"/>
+    </Style>
+
+    <Style Selector="Button#btnClose">
+        <Setter Property="Padding" Value="8,3,8,6"/>
+    </Style>
+    <Style Selector="Button#btnClose Path">
+        <Setter Property="Margin" Value="0,0,6,6"/>
+    </Style>
+
+    <Style Selector="Button.TitleBarButton:pointerover">
+        <Setter Property="Background" Value="#1A000000"/>
+    </Style>
 </Styles>

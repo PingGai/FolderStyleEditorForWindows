@@ -1,3 +1,8 @@
+V0.1.7 - UI图标重构与i18n规范 - 已更新
+    + UI重构: 将标题栏按钮（关闭、最小化、返回）重构为可复用的 `TitleBarButton` 样式，统一了代码并修复了 Padding 不一致的问题。
+    + 资源集中化: 将按钮图标的路径数据提取为 `Icons.axaml` 中的 `StreamGeometry` 资源，提高了可维护性。
+    + 规范更新: 在 `openspec/project.md` 中补充了国际化（i18n）开发规范，要求所有面向用户的文本都必须通过 `LocalizationManager` 进行管理。
+
 V0.1.6-beta.2 - 窗口置顶（Pin） - 已更新
     + 双击窗口可以实现置顶功能
     + 修改了Toast样式（版本1，之后还会进行更多的修改，现在样式还是有点丑陋）
