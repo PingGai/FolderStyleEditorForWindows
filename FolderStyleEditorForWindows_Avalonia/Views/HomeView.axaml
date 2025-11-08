@@ -16,10 +16,10 @@
         <DockPanel Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto" Margin="12,0">
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                   <Button Name="btnMin" Classes="TitleBarButton">
+                   <Button Name="btnMin" Classes="TitleBarButton TitleBarButtonHover">
                        <Path Data="{StaticResource MinimizeIcon}"/>
                    </Button>
-                   <Button Name="btnClose" Classes="TitleBarButton">
+                   <Button Name="btnClose" Classes="TitleBarButton TitleBarButtonHover">
                        <Path Data="{StaticResource CloseIcon}"/>
                    </Button>
                 </StackPanel>

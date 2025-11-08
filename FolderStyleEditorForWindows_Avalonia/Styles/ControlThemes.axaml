@@ -242,7 +242,7 @@
         <Setter Property="Margin" Value="0,0,6,6"/>
     </Style>
 
-    <Style Selector="Button.TitleBarButton:pointerover">
+    <Style Selector="Button.TitleBarButton:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="#1A000000"/>
     </Style>
 </Styles>

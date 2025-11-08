@@ -29,15 +29,15 @@
         <!-- Title Bar -->
         <DockPanel VerticalAlignment="Top" Height="54">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
-               <Button Name="btnBack" Grid.Column="0" Classes="TitleBarButton">
+               <Button Name="btnBack" Grid.Column="0" Classes="TitleBarButton TitleBarButtonHover">
                    <Path Data="{StaticResource BackIcon}"/>
                </Button>
                   <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Title]}" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Fg1Brush}" Opacity="0.8" FontSize="16" FontWeight="SemiBold" IsHitTestVisible="False"/>
                   <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-                   <Button Name="btnMin" Classes="TitleBarButton">
+                   <Button Name="btnMin" Classes="TitleBarButton TitleBarButtonHover">
                        <Path Data="{StaticResource MinimizeIcon}"/>
                    </Button>
-                   <Button Name="btnClose" Classes="TitleBarButton">
+                   <Button Name="btnClose" Classes="TitleBarButton TitleBarButtonHover">
                        <Path Data="{StaticResource CloseIcon}"/>
                    </Button>
                 </StackPanel>
