@@ -59,3 +59,7 @@ PinDoubleClickThreshold = 500
   [[PinIcon.BadgeIcons]]
   State = "Success" # 双击成功后，显示对勾
   IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/check.svg"
+
+[Animations]
+# Toast 通知弹出和消失的动画时长（毫秒）
+ToastAnimationDuration = 300

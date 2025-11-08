@@ -7,6 +7,7 @@ namespace FolderStyleEditorForWindows.Models
         public FeaturesConfig Features { get; set; } = new();
         public HoverIconConfig HoverIcon { get; set; } = new();
         public PinIconConfig PinIcon { get; set; } = new();
+       public AnimationsConfig Animations { get; set; } = new();
     }
 
     public class FeaturesConfig
@@ -53,4 +54,9 @@ namespace FolderStyleEditorForWindows.Models
         public string State { get; set; } = "";
         public string IconPath { get; set; } = "";
     }
+
+   public class AnimationsConfig
+   {
+       public int ToastAnimationDuration { get; set; } = 300; // in milliseconds
+   }
 }

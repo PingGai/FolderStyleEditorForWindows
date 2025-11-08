@@ -1,3 +1,6 @@
+V0.1.7-beta.2 - Toast样式微调 - 更新前的提示
+    + UI-Fix: 移除了Toast通知的 `BoxShadow`，使其外观更简洁。
+
 V0.1.7 - UI图标重构与i18n规范 - 已更新
     + UI重构: 将标题栏按钮（关闭、最小化、返回）重构为可复用的 `TitleBarButton` 样式，统一了代码并修复了 Padding 不一致的问题。
     + 资源集中化: 将按钮图标的路径数据提取为 `Icons.axaml` 中的 `StreamGeometry` 资源，提高了可维护性。

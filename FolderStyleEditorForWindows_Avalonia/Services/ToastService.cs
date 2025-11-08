@@ -31,8 +31,9 @@ namespace FolderStyleEditorForWindows.Services
                 });
             });
             
+            var animationDuration = TimeSpan.FromMilliseconds(ConfigManager.Features.Animations.ToastAnimationDuration);
             // 等待动画完成再移除
-            Task.Delay(duration.Value.Add(TimeSpan.FromSeconds(0.5))).ContinueWith(_ =>
+            Task.Delay(duration.Value.Add(animationDuration)).ContinueWith(_ =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
