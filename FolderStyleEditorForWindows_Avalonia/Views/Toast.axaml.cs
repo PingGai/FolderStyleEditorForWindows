@@ -14,7 +14,7 @@ namespace FolderStyleEditorForWindows.Views
         {
             InitializeComponent();
             
-            var duration = TimeSpan.FromMilliseconds(ConfigManager.Features.Animations.ToastAnimationDuration);
+            var duration = TimeSpan.FromMilliseconds(ConfigManager.Config.Animations.ToastAnimationDuration);
 
             this.Transitions = new Transitions
             {

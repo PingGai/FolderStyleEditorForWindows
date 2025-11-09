@@ -11,12 +11,12 @@ namespace FolderStyleEditorForWindows.Services
     public class HoverIconService
     {
         public HoverIconViewModel ViewModel { get; }
-        private readonly AppFeaturesConfig _config;
+        private readonly AppConfig _config;
 
         public HoverIconService(HoverIconViewModel viewModel)
         {
             ViewModel = viewModel;
-            _config = ConfigManager.Features;
+            _config = ConfigManager.Config;
         }
 
         public void UpdatePosition(Point position)

@@ -275,7 +275,9 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
 
         public ObservableCollection<string> History { get; } = new();
-        private static readonly string HistoryFilePath = ConfigManager.GetConfigFilePath("history.json");
+        // Note: This path logic might need to be revisited if we want it to be truly portable.
+        // For now, we assume it's in the same directory as the executable.
+        private static readonly string HistoryFilePath = Path.Combine(AppContext.BaseDirectory, "history.json");
 
         public ICommand SaveCommand { get; }
         public ICommand OpenFromHistoryCommand { get; }
@@ -290,6 +292,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         
         public ObservableCollection<ToastViewModel> Toasts => ((ToastService)_toastService).Toasts;
         public HoverIconViewModel HoverIcon => _hoverIconService.ViewModel;
+        public DebugOverlayViewModel DebugOverlay { get; }
         
         public void StartEditSession(string folderPath, string? iconSourcePath = null)
         {
@@ -317,6 +320,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             _iconFinderService = new IconFinderService();
             _toastService = toastService;
             _hoverIconService = hoverIconService;
+            DebugOverlay = new DebugOverlayViewModel(ConfigManager.Config, HoverIcon);
             
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(OpenFromHistory);

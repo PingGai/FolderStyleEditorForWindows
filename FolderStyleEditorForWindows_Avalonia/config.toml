@@ -63,3 +63,19 @@ PinDoubleClickThreshold = 500
 [Animations]
 # Toast 通知弹出和消失的动画时长（毫秒）
 ToastAnimationDuration = 300
+
+[Appearance]
+# 全局 SVG 默认颜色 (CSS 格式, 例如 "#RRGGBB" 或 "#AARRGGBB")
+SvgDefaultColor = "#ff606064"
+
+[Debug]
+# 调试覆盖层的总开关
+EnableOverlay = true
+# 是否为悬停图标显示背景色
+ShowHoverIconBackgroundColor = true
+# 是否在调试层显示 SVG 测试组件
+ShowSvgTest = true
+# 是否在调试层显示 PNG 测试组件
+ShowPngTest = true
+# 是否在调试层显示悬停图标的克隆体
+ShowHoverIconClone = true

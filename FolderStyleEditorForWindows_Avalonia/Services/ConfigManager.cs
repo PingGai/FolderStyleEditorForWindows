@@ -1,91 +1,62 @@
 using System;
 using System.IO;
 using FolderStyleEditorForWindows.Models;
-using Newtonsoft.Json;
 using Tomlyn;
 
 namespace FolderStyleEditorForWindows.Services
 {
     public static class ConfigManager
     {
-        private static readonly string _appDataDirectory;
-        private const string AppConfigFileName = "settings.json";
-        private const string FeaturesConfigFileName = "config.toml";
+        private const string ConfigFileName = "config.toml";
+        private static readonly string _configPath;
 
-        public static AppFeaturesConfig Features { get; private set; } = new();
+        public static AppConfig Config { get; private set; } = new();
 
         static ConfigManager()
         {
-            string tempPath = Path.GetTempPath();
-            _appDataDirectory = Path.Combine(tempPath, "FolderStyleEditorForWindows");
-
-            if (!Directory.Exists(_appDataDirectory))
-            {
-                Directory.CreateDirectory(_appDataDirectory);
-            }
-            
-            LoadFeaturesConfig();
+            _configPath = Path.Combine(AppContext.BaseDirectory, ConfigFileName);
+            LoadConfig();
         }
 
-        public static string AppDataDirectory => _appDataDirectory;
-
-        public static string GetConfigFilePath(string fileName)
+        private static void LoadConfig()
         {
-            return Path.Combine(_appDataDirectory, fileName);
-        }
-
-        public static AppConfig LoadAppConfig()
-        {
-            var configFilePath = GetConfigFilePath(AppConfigFileName);
-            if (File.Exists(configFilePath))
+            // 如果文件不存在，则创建一个具有默认值的实例并保存
+            if (!File.Exists(_configPath))
             {
-                try
-                {
-                    var json = File.ReadAllText(configFilePath);
-                    return JsonConvert.DeserializeObject<AppConfig>(json) ?? new AppConfig();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error loading app config: {ex.Message}");
-                }
-            }
-            return new AppConfig();
-        }
-
-        public static void SaveAppConfig(AppConfig config)
-        {
-            var configFilePath = GetConfigFilePath(AppConfigFileName);
-            try
-            {
-                var json = JsonConvert.SerializeObject(config, Formatting.Indented);
-                File.WriteAllText(configFilePath, json);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error saving app config: {ex.Message}");
-            }
-        }
-        
-        private static void LoadFeaturesConfig()
-        {
-            var configFilePath = Path.Combine(AppContext.BaseDirectory, FeaturesConfigFileName);
-            if (File.Exists(configFilePath))
-            {
-                try
-                {
-                    var content = File.ReadAllText(configFilePath);
-                    Features = Tomlyn.Toml.ToModel<AppFeaturesConfig>(content);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error loading features config: {ex.Message}");
-                    Features = new AppFeaturesConfig();
-                }
+                Config = new AppConfig();
+                SaveConfig();
             }
             else
             {
-                Console.WriteLine($"Features config file not found: {configFilePath}");
-                Features = new AppFeaturesConfig();
+                try
+                {
+                    var tomlString = File.ReadAllText(_configPath);
+                    // 设置选项以忽略 TOML 文件中存在但在模型中不存在的属性
+                    var modelOptions = new TomlModelOptions
+                    {
+                        IgnoreMissingProperties = true
+                    };
+                    Config = Toml.ToModel<AppConfig>(tomlString, null, modelOptions);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading config.toml: {ex.Message}");
+                    // 加载失败时使用默认配置
+                    Config = new AppConfig();
+                }
+            }
+        }
+
+        public static void SaveConfig()
+        {
+            try
+            {
+                var tomlString = Toml.FromModel(Config);
+                File.WriteAllText(_configPath, tomlString);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving config.toml: {ex.Message}");
             }
         }
     }

@@ -31,7 +31,7 @@ namespace FolderStyleEditorForWindows.Services
                 });
             });
             
-            var animationDuration = TimeSpan.FromMilliseconds(ConfigManager.Features.Animations.ToastAnimationDuration);
+            var animationDuration = TimeSpan.FromMilliseconds(ConfigManager.Config.Animations.ToastAnimationDuration);
             // 等待动画完成再移除
             Task.Delay(duration.Value.Add(animationDuration)).ContinueWith(_ =>
             {

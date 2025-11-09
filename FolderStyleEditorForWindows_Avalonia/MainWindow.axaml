@@ -118,5 +118,13 @@
                VerticalOffset="-8">
             <views:LanguageMenuView/>
         </Popup>
+
+        <!-- Debug Overlay -->
+        <Canvas>
+            <views:DebugOverlay DataContext="{Binding DebugOverlay}"
+                                Canvas.Left="10"
+                                Canvas.Bottom="10"
+                                ZIndex="9999"/>
+        </Canvas>
    </Grid>
 </Window>

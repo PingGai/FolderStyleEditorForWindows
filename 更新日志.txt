@@ -1,3 +1,12 @@
+V0.1.8-beta.1 - 调试功能与SVG渲染修复 - 进行中
++ 新增了一个全局调试覆盖层 (`DebugOverlay`)，用于在界面上显示实时的调试信息。
++ 在 `config.toml` 中增加了 `[Debug]` 配置部分，允许通过开关控制调试层的显示以及其中各个组件的可见性。
++ 引入了 `Svg.Controls.Skia.Avalonia` NuGet 包，并使用 `SvgImage` 替换了原有的 `PathIcon` 方案，为正确渲染 SVG 图标奠定了基础。
++ 在调试层中添加了独立的 SVG 和 PNG 渲染测试组件，以验证基本图像的渲染能力。
++ 对 `ConfigManager` 进行了重构，统一了配置加载逻辑，使其能够正确解析新的调试选项。
++ 创建了相关的 `DebugConfig` 模型和 `DebugOverlayViewModel` 视图模型来支持新的调试功能。
++ 在 OpenSpec 中创建了 `add-debug-overlay` 变更提案，并撰写了 `svg-rendering-guide.md` 文档。
+
 V0.1.7-beta.2 - Toast样式微调 - 更新前的提示
     + UI-Fix: 移除了Toast通知的 `BoxShadow`，使其外观更简洁。
 

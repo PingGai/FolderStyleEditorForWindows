@@ -59,4 +59,9 @@ namespace FolderStyleEditorForWindows.Models
    {
        public int ToastAnimationDuration { get; set; } = 300; // in milliseconds
    }
+
+    public class AppearanceConfig
+    {
+        public string? SvgDefaultColor { get; set; }
+    }
 }

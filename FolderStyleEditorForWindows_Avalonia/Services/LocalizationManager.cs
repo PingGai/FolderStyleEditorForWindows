@@ -28,8 +28,7 @@ namespace FolderStyleEditorForWindows.Services
             LoadAvailableLanguages();
             
             // Try to load language from config
-            var config = ConfigManager.LoadAppConfig();
-            string languageToLoad = config.Language;
+            string languageToLoad = ConfigManager.Config.Language;
 
             // If no language in config, determine from system UI culture
             if (string.IsNullOrEmpty(languageToLoad))
@@ -131,9 +130,8 @@ namespace FolderStyleEditorForWindows.Services
                 _currentCultureName = langInfo.Culture;
                 
                 // Save the selected language to config
-                var config = ConfigManager.LoadAppConfig();
-                config.Language = _currentCultureName;
-                ConfigManager.SaveAppConfig(config);
+                ConfigManager.Config.Language = _currentCultureName;
+                ConfigManager.SaveConfig();
 
                 // Notify UI to refresh all bindings
                 Invalidate();

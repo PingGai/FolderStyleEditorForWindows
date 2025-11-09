@@ -25,6 +25,28 @@ public partial class App : Application
         services.AddSingleton<HoverIconService>();
         services.AddSingleton<MainViewModel>();
         Services = services.BuildServiceProvider();
+        
+        // Load and apply SVG color from config
+        const string hardcodedColor = "#ff606064";
+        var colorFromConfig = ConfigManager.Config.Appearance?.SvgDefaultColor;
+        
+        Avalonia.Media.Color color;
+        try
+        {
+            color = !string.IsNullOrEmpty(colorFromConfig) ? Avalonia.Media.Color.Parse(colorFromConfig) : Avalonia.Media.Color.Parse(hardcodedColor);
+        }
+        catch
+        {
+            color = Avalonia.Media.Color.Parse(hardcodedColor);
+        }
+
+        string cssHex = color.A == 0xFF
+            ? $"#{color.R:X2}{color.G:X2}{color.B:X2}"
+            : $"#{color.R:X2}{color.G:X2}{color.B:X2}{color.A:X2}";
+        
+        string svgCss = $"svg {{ color: {cssHex}; }}";
+        
+        Current.Resources["SvgCss"] = svgCss;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

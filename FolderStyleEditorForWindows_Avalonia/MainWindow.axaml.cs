@@ -57,7 +57,7 @@ namespace FolderStyleEditorForWindows
 
             _doubleClickTimer = new DispatcherTimer
             {
-                Interval = TimeSpan.FromMilliseconds(ConfigManager.Features.Features.PinDoubleClickThreshold)
+                Interval = TimeSpan.FromMilliseconds(ConfigManager.Config.Features.Features.PinDoubleClickThreshold)
             };
             _doubleClickTimer.Tick += DoubleClickTimer_Tick;
             

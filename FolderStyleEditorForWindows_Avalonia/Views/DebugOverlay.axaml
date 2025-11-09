@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
+             xmlns:svg="using:Avalonia.Svg.Skia"
+             xmlns:views="using:FolderStyleEditorForWindows.Views"
+             x:Class="FolderStyleEditorForWindows.Views.DebugOverlay"
+             x:DataType="vm:DebugOverlayViewModel"
+             Margin="8,0,0,8">
+    <Border Background="#80ff0000" CornerRadius="4" Padding="5">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+            <!-- SVG Test Component -->
+            <Border Background="#69ffffff" CornerRadius="4" Padding="4" IsVisible="{Binding ShowSvgTest}">
+                <Image Width="32" Height="32">
+                    <Image.Source>
+                        <svg:SvgImage Source="{Binding SvgTestPath}" Css="{DynamicResource SvgCss}" />
+                    </Image.Source>
+                </Image>
+            </Border>
+
+            <!-- PNG Test Component -->
+            <Border Background="#69ffffff" CornerRadius="4" Padding="4" IsVisible="{Binding ShowPngTest}">
+                <Image Source="{Binding PngTestPath}" Width="32" Height="32" />
+            </Border>
+
+            <!-- Hover Icon Clone -->
+            <Border Background="#69ffffff" CornerRadius="4" Padding="4" IsVisible="{Binding ShowHoverIconClone}">
+                <ContentControl Width="32" Height="32">
+                    <views:HoverIconAdorner DataContext="{Binding HoverIconClone}" IsHitTestVisible="False" IsVisible="True"/>
+                </ContentControl>
+            </Border>
+        </StackPanel>
+    </Border>
+</UserControl>
