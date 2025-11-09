@@ -44,10 +44,11 @@
            <SolidColorBrush x:Key="FolderTagBgBrush" Color="{StaticResource FolderTagBg}"/>
            <SolidColorBrush x:Key="FolderTagBorderBrush" Color="{StaticResource FolderTagBorder}"/>
            <SolidColorBrush x:Key="FolderTagBgLightBrush" Color="{StaticResource FolderTagBgLight}"/>
+           <SolidColorBrush x:Key="SvgOpacityMaskBrush" Color="#FF000000"/>
 
-           <!-- Glass Brushes -->
-           <SolidColorBrush x:Key="GlassBrush" Color="#A6FFFFFF"/>
-           <SolidColorBrush x:Key="GlassStrongBrush" Color="#D1FFFFFF"/>
+          <!-- Glass Brushes -->
+          <SolidColorBrush x:Key="GlassBrush" Color="#A6FFFFFF"/>
+          <SolidColorBrush x:Key="GlassStrongBrush" Color="#D1FFFFFF"/>
            
            <!-- Corner Radii -->
            <CornerRadius x:Key="RadiusXl">6</CornerRadius>
@@ -66,5 +67,9 @@
    <Application.Styles>
        <FluentTheme />
        <StyleInclude Source="avares://FolderStyleEditorForWindows/Styles/ControlThemes.axaml"/>
+       <Style Selector="Svg">
+           <Setter Property="Opacity" Value="{DynamicResource SvgOpacityValue}"/>
+           <Setter Property="OpacityMask" Value="{DynamicResource SvgOpacityMaskBrush}"/>
+       </Style>
    </Application.Styles>
 </Application>

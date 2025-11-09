@@ -1,31 +1,61 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
-             xmlns:svg="using:Avalonia.Svg.Skia"
+             xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
              xmlns:views="using:FolderStyleEditorForWindows.Views"
              x:Class="FolderStyleEditorForWindows.Views.DebugOverlay"
              x:DataType="vm:DebugOverlayViewModel"
-             Margin="8,0,0,8">
-    <Border Background="#80ff0000" CornerRadius="4" Padding="5">
-        <StackPanel Orientation="Horizontal" Spacing="10">
+             Margin="0"
+             IsHitTestVisible="False">
+    <Border Background="{Binding OverlayBackgroundBrush}"
+            CornerRadius="6"
+            Padding="6"
+            MinWidth="32"
+            MinHeight="32">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
             <!-- SVG Test Component -->
-            <Border Background="#69ffffff" CornerRadius="4" Padding="4" IsVisible="{Binding ShowSvgTest}">
-                <Image Width="32" Height="32">
-                    <Image.Source>
-                        <svg:SvgImage Source="{Binding SvgTestPath}" Css="{DynamicResource SvgCss}" />
-                    </Image.Source>
-                </Image>
+            <Border Background="#66FFFFFF"
+                    CornerRadius="4"
+                    Padding="4"
+                    MinWidth="32"
+                    MinHeight="32"
+                    IsVisible="{Binding ShowSvgTest}">
+                <svg:Svg Width="32"
+                         Height="32"
+                         Stretch="Uniform"
+                         Opacity="0.75"
+                         Path="{Binding SvgTestPath}"
+                         Css="{DynamicResource SvgCss}" />
             </Border>
 
             <!-- PNG Test Component -->
-            <Border Background="#69ffffff" CornerRadius="4" Padding="4" IsVisible="{Binding ShowPngTest}">
-                <Image Source="{Binding PngTestPath}" Width="32" Height="32" />
+            <Border Background="#66FFFFFF"
+                    CornerRadius="4"
+                    Padding="4"
+                    MinWidth="32"
+                    MinHeight="32"
+                    IsVisible="{Binding ShowPngTest}">
+                <Image Source="{Binding PngTestImage}"
+                       Width="32"
+                       Height="32"
+                       Stretch="Uniform"
+                       RenderOptions.BitmapInterpolationMode="HighQuality" />
             </Border>
 
             <!-- Hover Icon Clone -->
-            <Border Background="#69ffffff" CornerRadius="4" Padding="4" IsVisible="{Binding ShowHoverIconClone}">
-                <ContentControl Width="32" Height="32">
-                    <views:HoverIconAdorner DataContext="{Binding HoverIconClone}" IsHitTestVisible="False" IsVisible="True"/>
+            <Border Background="#66FFFFFF"
+                    CornerRadius="4"
+                    Padding="4"
+                    MinWidth="32"
+                    MinHeight="32"
+                    IsVisible="{Binding ShowHoverIconClone}">
+                <ContentControl Width="32"
+                                Height="32">
+                    <views:HoverIconAdorner DataContext="{Binding HoverIconClone}"
+                                             IsHitTestVisible="False"
+                                             IsVisible="True" />
                 </ContentControl>
             </Border>
         </StackPanel>

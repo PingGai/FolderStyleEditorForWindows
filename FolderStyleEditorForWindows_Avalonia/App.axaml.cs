@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -40,13 +42,25 @@ public partial class App : Application
             color = Avalonia.Media.Color.Parse(hardcodedColor);
         }
 
-        string cssHex = color.A == 0xFF
-            ? $"#{color.R:X2}{color.G:X2}{color.B:X2}"
-            : $"#{color.R:X2}{color.G:X2}{color.B:X2}{color.A:X2}";
+        string cssHex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         
-        string svgCss = $"svg {{ color: {cssHex}; }}";
+        var svgOpacity = ConfigManager.Config.Debug?.SvgOpacity ?? 0.75;
+        if (double.IsNaN(svgOpacity) || double.IsInfinity(svgOpacity))
+        {
+            svgOpacity = 0.75;
+        }
+
+        svgOpacity = Math.Clamp(svgOpacity, 0.0, 1.0);
+
+        string svgCss = string.Join(" ",
+            $"svg {{ color: {cssHex}; }}",
+            "svg * { fill: currentColor !important; stroke: currentColor !important; }",
+            "svg [fill=\"none\"] { fill: none !important; }",
+            "svg [stroke=\"none\"] { stroke: none !important; }"
+        );
         
         Current.Resources["SvgCss"] = svgCss;
+        Current.Resources["SvgOpacityValue"] = svgOpacity;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

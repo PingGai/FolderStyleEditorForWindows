@@ -1,11 +1,22 @@
-V0.1.8-beta.1 - 调试功能与SVG渲染修复 - 进行中
-+ 新增了一个全局调试覆盖层 (`DebugOverlay`)，用于在界面上显示实时的调试信息。
-+ 在 `config.toml` 中增加了 `[Debug]` 配置部分，允许通过开关控制调试层的显示以及其中各个组件的可见性。
-+ 引入了 `Svg.Controls.Skia.Avalonia` NuGet 包，并使用 `SvgImage` 替换了原有的 `PathIcon` 方案，为正确渲染 SVG 图标奠定了基础。
-+ 在调试层中添加了独立的 SVG 和 PNG 渲染测试组件，以验证基本图像的渲染能力。
-+ 对 `ConfigManager` 进行了重构，统一了配置加载逻辑，使其能够正确解析新的调试选项。
-+ 创建了相关的 `DebugConfig` 模型和 `DebugOverlayViewModel` 视图模型来支持新的调试功能。
-+ 在 OpenSpec 中创建了 `add-debug-overlay` 变更提案，并撰写了 `svg-rendering-guide.md` 文档。
+V0.1.8-beta.1 - 调试功能与SVG渲染修复 - 已更新
+    + 新增了一个全局调试覆盖层 (`DebugOverlay`)，用于在界面上显示实时的调试信息。
+    + 在 `config.toml` 中增加了 `[Debug]` 配置部分，允许通过开关控制调试层的显示以及其中各个组件的可见性。
+    + 引入了 `Svg.Controls.Skia.Avalonia` NuGet 包，并使用 `SvgImage` 替换了原有的 `PathIcon` 方案，为正确渲染 SVG 图标奠定了基础。
+    + 在调试层中添加了独立的 SVG 和 PNG 渲染测试组件，以验证基本图像的渲染能力。
+    + 对 `ConfigManager` 进行了重构，统一了配置加载逻辑，使其能够正确解析新的调试选项。
+    + 创建了相关的 `DebugConfig` 模型和 `DebugOverlayViewModel` 视图模型来支持新的调试功能。
+    + 在 OpenSpec 中创建了 `add-debug-overlay` 变更提案，并撰写了 `svg-rendering-guide.md` 文档。
+    + 调整 `MainWindow` 中调试覆盖层的锚定方式（左下角 Grid 对齐，常驻测量）并将根容器设置为不可命中，确保层级和输入安全。
+    + 更新 `DebugOverlay` XAML：切换到 `Svg.Controls.Skia.Avalonia` 命名空间、提供统一 32×32 最小尺寸、PNG 插值及 HoverIcon 克隆占位，同时支持背景色绑定。
+    + 扩展 `DebugConfig` 与 `config.toml`，新增 `HoverIconBgColor` 默认值，并在 `DebugOverlayViewModel` 中生成可降级的背景画刷。
+    + 修正 SVG 控件命名空间为 `Avalonia.Svg.Skia` 并加入 `SvgImage`/`Svg` 推荐写法，确保编译器正确识别类型。
+    + 在 `Program.cs` 的 `BuildAvaloniaApp()` 中引入 `SvgImageExtension`/`Svg` 的 `GC.KeepAlive`，保证设计器和编译期加载依赖。
+    + DebugOverlay 默认开关调整为开启状态，同时修正 SVG/PNG 测试资源的 `avares://FolderStyleEditorForWindows/...` 路径并新增 `[Debug]` 配置项可覆盖测试资源路径；SVG 统一应用 75% 透明度并增强 CSS `currentColor` 着色，PNG 测试图改为通过 `AssetLoader` 载入确保资源可见。
+    + `dotnet build` 成功通过，验证 DebugOverlay 最小链路可编译。
+    + `LocalizationManager` 新增系统语言自动匹配逻辑：仅在用户未手动选择语言时根据 `[LanguageDefaults]` 列表匹配中文/英文/默认文化，并记录 `LanguageConfigured` 避免后续被覆盖。
+    + `Appearance.SvgOpacityMaskColor` 配置项接入全局 `Svg` 样式，保证 SVG 透明度在不同背景下表现一致。
+    + 编写 `开发记录/ask-svg-color-remote.md`，用于向可联网的 GPT 提交 SVG 颜色调试问题并附带现状说明。
+    + 更新了`build\build.ps1`构建脚本
 
 V0.1.7-beta.2 - Toast样式微调 - 更新前的提示
     + UI-Fix: 移除了Toast通知的 `BoxShadow`，使其外观更简洁。

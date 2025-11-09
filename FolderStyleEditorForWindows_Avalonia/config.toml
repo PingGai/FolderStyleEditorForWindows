@@ -1,5 +1,5 @@
 # FolderStyleEditorForWindows 配置文件
-# 版本: 0.1.6
+# 版本: 0.1.8
 
 [Features]
 # 窗口置顶功能双击间隔阈值（毫秒）
@@ -73,9 +73,25 @@ SvgDefaultColor = "#ff606064"
 EnableOverlay = true
 # 是否为悬停图标显示背景色
 ShowHoverIconBackgroundColor = true
+# 调试层背景默认颜色
+HoverIconBgColor = "#DD4444"
 # 是否在调试层显示 SVG 测试组件
 ShowSvgTest = true
+# 调试层 SVG 测试资源路径
+SvgTestPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg"
 # 是否在调试层显示 PNG 测试组件
 ShowPngTest = true
+# 调试层 PNG 测试资源路径
+PngTestPath = "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
+# SVG 渲染透明度（0~1）
+SvgOpacity = 0.75
 # 是否在调试层显示悬停图标的克隆体
 ShowHoverIconClone = true
+
+[LanguageDefaults]
+# 系统语言为中文（含简体、繁体）时优先匹配的文化名称
+ChineseCultures = ["zh-CN", "zh-Hans", "zh-CHS", "zh-Hant", "zh-HK", "zh-TW"]
+# 系统语言为英文时优先匹配的文化名称
+EnglishCultures = ["en-US", "en-GB", "en"]
+# 若无法匹配上述列表，则使用该文化作为默认回退
+DefaultCulture = "zh-CN"

@@ -29,7 +29,7 @@
         <!-- Drop Zone Display-->
         <Border Grid.Row="1" Name="dropZone" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" Margin="0" Cursor="Hand" Background="Transparent">
             <StackPanel Spacing="16" HorizontalAlignment="Center">
-                <TextBlock FontSize="24" FontWeight="ExtraBold" HorizontalAlignment="Center" Foreground="{StaticResource Fg2Brush}" Opacity="0.9" Margin="28 0">
+                <TextBlock FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource Fg2Brush}" Opacity="0.9" Margin="28 0">
                     <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part1]}"/>
                     <Run Text=" "/>
                     <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part2]}">

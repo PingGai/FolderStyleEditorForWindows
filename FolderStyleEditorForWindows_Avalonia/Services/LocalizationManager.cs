@@ -20,29 +20,27 @@ namespace FolderStyleEditorForWindows.Services
 
         private Dictionary<string, string> _strings = new();
         private string _currentCultureName = "en-US";
+        private readonly LanguageDefaultsConfig _languageDefaults;
 
         public ObservableCollection<LanguageInfo> AvailableLanguages { get; } = new();
 
         private LocalizationManager()
         {
+            _languageDefaults = ConfigManager.Config.LanguageDefaults ?? new LanguageDefaultsConfig();
             LoadAvailableLanguages();
             
-            // Try to load language from config
-            string languageToLoad = ConfigManager.Config.Language;
+            var config = ConfigManager.Config;
+            string languageToLoad;
 
-            // If no language in config, determine from system UI culture
-            if (string.IsNullOrEmpty(languageToLoad))
+            if (config.LanguageConfigured && !string.IsNullOrWhiteSpace(config.Language))
             {
-                var systemCultureName = CultureInfo.CurrentUICulture.Name;
-                if (systemCultureName.StartsWith("zh-Hans") || systemCultureName.StartsWith("zh-Hant"))
-                {
-                    languageToLoad = "zh-CN";
-                }
-                else
-                {
-                    languageToLoad = "en-US";
-                }
+                languageToLoad = config.Language;
             }
+            else
+            {
+                languageToLoad = DetermineInitialLanguage(config);
+            }
+
             SwitchLanguage(languageToLoad);
         }
 
@@ -91,7 +89,7 @@ namespace FolderStyleEditorForWindows.Services
                 // Fallback to English or the first available language if the requested one is not found
                 if (langInfo == null)
                 {
-                    langInfo = AvailableLanguages.FirstOrDefault(l => l.Culture.Equals("en-US", StringComparison.OrdinalIgnoreCase)) 
+                    langInfo = AvailableLanguages.FirstOrDefault(l => l.Culture.Equals("en-US", StringComparison.OrdinalIgnoreCase))
                                  ?? AvailableLanguages.FirstOrDefault();
                 }
 
@@ -124,13 +122,14 @@ namespace FolderStyleEditorForWindows.Services
 
                 var deserializer = new DeserializerBuilder().Build();
 
-                _strings = deserializer.Deserialize<Dictionary<string, string>>(yamlContent) 
+                _strings = deserializer.Deserialize<Dictionary<string, string>>(yamlContent)
                            ?? new Dictionary<string, string>();
                 
                 _currentCultureName = langInfo.Culture;
                 
                 // Save the selected language to config
                 ConfigManager.Config.Language = _currentCultureName;
+                ConfigManager.Config.LanguageConfigured = true;
                 ConfigManager.SaveConfig();
 
                 // Notify UI to refresh all bindings
@@ -143,6 +142,117 @@ namespace FolderStyleEditorForWindows.Services
                 Invalidate();
             }
         }
+
+        private string DetermineInitialLanguage(AppConfig config)
+        {
+            if (!string.IsNullOrWhiteSpace(config.Language) &&
+                !string.Equals(config.Language, "en-US", StringComparison.OrdinalIgnoreCase))
+            {
+                config.LanguageConfigured = true;
+                return config.Language;
+            }
+
+            return ResolveLanguageFromSystemCulture();
+        }
+
+        private string ResolveLanguageFromSystemCulture()
+        {
+            var candidates = BuildCultureCandidates(CultureInfo.CurrentUICulture);
+
+            if (IsCultureMatch(candidates, _languageDefaults.ChineseCultures))
+            {
+                return PickAvailableCulture(_languageDefaults.ChineseCultures, "zh-CN");
+            }
+
+            if (IsCultureMatch(candidates, _languageDefaults.EnglishCultures))
+            {
+                return PickAvailableCulture(_languageDefaults.EnglishCultures, "en-US");
+            }
+
+            if (!string.IsNullOrWhiteSpace(_languageDefaults.DefaultCulture))
+            {
+                return PickAvailableCulture(new[] { _languageDefaults.DefaultCulture }, _languageDefaults.DefaultCulture);
+            }
+
+            return AvailableLanguages.FirstOrDefault()?.Culture ?? "en-US";
+        }
+
+        private static HashSet<string> BuildCultureCandidates(CultureInfo culture)
+        {
+            var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddCandidate(string? value)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    candidates.Add(value);
+                }
+            }
+
+            AddCandidate(culture.Name);
+            AddCandidate(culture.Parent?.Name);
+            AddCandidate(culture.TwoLetterISOLanguageName);
+
+            return candidates;
+        }
+
+        private static bool IsCultureMatch(HashSet<string> candidates, string[]? configuredCultures)
+        {
+            if (configuredCultures == null || configuredCultures.Length == 0)
+            {
+                return false;
+            }
+
+            foreach (var configured in configuredCultures)
+            {
+                if (string.IsNullOrWhiteSpace(configured))
+                {
+                    continue;
+                }
+
+                if (candidates.Contains(configured))
+                {
+                    return true;
+                }
+
+                var shortCode = configured.Split('-')[0];
+                if (candidates.Contains(shortCode))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private string PickAvailableCulture(IEnumerable<string>? preferredCultures, string fallback)
+        {
+            if (preferredCultures != null)
+            {
+                foreach (var culture in preferredCultures)
+                {
+                    if (string.IsNullOrWhiteSpace(culture))
+                    {
+                        continue;
+                    }
+
+                    if (IsLanguageAvailable(culture))
+                    {
+                        return culture;
+                    }
+                }
+            }
+
+            if (IsLanguageAvailable(fallback))
+            {
+                return fallback;
+            }
+
+            return AvailableLanguages.FirstOrDefault()?.Culture ?? fallback;
+        }
+
+        private bool IsLanguageAvailable(string culture) =>
+            AvailableLanguages.Any(l => l.Culture.Equals(culture, StringComparison.OrdinalIgnoreCase));
 
         public string GetCurrentCulture() => _currentCultureName;
 

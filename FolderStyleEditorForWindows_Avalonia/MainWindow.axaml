@@ -63,7 +63,7 @@
                 CornerRadius="999"
                 Padding="16,8"
                 IsHitTestVisible="False">
-            <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Drag_ReleaseToApply]}" Foreground="{StaticResource Fg2Brush}" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Drag_ReleaseToApply]}" Foreground="{StaticResource Fg2Brush}"/>
         </Border>
 
         <!-- Drag Adorner -->
@@ -120,11 +120,15 @@
         </Popup>
 
         <!-- Debug Overlay -->
-        <Canvas>
-            <views:DebugOverlay DataContext="{Binding DebugOverlay}"
-                                Canvas.Left="10"
-                                Canvas.Bottom="10"
-                                ZIndex="9999"/>
-        </Canvas>
+        <Border HorizontalAlignment="Left"
+                VerticalAlignment="Bottom"
+                Margin="12"
+                ZIndex="9000"
+                IsHitTestVisible="False"
+                MinWidth="32"
+                MinHeight="32"
+                IsVisible="{Binding DebugOverlay.IsEnabled}">
+            <views:DebugOverlay DataContext="{Binding DebugOverlay}"/>
+        </Border>
    </Grid>
 </Window>
