@@ -7,6 +7,7 @@
         xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
         xmlns:services="using:FolderStyleEditorForWindows.Services"
         xmlns:controls="using:FolderStyleEditorForWindows.Controls"
+        xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
         mc:Ignorable="d" d:DesignWidth="448" d:DesignHeight="816"
         x:Class="FolderStyleEditorForWindows.MainWindow"
         x:DataType="vm:MainViewModel"
@@ -95,19 +96,37 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-       <!-- Language Switch Button -->
-       <Button x:Name="LanguageButton" Classes="Btn BtnGhost"
-               VerticalAlignment="Bottom"
-               HorizontalAlignment="Right"
-               Margin="0,0,18,18"
-               Width="38" Height="38"
-               Click="LanguageButton_OnClick"
-               ZIndex="998">
-           <ToolTip.Tip>
-               <TextBlock Text="Language / 语言"/>
-           </ToolTip.Tip>
-            <controls:LanguagesIcon Foreground="{StaticResource Fg2Brush}" Width="20" Height="20" Opacity="0.6"/>
-       </Button>
+       <!-- Bottom Right Buttons -->
+       <StackPanel x:Name="ActionButtonsPanel"
+                   Orientation="Horizontal"
+                   VerticalAlignment="Bottom"
+                   HorizontalAlignment="Right"
+                   Margin="0,0,18,18"
+                   Spacing="10"
+                   ZIndex="998">
+           <!-- Pin Toggle Button -->
+           <Button x:Name="PinButton"
+                   Classes="Btn BtnGhost"
+                   Width="38" Height="38"
+                   Click="PinButton_OnClick">
+               <ToolTip.Tip>
+                   <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Pin_Tip_DoubleClickHint]}"/>
+               </ToolTip.Tip>
+               <svg:Svg Width="20" Height="20" Opacity="0.4"
+                        Path="{Binding Source={x:Static services:ConfigManager.Config}, Path=PinIcon.MainIcon}"
+                        Css="{DynamicResource SvgCss}" />
+           </Button>
+
+           <!-- Language Switch Button -->
+           <Button x:Name="LanguageButton" Classes="Btn BtnGhost"
+                   Width="38" Height="38"
+                   Click="LanguageButton_OnClick">
+               <ToolTip.Tip>
+                   <TextBlock Text="Language / 语言"/>
+               </ToolTip.Tip>
+               <controls:LanguagesIcon Foreground="{StaticResource Fg2Brush}" Width="20" Height="20" Opacity="0.6"/>
+           </Button>
+       </StackPanel>
 
         <!-- Language Popup Menu -->
         <Popup x:Name="LanguagePopup"

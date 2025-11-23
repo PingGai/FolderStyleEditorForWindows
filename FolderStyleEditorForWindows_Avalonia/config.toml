@@ -9,9 +9,9 @@ PinDoubleClickThreshold = 500
 [HoverIcon]
 
   # 主图标默认路径（当未匹配到任何特定规则时）
-  DefaultIcon = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/file.svg"
+  DefaultIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/file.svg"
   # 错误图标路径
-  ErrorIcon = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/ban.svg"
+  ErrorIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/ban.svg"
 
   # 支持的文件类型组
   [HoverIcon.FileTypes]
@@ -23,30 +23,30 @@ PinDoubleClickThreshold = 500
   # 主图标映射规则 (根据文件后缀)
   [[HoverIcon.MainIcons]]
   Extensions = ["exe", "dll"]
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/app-window.svg"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/app-window.svg"
 
   [[HoverIcon.MainIcons]]
   Extensions = ["ico"]
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/book-image.svg"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg"
 
   # 角标图标映射规则 (根据文件类型支持状态)
   [[HoverIcon.BadgeIcons]]
   Status = "Supported" 
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/check.svg"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/check.svg"
   
   [[HoverIcon.BadgeIcons]]
   Status = "SupportedToConvert"
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/archive-restore.svg"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/archive-restore.svg"
   
   [[HoverIcon.BadgeIcons]]
   Status = "Error"
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/ban.svg"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/ban.svg"
 
 # Pin 图标配置
 [PinIcon]
-  MainIcon = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/pin.svg"
+  MainIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
   # 用于诊断渲染问题的PNG图标路径
-  TestPngPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/PNG/test-pin.png"
+  TestPngPath = "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
   
   [[PinIcon.BadgeIcons]]
   State = "Ready" # 默认状态，显示角标 2
@@ -70,7 +70,7 @@ SvgDefaultColor = "#ff606064"
 
 [Debug]
 # 调试覆盖层的总开关
-EnableOverlay = true
+EnableOverlay = false
 # 是否为悬停图标显示背景色
 ShowHoverIconBackgroundColor = true
 # 调试层背景默认颜色

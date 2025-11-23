@@ -431,6 +431,16 @@ namespace FolderStyleEditorForWindows
             }
         }
         
+        private void PinButton_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            this.Topmost = !this.Topmost;
+            var toastService = App.Services!.GetRequiredService<IToastService>();
+            var message = this.Topmost ? LocalizationManager.Instance["Toast_WindowPinned"] : LocalizationManager.Instance["Toast_WindowUnpinned"];
+            toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
+            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            hoverIconService.ShowPinIcon("Success");
+        }
+        
         /// <summary>
         /// A/B testing method to isolate performance-heavy layers.
         /// Call this from the debugger's immediate window, e.g., ShowOnly("flow")

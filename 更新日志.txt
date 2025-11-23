@@ -1,3 +1,10 @@
+V0.1.8-beta.2 - 鼠标悬停icon - 更新前的提示 - 已更新
+    + 在主窗口右下角新增“置顶切换”按钮（位于语言切换按钮左侧），点击切换窗口置顶状态；保留双击空白处置顶功能并提供悬停提示。
+    + 新增并接入 i18n：`Pin_Tip_DoubleClickHint`（中/英）。
+    + 使用 SVG 渲染 Pin 图标，路径来自配置 `PinIcon.MainIcon`；样式参考语言切换图标（Ghost）。
+    + 默认关闭 Debug 覆盖层（[Debug].EnableOverlay=false）。
+    + 通过 dotnet build 验证，支持脚本打包（build/build.ps1）。
+
 V0.1.8-beta.1 - 调试功能与SVG渲染修复 - 已更新
     + 新增了一个全局调试覆盖层 (`DebugOverlay`)，用于在界面上显示实时的调试信息。
     + 在 `config.toml` 中增加了 `[Debug]` 配置部分，允许通过开关控制调试层的显示以及其中各个组件的可见性。
