@@ -14,8 +14,8 @@ desktop.ini
 《WindowsFolderStyleEditor》.txt
 history.json
 openspec/
-gpt-prompt.md
-AGENTS.md
+/gpt-prompt.md
+/AGENTS.md
 
 # Rider & ReSharper
 *.sln.DotSettings
