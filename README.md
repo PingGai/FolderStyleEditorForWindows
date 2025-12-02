@@ -8,7 +8,7 @@
     <img src="docs/images/FSM_Image.png" alt="FSM_Image" width="128"/>
     <br/>
     <br/>
-    <strong>[&nbsp;现代化的一个 Windows 文件夹样式编辑器&nbsp;]</strong>
+    <strong>[ 现代化的一个 Windows 文件夹样式编辑器 ]</strong>
 </div>
 <br/>
 <br/>
@@ -35,7 +35,6 @@
     <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/PingGai/FolderStyleEditorForWindows/total">
     <img alt="GitHub Downloads (all assets, latest release)" src="https://img.shields.io/github/downloads/PingGai/FolderStyleEditorForWindows/latest/total">
 </div>
-
 
 ---
 
@@ -89,13 +88,13 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 如果您想体验最新的功能，可以 Fork 本仓库，并利用 GitHub Actions 自行构建：
 
-1.  **Fork 仓库**: 点击本页面右上角的 "Fork" 按钮，将此仓库复制到您自己的 GitHub 账户下。
-2.  **启用 Actions**: 在您 Fork 的仓库页面，进入 "Settings" > "Actions" > "General"，选择 "Allow all actions and reusable workflows" 并保存。
-3.  **运行工作流**:
-    *   进入 "Actions" 标签页。
-    *   在左侧找到名为 "Build Application" 的工作流，并点击它。
-    *   点击 "Run workflow" 下拉框，然后再次点击绿色的 "Run workflow" 按钮。
-4.  **下载产物**: 等待工作流运行完毕后，在工作流的 "Summary" 页面找到名为 "FolderStyleEditorForWindows-Executables" 的构建产物 (Artifacts)，点击下载即可。
+1. **Fork 仓库**: 点击本页面右上角的 "Fork" 按钮，将此仓库复制到您自己的 GitHub 账户下。
+2. **启用 Actions**: 在您 Fork 的仓库页面，进入 "Settings" > "Actions" > "General"，选择 "Allow all actions and reusable workflows" 并保存。
+3. **运行工作流**:
+   * 进入 "Actions" 标签页。
+   * 在左侧找到名为 "Build Application" 的工作流，并点击它。
+   * 点击 "Run workflow" 下拉框，然后再次点击绿色的 "Run workflow" 按钮。
+4. **下载产物**: 等待工作流运行完毕后，在工作流的 "Summary" 页面找到名为 "FolderStyleEditorForWindows-Executables" 的构建产物 (Artifacts)，点击下载即可。
 
 #### 方式三：本地手动构建
 
@@ -110,6 +109,7 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
    # 构建所有支持的版本 (x64 和 x86)
    .\build\build.ps1
    ```
+
    构建成功后，应用将输出到 `publish/` 目录下，并根据 `build/version.txt` 的内容自动命名。
 
 #### 其他方式：使用 Visual Studio
@@ -165,7 +165,7 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 ## 技术概述
 
-本项目采用 C# 和 .NET 9.0 开发，界面使用 Avalonia UI 框架构建，并遵循 MVVM 设计模式。通过这种架构，实现了模块化的代码结构、响应式的用户界面和高效的数据绑定。
+本项目采用 C# 和 .NET 9.0 开发，界面使用 Avalonia UI 框架构建，并遵循 MVVM 设计模式。通过这种架构，实现了模块化的代码结构高效的数据绑定。
 
 ## 项目性质
 
@@ -184,4 +184,4 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 ## 许可证
 
-本项目遵循 [MIT 许可证](LICENSE)。第三方库的许可证信息请查阅 [`LICENSES/`](LICENSES/) 目录。
+本项目遵循 [MIT 许可证](LICENSE)。第三方库的许可证信息请查阅[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) 与 [`LICENSES/`](LICENSES/) 目录。

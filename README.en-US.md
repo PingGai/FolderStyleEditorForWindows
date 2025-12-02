@@ -159,7 +159,7 @@ If you prefer to build the application yourself, you can use the `build.ps1` scr
 
 ## Technical Overview
 
-This project is developed using C# and .NET 9.0, with the interface built using the Avalonia UI framework, and follows the MVVM design pattern. This architecture achieves a modular code structure, a responsive user interface, and efficient data binding.
+This project is developed using C# and .NET 9.0, with the interface built using the Avalonia UI framework, and follows the MVVM design pattern. This architecture achieves a modular code structure and efficient data binding.
 
 ## Project Nature
 
@@ -177,4 +177,4 @@ If you are not opposed to the nature of this project, you are welcome to contrib
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). For license information of third-party libraries, please refer to the [`LICENSES/`](LICENSES/) directory.
+This project is licensed under the [MIT License](LICENSE). For license information of third-party libraries, please refer to the [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and [`LICENSES/`](LICENSES/) directory.
