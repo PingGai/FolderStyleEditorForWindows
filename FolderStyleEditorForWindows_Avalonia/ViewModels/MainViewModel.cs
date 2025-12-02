@@ -22,6 +22,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly IconFinderService _iconFinderService;
         private readonly IToastService _toastService;
         private readonly HoverIconService _hoverIconService;
+        private readonly InterruptDialogService _interruptDialogService;
         private List<string> _foundIconPaths = new List<string>();
         private int _currentIconIndex = -1;
         private bool _isFindingIcons = false;
@@ -301,6 +302,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         public ObservableCollection<ToastViewModel> Toasts => ((ToastService)_toastService).Toasts;
         public HoverIconViewModel HoverIcon => _hoverIconService.ViewModel;
         public DebugOverlayViewModel DebugOverlay { get; }
+        public InterruptDialogState InterruptDialog => _interruptDialogService.State;
         
         public void StartEditSession(string folderPath, string? iconSourcePath = null)
         {
@@ -323,16 +325,17 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
  
         [SupportedOSPlatform("windows")]
-        public MainViewModel(IToastService toastService, HoverIconService hoverIconService)
+        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService)
         {
             _iconFinderService = new IconFinderService();
             _toastService = toastService;
             _hoverIconService = hoverIconService;
+            _interruptDialogService = interruptDialogService;
             DebugOverlay = new DebugOverlayViewModel(ConfigManager.Config, HoverIcon);
             
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(OpenFromHistory);
-            ClearHistoryCommand = new RelayCommand(ClearHistory);
+            ClearHistoryCommand = new RelayCommand(async () => await ConfirmClearHistoryAsync());
             AutoGetIconCommand = new RelayCommand(AutoGetIcon, () => !_isFindingIcons);
             LoadIconsCommand = new RelayCommand<string?>(async (filePath) => await LoadIconsFromFileAsync(filePath));
             GoHomeCommand = new RelayCommand(() => NavigateToHomeView?.Invoke());
@@ -392,7 +395,25 @@ namespace FolderStyleEditorForWindows.ViewModels
            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
        }
 
-       private void ClearHistory()
+       private async Task ConfirmClearHistoryAsync()
+       {
+           if (History.Count == 0) return;
+
+           var result = await _interruptDialogService.ShowAsync(new InterruptDialogOptions
+           {
+               Title = LocalizationManager.Instance["Dialog_ClearHistory_Title"],
+               Content = LocalizationManager.Instance["Dialog_ClearHistory_Content"],
+               PrimaryButtonText = LocalizationManager.Instance["Dialog_Primary_Confirm"],
+               SecondaryButtonText = LocalizationManager.Instance["Dialog_Secondary_Cancel"]
+           });
+
+           if (result == InterruptDialogResult.Primary)
+           {
+               ClearHistoryInternal();
+           }
+       }
+
+       private void ClearHistoryInternal()
        {
            History.Clear();
            if (File.Exists(HistoryFilePath))

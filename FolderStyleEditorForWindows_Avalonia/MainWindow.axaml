@@ -148,5 +148,7 @@
                 IsVisible="{Binding DebugOverlay.IsEnabled}">
             <views:DebugOverlay DataContext="{Binding DebugOverlay}"/>
         </Border>
+
+        <views:InterruptDialog DataContext="{Binding InterruptDialog}" ZIndex="12000"/>
    </Grid>
 </Window>

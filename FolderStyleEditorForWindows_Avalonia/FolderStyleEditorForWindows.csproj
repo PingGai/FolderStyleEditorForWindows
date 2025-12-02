@@ -96,6 +96,11 @@
     <AvaloniaResource Include="Resources\PNG\**" />
   </ItemGroup>
 
+  <!-- 确保 XAML 以 AvaloniaResource 方式编译（使用已有通配符，避免重复添加） -->
+  <ItemGroup>
+    <AvaloniaResource Update="**\*.axaml" />
+  </ItemGroup>
+
   <!-- 发行物携带：主 LICENSE、第三方清单、/licenses、README（都在上一级目录） -->
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />

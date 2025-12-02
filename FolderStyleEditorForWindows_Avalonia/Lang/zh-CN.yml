@@ -1,4 +1,4 @@
-LanguageName: "简体中文 (zh-CN)"
+﻿LanguageName: "简体中文 (zh-CN)"
 # HomeView
 Home_DragZone_Part1: "将"
 Home_DragZone_Part2: "文件夹"
@@ -38,3 +38,9 @@ Toast_WindowPinned: "窗口已置顶"
 Toast_WindowUnpinned: "窗口已取消置顶"
 Pin_Tip_DoubleClickHint: "双击空白处也可以置顶"
 Error_AdminRequired: "需要管理员权限"
+
+# Dialog
+Dialog_ClearHistory_Title: "清除历史"
+Dialog_ClearHistory_Content: "你的历史记录将被清除，你确定吗？"
+Dialog_Primary_Confirm: "确认"
+Dialog_Secondary_Cancel: "取消"

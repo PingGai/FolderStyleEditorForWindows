@@ -16,6 +16,7 @@
             <vc:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
             <vc:PathDisplayConverter x:Key="PathDisplayConverter"/>
             <vc:FolderNameConverter x:Key="FolderNameConverter"/>
+            <vc:DialogButtonWidthConverter x:Key="DialogButtonWidthConverter"/>
 
             <!-- Brushes -->
             <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource Accent}" Opacity="0.2"/>

@@ -16,12 +16,16 @@
         <DockPanel Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto" Margin="12,0">
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                   <Button Name="btnMin" Classes="TitleBarButton TitleBarButtonHover">
-                       <Path Data="{StaticResource MinimizeIcon}"/>
-                   </Button>
-                   <Button Name="btnClose" Classes="TitleBarButton TitleBarButtonHover">
-                       <Path Data="{StaticResource CloseIcon}"/>
-                   </Button>
+                   <Border Width="38" Height="28" CornerRadius="10" Background="Transparent" BoxShadow="{StaticResource Shadow1}" Padding="0" VerticalAlignment="Center">
+                       <Button Name="btnMin" Classes="TitleBarButton TitleBarButtonHover" Padding="0" Width="38" Height="28">
+                           <Path Data="{StaticResource MinimizeIcon}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,4,12"/>
+                       </Button>
+                   </Border>
+                   <Border Width="38" Height="28" CornerRadius="10" Background="Transparent" BoxShadow="{StaticResource Shadow1}" Padding="0" VerticalAlignment="Center">
+                       <Button Name="btnClose" Classes="TitleBarButton TitleBarButtonHover" Padding="0" Width="38" Height="28">
+                           <Path Data="{StaticResource CloseIcon}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,5,4.6"/>
+                       </Button>
+                   </Border>
                 </StackPanel>
             </Grid>
         </DockPanel>

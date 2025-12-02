@@ -25,6 +25,7 @@ public partial class App : Application
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<HoverIconViewModel>();
         services.AddSingleton<HoverIconService>();
+        services.AddSingleton<InterruptDialogService>();
         services.AddSingleton<MainViewModel>();
         Services = services.BuildServiceProvider();
         

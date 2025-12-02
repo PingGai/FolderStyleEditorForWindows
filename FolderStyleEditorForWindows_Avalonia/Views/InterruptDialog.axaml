@@ -1,0 +1,177 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:services="using:FolderStyleEditorForWindows.Services"
+             x:Class="FolderStyleEditorForWindows.Views.InterruptDialog"
+             x:DataType="services:InterruptDialogState"
+             ZIndex="12000"
+             IsHitTestVisible="{Binding IsHitTestVisible}">
+  <Grid x:Name="OverlayRoot"
+        Opacity="{Binding OverlayOpacity}"
+        IsHitTestVisible="{Binding IsHitTestVisible}">
+    <Grid.Transitions>
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18"/>
+      </Transitions>
+    </Grid.Transitions>
+
+    <Border Background="Transparent"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+      <Border.Transitions>
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.18"/>
+        </Transitions>
+      </Border.Transitions>
+    </Border>
+
+    <Grid x:Name="DialogHost"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          RenderTransformOrigin="0.5,0.5">
+      <Grid.Width>
+        <Binding RelativeSource="{RelativeSource AncestorType=Window}"
+                 Path="Bounds.Width"
+                 Converter="{StaticResource MathConverter}"
+                 ConverterParameter="@VALUE*0.7"/>
+      </Grid.Width>
+      <Grid.MaxHeight>
+        <Binding RelativeSource="{RelativeSource AncestorType=Window}"
+                 Path="Bounds.Height"
+                 Converter="{StaticResource MathConverter}"
+                 ConverterParameter="@VALUE*0.7"/>
+      </Grid.MaxHeight>
+      <Grid.RenderTransform>
+        <TransformGroup>
+          <ScaleTransform ScaleX="{Binding CardScale}" ScaleY="{Binding CardScale}">
+            <ScaleTransform.Transitions>
+              <Transitions>
+                <DoubleTransition Property="ScaleX" Duration="0:0:0.22" Easing="CubicEaseOut"/>
+                <DoubleTransition Property="ScaleY" Duration="0:0:0.22" Easing="CubicEaseOut"/>
+              </Transitions>
+            </ScaleTransform.Transitions>
+          </ScaleTransform>
+          <TranslateTransform X="{Binding CardOffsetX}">
+            <TranslateTransform.Transitions>
+              <Transitions>
+                <DoubleTransition Property="X" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+              </Transitions>
+            </TranslateTransform.Transitions>
+          </TranslateTransform>
+        </TransformGroup>
+      </Grid.RenderTransform>
+
+      <Border x:Name="DialogCard"
+              Background="{StaticResource GlassStrongBrush}"
+              BorderBrush="{StaticResource LineBrush}"
+              BorderThickness="1"
+              CornerRadius="14"
+              Padding="26,28,26,24"
+              BoxShadow="{StaticResource Shadow2}"
+              Opacity="{Binding CardOpacity}"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Center">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+          </Transitions>
+        </Border.Transitions>
+
+        <Grid RowDefinitions="Auto,*,Auto,Auto">
+        <Border Grid.RowSpan="4"
+                VerticalAlignment="Bottom"
+                Height="120"
+                IsHitTestVisible="False"
+                Margin="-20,-20,-20,-20">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+              <GradientStop Color="#B8FFFFFF" Offset="0"/>
+              <GradientStop Color="#70FFFFFF" Offset="0.55"/>
+              <GradientStop Color="#00FFFFFF" Offset="1"/>
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+
+        <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,6">
+            <TextBlock Text="{Binding Title}"
+                       FontSize="18"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource Fg1Brush}"
+                       Opacity="0.92"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1"
+                      Margin="0,6,0,6"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+          <TextBlock Text="{Binding Content}"
+                     FontSize="14"
+                     Foreground="{StaticResource Fg2Brush}"
+                     TextWrapping="Wrap"/>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2"
+                    Spacing="8"
+                    IsVisible="{Binding ShowProgress}">
+          <ProgressBar IsIndeterminate="{Binding IsProgressIndeterminate}"
+                       Value="{Binding ProgressValue}"
+                       Height="8"
+                       CornerRadius="8"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3"
+                    Margin="0,14,0,0"
+                    Spacing="12">
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Center"
+                      Spacing="12">
+            <Button Classes="Btn BtnPill"
+                    Background="{Binding PrimaryBackground}"
+                    Foreground="{Binding PrimaryForeground}"
+                    BorderBrush="{Binding PrimaryBorderBrush}"
+                    BorderThickness="{Binding PrimaryBorderThickness}"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    MinWidth="110"
+                    Opacity="0.75"
+                    Command="{Binding ConfirmCommand}">
+              <Button.Width>
+                <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
+                  <Binding ElementName="DialogCard" Path="Bounds.Width"/>
+                  <Binding Path="HasSecondaryButton"/>
+                </MultiBinding>
+              </Button.Width>
+              <TextBlock Text="{Binding PrimaryButtonText}"
+                         FontWeight="SemiBold"
+                         HorizontalAlignment="Center"/>
+            </Button>
+
+            <Button Classes="Btn BtnPill BtnGhost"
+                    BorderBrush="{Binding SecondaryBorderBrush}"
+                    Foreground="{Binding SecondaryForeground}"
+                    Background="{Binding SecondaryBackground}"
+                    BorderThickness="{Binding SecondaryBorderThickness}"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    MinWidth="110"
+                    Opacity="0.75"
+                    Command="{Binding CancelCommand}"
+                    IsVisible="{Binding HasSecondaryButton}">
+              <Button.Width>
+                <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
+                  <Binding ElementName="DialogCard" Path="Bounds.Width"/>
+                  <Binding Path="HasSecondaryButton"/>
+                </MultiBinding>
+              </Button.Width>
+              <TextBlock Text="{Binding SecondaryButtonText}"
+                         FontWeight="SemiBold"
+                         HorizontalAlignment="Center"/>
+            </Button>
+          </StackPanel>
+        </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>
