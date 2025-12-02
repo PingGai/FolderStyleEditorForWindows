@@ -81,6 +81,7 @@ namespace FolderStyleEditorForWindows.Views
             {
                 aliasInput.GotFocus += AliasInput_GotFocus;
                 aliasInput.LostFocus += AliasInput_LostFocus;
+                aliasInput.KeyDown += AliasInput_KeyDown;
             }
             
             var iconInput = this.FindControl<TextBox>("iconInput");
@@ -111,6 +112,18 @@ namespace FolderStyleEditorForWindows.Views
             if (DataContext is ViewModels.MainViewModel vm)
             {
                 vm.RestoreDefaultIconIfNeeded();
+            }
+        }
+
+        private void AliasInput_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                if (DataContext is ViewModels.MainViewModel vm && vm.SaveCommand.CanExecute(null))
+                {
+                    vm.SaveCommand.Execute(null);
+                    e.Handled = true;
+                }
             }
         }
  

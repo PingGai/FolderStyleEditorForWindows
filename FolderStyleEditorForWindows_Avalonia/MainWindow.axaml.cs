@@ -139,6 +139,17 @@ namespace FolderStyleEditorForWindows
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
+
+            if (e.Key == Key.F2 && _editView?.IsVisible == true)
+            {
+                var aliasInput = _editView.FindControl<TextBox>("aliasInput");
+                if (aliasInput != null)
+                {
+                    aliasInput.Focus();
+                    aliasInput.SelectAll();
+                    e.Handled = true;
+                }
+            }
         }
 
         protected override void OnPointerMoved(PointerEventArgs e)

@@ -33,7 +33,8 @@ namespace FolderStyleEditorForWindows.ViewModels
             [SupportedOSPlatform("windows")]
             set
             {
-                if (_folderPath == value) return;
+                // Always reload, even if the path is the same. This ensures that
+                // re-entering the edit view from history correctly reloads folder settings.
                 _folderPath = value;
                 OnPropertyChanged();
                 LoadFolderSettings();
@@ -74,7 +75,14 @@ namespace FolderStyleEditorForWindows.ViewModels
             get => _iconPath;
             set
             {
-                if (_iconPath == value) return;
+                // If the path is the same and the icon list is already populated, do nothing.
+                // This forces a reload if the list is empty, fixing the issue where icons
+                // wouldn't load when re-entering the edit view from history for the same item.
+                if (_iconPath == value && Icons.Any())
+                {
+                    return;
+                }
+
                 _iconPath = value;
                 OnPropertyChanged();
                 if (LoadIconsCommand.CanExecute(_iconPath))
@@ -460,6 +468,11 @@ namespace FolderStyleEditorForWindows.ViewModels
            var fileName = parts.Length > 0 ? parts[0].Trim() : "";
            int.TryParse(parts.Length > 1 ? parts[1].Trim() : "-1", out int selectedIndex);
  
+           if (!string.IsNullOrEmpty(fileName))
+           {
+               fileName = Environment.ExpandEnvironmentVariables(fileName);
+           }
+           
            if (string.IsNullOrEmpty(fileName))
            {
                fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll");
