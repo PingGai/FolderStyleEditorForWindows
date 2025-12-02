@@ -69,7 +69,7 @@ foreach ($rid in $rids) {
     dotnet publish $ProjPath `
         -c $Configuration `
         -r $rid `
-        --no-restore `                     # ✅ 关键：依赖由外部提前 restore
+        --no-restore `
         --self-contained true `
         -p:PublishSingleFile=true `
         -p:IncludeNativeLibrariesForSelfExtract=true `
