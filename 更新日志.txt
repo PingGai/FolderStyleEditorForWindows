@@ -1,5 +1,0 @@
-V0.1.9-rev.2 - 置顶指示器 - 2025-12-02
-+ feat: 置顶按钮现在会根据窗口的置顶状态在 pin.svg 和 pin-off.svg 之间切换图标。
-+ feat: 无论是通过点击按钮还是双击窗口空白处，按钮图标都能与置顶状态保持同步。
-+ chore: 扩展了 config.toml 中的 [PinIcon] 配置，增加了 PinnedIcon 和 UnpinnedIcon 字段来分别管理两种状态下的图标路径。
-+ chore: 移除了已废弃的悬停图标（HoverIcon）相关逻辑，以反映项目当前状态。
