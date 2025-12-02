@@ -101,10 +101,12 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 如果您想自行构建，可以使用项目根目录 `build/` 下的 `build.ps1` 脚本。该脚本会自动处理依赖，并将应用打包为带版本号的单个可执行文件。
 
 1. **确保环境**:
+
    * 安装 [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)。
    * Windows PowerShell 5.1 或 PowerShell 7+。
 2. **执行脚本**:
    打开 PowerShell 终端，并运行以下命令：
+
    ```powershell
    # 构建所有支持的版本 (x64 和 x86)
    .\build\build.ps1
@@ -213,3 +215,7 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 ## 许可证
 
 本项目遵循 [MIT 许可证](LICENSE)。第三方库的许可证信息请查阅[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) 与 [`LICENSES/`](LICENSES/) 目录。
+
+## Stars - 如果你喜欢，来为这个项目添加星标吧！
+
+[![Star History Chart](https://api.star-history.com/svg?repos=PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)](https://www.star-history.com/#PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)

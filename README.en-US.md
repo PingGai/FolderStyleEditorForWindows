@@ -205,3 +205,7 @@ If you are not opposed to the nature of this project, you are welcome to contrib
 ## License
 
 This project is licensed under the [MIT License](LICENSE). For license information of third-party libraries, please refer to the [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and [`LICENSES/`](LICENSES/) directory.
+
+## Stars — Support this project with a star if you like it!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)](https://www.star-history.com/#PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)
