@@ -31,6 +31,11 @@
       <img alt="Last commit" src="https://img.shields.io/github/last-commit/PingGai/FolderStyleEditorForWindows">
     </a>
 </div>
+<div align="center">
+    <img alt="GitHub Downloads (all assets, all releases)" src="https://img.shields.io/github/downloads/PingGai/FolderStyleEditorForWindows/total">
+    <img alt="GitHub Downloads (all assets, latest release)" src="https://img.shields.io/github/downloads/PingGai/FolderStyleEditorForWindows/latest/total">
+</div>
+
 
 ---
 
