@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-          # cache: true 这里先不要用，避免锁文件报错
+          # 这里先不启用 cache:true，避免要求 packages.lock.json
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -33,8 +33,8 @@ jobs:
         run: dotnet restore
         shell: pwsh
 
-      - name: Build with PowerShell script
-        run: ./build/build.ps1 -Runtime all -Configuration Release
+      - name: Build with PowerShell script for CI
+        run: ./build/build_for_ci.ps1 -Runtime all -Configuration Release
         shell: pwsh
 
       - name: Prepare Artifacts for Upload
