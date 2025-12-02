@@ -68,6 +68,10 @@
    <Application.Styles>
        <FluentTheme />
        <StyleInclude Source="avares://FolderStyleEditorForWindows/Styles/ControlThemes.axaml"/>
+       <Style Selector="ToolTip">
+           <Setter Property="Placement" Value="Pointer"/>
+           <Setter Property="ShowDelay" Value="200"/>
+       </Style>
        <Style Selector="Svg">
            <Setter Property="Opacity" Value="{DynamicResource SvgOpacityValue}"/>
            <Setter Property="OpacityMask" Value="{DynamicResource SvgOpacityMaskBrush}"/>

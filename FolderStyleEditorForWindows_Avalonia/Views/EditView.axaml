@@ -51,7 +51,7 @@
         </DockPanel>
 
         <!-- Main Scrollable Content -->
-     <ScrollViewer Margin="0,54,0,0">
+     <ScrollViewer Margin="0,54,0,0" Name="editScrollViewer">
          <i:Interaction.Behaviors>
              <ia:VerticalScrollViewerAnimatedBehavior/>
          </i:Interaction.Behaviors>
@@ -146,13 +146,53 @@
                            <Button Name="btnAutoGetIcon" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Icon_AutoGet]}" Classes="Btn" Grid.Column="1" Command="{Binding AutoGetIconCommand}"/>
                            
                            <!-- 新增的、用于显示 "1/5" 这种计数的文本 -->
-                           <TextBlock Text="{Binding IconCounterText}"
-                                      IsVisible="{Binding IsIconCounterVisible}"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Right"
-                                      Grid.Column="2"
-                                      Foreground="{StaticResource Fg2Brush}"
-                                      FontWeight="SemiBold"/>
+                           <StackPanel Grid.Column="2"
+                                       Orientation="Horizontal"
+                                       Spacing="4"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding IsIconCounterVisible}">
+                               <Border Name="iconCounterHost"
+                                       Padding="4,0"
+                                       Background="Transparent"
+                                       ToolTip.Tip="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}">
+                                   <Grid>
+                                       <TextBlock Name="iconCounterDisplay"
+                                                  Text="{Binding IconCounterNumerator}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Fg2Brush}"
+                                                   FontWeight="SemiBold"
+                                                   Cursor="Hand"
+                                                   RenderTransformOrigin="0.5,0.5">
+                                           <TextBlock.RenderTransform>
+                                               <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                           </TextBlock.RenderTransform>
+                                           <ToolTip.Tip>
+                                               <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}"/>
+                                           </ToolTip.Tip>
+                                       </TextBlock>
+                                       <TextBox Name="iconCounterInput"
+                                                Text="{Binding IconCounterNumerator}"
+                                                IsVisible="False"
+                                                MinWidth="28"
+                                                MaxWidth="48"
+                                                Padding="0"
+                                                BorderThickness="0"
+                                                Background="Transparent"
+                                                HorizontalContentAlignment="Center"
+                                                VerticalContentAlignment="Center"
+                                                ToolTip.Tip="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}"
+                                                FontWeight="SemiBold"/>
+                                   </Grid>
+                               </Border>
+                               <TextBlock Text="/"
+                                          VerticalAlignment="Center"
+                                          Foreground="{StaticResource Fg2Brush}"
+                                          FontWeight="SemiBold"/>
+                               <TextBlock Text="{Binding IconCounterDenominator}"
+                                          VerticalAlignment="Center"
+                                          Foreground="{StaticResource Fg2Brush}"
+                                          FontWeight="SemiBold"/>
+                           </StackPanel>
                        </Grid>
                     </StackPanel>
                 </Border>

@@ -36,7 +36,18 @@ namespace FolderStyleEditorForWindows
                 IconPath = _viewModel.IconPath
             };
             var json = JsonConvert.SerializeObject(state, Formatting.Indented);
-            File.WriteAllText(_tempFilePath, json);
+            try
+            {
+                File.WriteAllText(_tempFilePath, json);
+            }
+            catch (IOException)
+            {
+                // If the temp file is locked by another process, skip this save to keep UI alive.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Skip silently; session restore is non-critical.
+            }
         }
 
         [SupportedOSPlatform("windows")]

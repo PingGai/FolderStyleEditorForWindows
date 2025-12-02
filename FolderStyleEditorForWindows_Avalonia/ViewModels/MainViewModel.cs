@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
 using System.Security;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
@@ -25,7 +26,10 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly InterruptDialogService _interruptDialogService;
         private List<string> _foundIconPaths = new List<string>();
         private int _currentIconIndex = -1;
-        private bool _isFindingIcons = false;
+        private bool _isScanningIcons = false;
+        private bool _iconScanCompleted = false;
+        private CancellationTokenSource? _iconScanCts;
+        private string? _pendingIconPath = null;
 
         private string _folderPath = "";
         public string FolderPath
@@ -86,10 +90,7 @@ namespace FolderStyleEditorForWindows.ViewModels
 
                 _iconPath = value;
                 OnPropertyChanged();
-                if (LoadIconsCommand.CanExecute(_iconPath))
-                {
-                    LoadIconsCommand.Execute(_iconPath);
-                }
+                QueueIconLoad(_iconPath);
             }
         }
 
@@ -126,6 +127,20 @@ namespace FolderStyleEditorForWindows.ViewModels
         {
             get => _iconCounterText;
             set { if (_iconCounterText == value) return; _iconCounterText = value; OnPropertyChanged(); }
+        }
+
+        private string _iconCounterNumerator = "0";
+        public string IconCounterNumerator
+        {
+            get => _iconCounterNumerator;
+            set { if (_iconCounterNumerator == value) return; _iconCounterNumerator = value; OnPropertyChanged(); }
+        }
+
+        private string _iconCounterDenominator = "???";
+        public string IconCounterDenominator
+        {
+            get => _iconCounterDenominator;
+            set { if (_iconCounterDenominator == value) return; _iconCounterDenominator = value; OnPropertyChanged(); }
         }
 
         private bool _isIconCounterVisible;
@@ -188,10 +203,15 @@ namespace FolderStyleEditorForWindows.ViewModels
         [SupportedOSPlatform("windows")]
         private void LoadFolderSettings()
         {
+            CancelIconScan();
             _foundIconPaths.Clear();
             _currentIconIndex = -1;
-            IsIconCounterVisible = false;
+            _iconScanCompleted = false;
+            _isScanningIcons = false;
+            IconCounterNumerator = "0";
+            IconCounterDenominator = "???";
             IconCounterText = "";
+            IsIconCounterVisible = false;
 
             var settings = new FolderSettings(FolderPath);
             Alias = settings.Alias;
@@ -215,7 +235,7 @@ namespace FolderStyleEditorForWindows.ViewModels
 
             if (string.IsNullOrEmpty(IconPath))
             {
-                // 使用默认的文件夹图标
+                // 浣跨敤榛樿鐨勬枃浠跺す鍥炬爣
                 IconPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll,4");
                 _ = LoadIconsFromFileAsync(IconPath);
             }
@@ -258,19 +278,19 @@ namespace FolderStyleEditorForWindows.ViewModels
                 
                 AddToHistory(FolderPath);
 
-                _toastService.Show("✔ " + LocalizationManager.Instance["Toast_SaveSuccess"]);
+                _toastService.Show("鉁?" + LocalizationManager.Instance["Toast_SaveSuccess"]);
             }
             catch (UnauthorizedAccessException)
             {
                 // TODO: Implement IPC with elevated helper process
                 // For now, we can show a message or try to restart as admin.
-                _toastService.Show("❌ " + LocalizationManager.Instance["Error_AdminRequired"],
+                _toastService.Show("鉂?" + LocalizationManager.Instance["Error_AdminRequired"],
                     new SolidColorBrush(Color.Parse("#EBB762")));
                 // UacHelper.RestartAsAdmin();
             }
             catch (Exception ex) when (ex is IOException || ex is SecurityException)
             {
-                _toastService.Show($"❌ {ex.Message}", new SolidColorBrush(Color.Parse("#EBB762")));
+                _toastService.Show($"鉂?{ex.Message}", new SolidColorBrush(Color.Parse("#EBB762")));
             }
 
             if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -314,8 +334,40 @@ namespace FolderStyleEditorForWindows.ViewModels
             NavigateToEditView?.Invoke(folderPath, iconSourcePath);
         }
 
+        private void QueueIconLoad(string path)
+        {
+            _pendingIconPath = path;
+            if (IsLoadingIcons)
+            {
+                return;
+            }
+            _ = StartNextIconLoadAsync();
+        }
+
+        private async Task StartNextIconLoadAsync()
+        {
+            var path = _pendingIconPath;
+            _pendingIconPath = null;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            if (LoadIconsCommand.CanExecute(path))
+            {
+                await LoadIconsFromFileAsync(path);
+            }
+
+            // 如果排队过程中又有新的请求，继续处理最新的
+            if (_pendingIconPath != null && !IsLoadingIcons)
+            {
+                await StartNextIconLoadAsync();
+            }
+        }
+
         public void ClearIconPreview()
         {
+            CancelIconScan();
             foreach (var icon in Icons)
             {
                 icon.Dispose();
@@ -336,7 +388,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(OpenFromHistory);
             ClearHistoryCommand = new RelayCommand(async () => await ConfirmClearHistoryAsync());
-            AutoGetIconCommand = new RelayCommand(AutoGetIcon, () => !_isFindingIcons);
+            AutoGetIconCommand = new RelayCommand(AutoGetIcon);
             LoadIconsCommand = new RelayCommand<string?>(async (filePath) => await LoadIconsFromFileAsync(filePath));
             GoHomeCommand = new RelayCommand(() => NavigateToHomeView?.Invoke());
             ResetIconCommand = new RelayCommand(ResetIcon);
@@ -395,6 +447,13 @@ namespace FolderStyleEditorForWindows.ViewModels
            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
        }
 
+       private void CancelIconScan()
+       {
+           _iconScanCts?.Cancel();
+           _iconScanCts = null;
+           _isScanningIcons = false;
+       }
+
        private async Task ConfirmClearHistoryAsync()
        {
            if (History.Count == 0) return;
@@ -446,45 +505,142 @@ namespace FolderStyleEditorForWindows.ViewModels
        [SupportedOSPlatform("windows")]
        private async void AutoGetIcon()
        {
-           if (_isFindingIcons) return;
- 
-           if (_foundIconPaths.Any())
+           try
            {
-               _currentIconIndex = (_currentIconIndex + 1) % _foundIconPaths.Count;
-               IconPath = _foundIconPaths[_currentIconIndex] + ",0";
-               IconCounterText = $"{_currentIconIndex + 1}/{_foundIconPaths.Count}";
+               if (_foundIconPaths.Any())
+               {
+                   if (_currentIconIndex < 0 && _foundIconPaths.Count > 0)
+                   {
+                       _currentIconIndex = 0;
+                   }
+                   MoveIconIndex(1, wrap: true);
+                   return;
+               }
+
+               StartProgressiveIconScan();
+
+               // 等待首个结果再跳转，避免空列表直接取模
+               var cts = _iconScanCts;
+               if (cts != null)
+               {
+                   await Task.Run(async () =>
+                   {
+                       var waitMs = 0;
+                       while (!_iconScanCompleted && !_foundIconPaths.Any() && !cts.IsCancellationRequested && waitMs < 3000)
+                       {
+                           await Task.Delay(100);
+                           waitMs += 100;
+                       }
+                   });
+                   if (_foundIconPaths.Any())
+                   {
+                       _currentIconIndex = 0;
+                       IconPath = _foundIconPaths[_currentIconIndex] + ",0";
+                   }
+                   else if (_iconScanCompleted)
+                   {
+                       UpdateIconCounterDisplay();
+                   }
+               }
+           }
+           catch (Exception ex)
+           {
+               Console.WriteLine($"AutoGetIcon failed: {ex.Message}");
+           }
+       }
+
+       public void MoveIconIndex(int delta, bool wrap = false)
+       {
+           var count = _foundIconPaths.Count;
+           if (count == 0)
+           {
+               UpdateIconCounterDisplay();
                return;
            }
 
-           _isFindingIcons = true;
-           ((RelayCommand)AutoGetIconCommand).RaiseCanExecuteChanged();
- 
-           try
+           if (_currentIconIndex < 0)
            {
-                _foundIconPaths = await _iconFinderService.FindIconsAsync(FolderPath);
-               if (_foundIconPaths.Any())
+               _currentIconIndex = wrap ? 0 : Math.Clamp(delta >= 0 ? 0 : count - 1, 0, count - 1);
+           }
+
+           if (wrap)
+           {
+               _currentIconIndex = ((_currentIconIndex + delta) % count + count) % count;
+           }
+           else
+           {
+               _currentIconIndex = Math.Clamp(_currentIconIndex + delta, 0, count - 1);
+           }
+           IconPath = _foundIconPaths[_currentIconIndex] + ",0";
+           UpdateIconCounterDisplay();
+       }
+
+       public void JumpToIconIndex(int target)
+       {
+           if (!_foundIconPaths.Any())
+           {
+               UpdateIconCounterDisplay();
+               return;
+           }
+           target = Math.Clamp(target - 1, 0, _foundIconPaths.Count - 1);
+           _currentIconIndex = target;
+           IconPath = _foundIconPaths[_currentIconIndex] + ",0";
+           UpdateIconCounterDisplay();
+       }
+
+       private void StartProgressiveIconScan()
+       {
+           _iconScanCts?.Cancel();
+           _iconScanCts = new CancellationTokenSource();
+           _isScanningIcons = true;
+           _iconScanCompleted = false;
+           _foundIconPaths.Clear();
+           _currentIconIndex = -1;
+           IsIconCounterVisible = true;
+           IconCounterNumerator = "0";
+           IconCounterDenominator = "???";
+           IconCounterText = "0/???";
+
+           var progress = new Progress<IconScanProgress>(p =>
+           {
+               _foundIconPaths = p.Found.Distinct().ToList();
+               _iconScanCompleted = p.IsCompleted;
+               if (_foundIconPaths.Any() && _currentIconIndex < 0)
                {
                    _currentIconIndex = 0;
                    IconPath = _foundIconPaths[_currentIconIndex] + ",0";
-                   IconCounterText = $"{_currentIconIndex + 1}/{_foundIconPaths.Count}";
-                   IsIconCounterVisible = true;
                }
-               else
-               {
-                   IconCounterText = "0/0";
-                   IsIconCounterVisible = true;
-               }
-           }
-           finally
+               UpdateIconCounterDisplay();
+           });
+
+           _ = Task.Run(async () =>
            {
-               _isFindingIcons = false;
-               ((RelayCommand)AutoGetIconCommand).RaiseCanExecuteChanged();
-           }
+               try
+               {
+                   await _iconFinderService.FindIconsIncrementalAsync(FolderPath, progress, _iconScanCts.Token);
+               }
+               catch (OperationCanceledException) { }
+               finally
+               {
+                   _isScanningIcons = false;
+                   UpdateIconCounterDisplay();
+               }
+           });
+       }
+
+       private void UpdateIconCounterDisplay()
+       {
+           var numerator = _foundIconPaths.Any() && _currentIconIndex >= 0 ? _currentIconIndex + 1 : 0;
+           IconCounterNumerator = numerator.ToString();
+           IconCounterDenominator = _iconScanCompleted ? _foundIconPaths.Count.ToString() : "???";
+           IconCounterText = $"{IconCounterNumerator}/{IconCounterDenominator}";
+           IsIconCounterVisible = _isScanningIcons || _foundIconPaths.Any() || _iconScanCompleted;
        }
    
        [SupportedOSPlatform("windows")]
        private async Task LoadIconsFromFileAsync(string? filePath)
        {
+           // 只允许串行加载，如果已有队列则由队列调用
            var parts = filePath?.Split(',') ?? Array.Empty<string>();
            var fileName = parts.Length > 0 ? parts[0].Trim() : "";
            int.TryParse(parts.Length > 1 ? parts[1].Trim() : "-1", out int selectedIndex);
@@ -497,10 +653,10 @@ namespace FolderStyleEditorForWindows.ViewModels
            if (string.IsNullOrEmpty(fileName))
            {
                fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll");
-               selectedIndex = 4; // 默认使用文件夹图标索引
+               selectedIndex = 4; // 榛樿浣跨敤鏂囦欢澶瑰浘鏍囩储寮?
            }
  
-           // 如果是相对路径，则将其转换为绝对路径
+           // 濡傛灉鏄浉瀵硅矾寰勶紝鍒欏皢鍏惰浆鎹负缁濆璺緞
            if (!Path.IsPathRooted(fileName) && !string.IsNullOrEmpty(FolderPath))
            {
                fileName = Path.GetFullPath(Path.Combine(FolderPath, fileName));
@@ -544,6 +700,10 @@ namespace FolderStyleEditorForWindows.ViewModels
            finally
            {
                IsLoadingIcons = false;
+               if (_pendingIconPath != null)
+               {
+                   await StartNextIconLoadAsync();
+               }
            }
        }
        
@@ -570,3 +730,5 @@ namespace FolderStyleEditorForWindows.ViewModels
        }
     }
 }
+
+

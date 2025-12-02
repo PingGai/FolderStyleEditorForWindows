@@ -27,6 +27,7 @@ Edit_Icon_AutoGet: "Auto Get Icon"
 Edit_Reset_Title: "Reset"
 Edit_Reset_ClearAll: "Clear All Styles"
 Edit_SaveButton: "Save"
+Edit_IconCounter_ScrollHint: "Scroll to change (click to edit)"
 
 # Shared
 Window_Title: "Windows Folder Style Editor"

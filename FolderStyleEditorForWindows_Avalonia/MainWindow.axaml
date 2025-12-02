@@ -108,7 +108,9 @@
            <Button x:Name="PinButton"
                    Classes="Btn BtnGhost"
                    Width="38" Height="38"
-                   Click="PinButton_OnClick">
+                   Click="PinButton_OnClick"
+                   ToolTip.Placement="Pointer"
+                   ToolTip.ShowDelay="150">
                <ToolTip.Tip>
                    <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Pin_Tip_DoubleClickHint]}"/>
                </ToolTip.Tip>
@@ -119,7 +121,9 @@
            <!-- Language Switch Button -->
            <Button x:Name="LanguageButton" Classes="Btn BtnGhost"
                    Width="38" Height="38"
-                   Click="LanguageButton_OnClick">
+                   Click="LanguageButton_OnClick"
+                   ToolTip.Placement="Pointer"
+                   ToolTip.ShowDelay="150">
                <ToolTip.Tip>
                    <TextBlock Text="Language / 语言"/>
                </ToolTip.Tip>

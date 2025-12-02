@@ -27,6 +27,7 @@ Edit_Icon_AutoGet: "自动获取图标"
 Edit_Reset_Title: "重置"
 Edit_Reset_ClearAll: "清除所有样式"
 Edit_SaveButton: "保存"
+Edit_IconCounter_ScrollHint: "滚轮滚动以增减（点击编辑）"
 
 # Shared
 Window_Title: "Windows Folder Style Editor"

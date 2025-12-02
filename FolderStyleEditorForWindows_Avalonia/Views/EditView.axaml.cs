@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.Media;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -89,6 +90,42 @@ namespace FolderStyleEditorForWindows.Views
             {
                 iconInput.LostFocus += IconInput_LostFocus;
             }
+
+            var iconCounterDisplay = this.FindControl<TextBlock>("iconCounterDisplay");
+            if (iconCounterDisplay != null)
+            {
+                iconCounterDisplay.PointerWheelChanged += IconCounterDisplay_PointerWheelChanged;
+                iconCounterDisplay.PointerPressed += IconCounterDisplay_PointerPressed;
+                iconCounterDisplay.PointerEntered += IconCounterDisplay_PointerEntered;
+                iconCounterDisplay.PointerExited += IconCounterDisplay_PointerExited;
+            }
+
+            var iconCounterHost = this.FindControl<Border>("iconCounterHost");
+            if (iconCounterHost != null)
+            {
+                iconCounterHost.AddHandler(PointerWheelChangedEvent, IconCounterDisplay_PointerWheelChanged, RoutingStrategies.Tunnel, handledEventsToo: true);
+                EnsureTooltipAlwaysShows(iconCounterHost);
+            }
+
+            var iconCounterInput = this.FindControl<TextBox>("iconCounterInput");
+            if (iconCounterInput != null)
+            {
+                iconCounterInput.PointerWheelChanged += IconCounterDisplay_PointerWheelChanged;
+                iconCounterInput.KeyDown += IconCounterInput_KeyDown;
+                iconCounterInput.LostFocus += IconCounterInput_LostFocus;
+            }
+
+            var editScrollViewer = this.FindControl<ScrollViewer>("editScrollViewer");
+            if (editScrollViewer != null && iconCounterHost != null)
+            {
+                editScrollViewer.AddHandler(PointerWheelChangedEvent, (sender, e) =>
+                {
+                    if (iconCounterHost.IsPointerOver)
+                    {
+                        e.Handled = true;
+                    }
+                }, RoutingStrategies.Tunnel, handledEventsToo: true);
+            }
         }
 
         private void AliasInput_GotFocus(object? sender, RoutedEventArgs e)
@@ -113,6 +150,88 @@ namespace FolderStyleEditorForWindows.Views
             {
                 vm.RestoreDefaultIconIfNeeded();
             }
+        }
+
+        private void IconCounterDisplay_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                var delta = e.Delta.Y > 0 ? -1 : 1;
+                vm.MoveIconIndex(delta, wrap: true);
+                e.Handled = true;
+            }
+        }
+
+        private void IconCounterDisplay_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                BeginIconCounterEdit(vm);
+                e.Handled = true;
+            }
+        }
+
+        private void IconCounterDisplay_PointerEntered(object? sender, PointerEventArgs e)
+        {
+            SetIconCounterScale(1.06);
+            var host = this.FindControl<Border>("iconCounterHost");
+            if (host != null && ToolTip.GetTip(host) != null)
+            {
+                ToolTip.SetIsOpen(host, true);
+            }
+        }
+
+        private void IconCounterDisplay_PointerExited(object? sender, PointerEventArgs e)
+        {
+            SetIconCounterScale(1.0);
+            var host = this.FindControl<Border>("iconCounterHost");
+            if (host != null)
+            {
+                ToolTip.SetIsOpen(host, false);
+            }
+        }
+
+        private void IconCounterInput_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && DataContext is ViewModels.MainViewModel vm)
+            {
+                CommitIconCounterInput(sender as TextBox, vm);
+                e.Handled = true;
+            }
+        }
+
+        private void IconCounterInput_LostFocus(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                CommitIconCounterInput(sender as TextBox, vm);
+            }
+        }
+
+        private void CommitIconCounterInput(TextBox? textBox, ViewModels.MainViewModel vm)
+        {
+            if (textBox == null)
+            {
+                EndIconCounterEdit();
+                return;
+            }
+            if (!vm.IsIconCounterVisible || !vm.IconCounterDenominator.Any(char.IsDigit))
+            {
+                textBox.Text = vm.IconCounterNumerator;
+                EndIconCounterEdit();
+                return;
+            }
+
+            if (int.TryParse(textBox.Text, out var value))
+            {
+                vm.JumpToIconIndex(value);
+            }
+            else
+            {
+                textBox.Text = vm.IconCounterNumerator;
+            }
+            EndIconCounterEdit();
         }
 
         private void AliasInput_KeyDown(object? sender, KeyEventArgs e)
@@ -224,6 +343,55 @@ namespace FolderStyleEditorForWindows.Views
                     Console.WriteLine($"Failed to open explorer: {ex.Message}");
                 }
             }
+        }
+
+        private void BeginIconCounterEdit(ViewModels.MainViewModel vm)
+        {
+            var display = this.FindControl<TextBlock>("iconCounterDisplay");
+            var input = this.FindControl<TextBox>("iconCounterInput");
+            if (display == null || input == null) return;
+
+            display.IsVisible = false;
+            input.IsVisible = true;
+            input.Text = vm.IconCounterNumerator;
+            input.CaretIndex = input.Text?.Length ?? 0;
+            input.Focus();
+            input.SelectAll();
+        }
+
+        private void EndIconCounterEdit()
+        {
+            var display = this.FindControl<TextBlock>("iconCounterDisplay");
+            var input = this.FindControl<TextBox>("iconCounterInput");
+            if (display == null || input == null) return;
+
+            input.IsVisible = false;
+            display.IsVisible = true;
+            SetIconCounterScale(1.0);
+        }
+
+        private void SetIconCounterScale(double scale)
+        {
+            var display = this.FindControl<TextBlock>("iconCounterDisplay");
+            if (display?.RenderTransform is ScaleTransform scaleTransform)
+            {
+                scaleTransform.ScaleX = scale;
+                scaleTransform.ScaleY = scale;
+            }
+        }
+
+        private void EnsureTooltipAlwaysShows(Control? control)
+        {
+            if (control == null) return;
+            control.PointerEntered += (s, e) =>
+            {
+                var tip = ToolTip.GetTip(control);
+                if (tip != null)
+                {
+                    ToolTip.SetIsOpen(control, true);
+                }
+            };
+            control.PointerExited += (s, e) => ToolTip.SetIsOpen(control, false);
         }
 
  }

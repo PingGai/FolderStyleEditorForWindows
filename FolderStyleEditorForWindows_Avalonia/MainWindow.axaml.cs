@@ -11,7 +11,6 @@ using Avalonia.Styling;
 using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
-using FolderStyleEditorForWindows.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Linq;
@@ -21,6 +20,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using FolderStyleEditorForWindows.ViewModels;
 using FolderStyleEditorForWindows.Views;
+using FolderStyleEditorForWindows.Services;
 
 namespace FolderStyleEditorForWindows
 {
@@ -37,6 +37,10 @@ namespace FolderStyleEditorForWindows
         private readonly DispatcherTimer _doubleClickTimer;
         private int _clickCount;
         private Avalonia.Svg.Skia.Svg? _pinButtonIcon;
+        private Button? _pinButton;
+        private Button? _languageButton;
+        private Popup? _pinToolTipPopup;
+        private Popup? _langToolTipPopup;
         
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
@@ -66,6 +70,9 @@ namespace FolderStyleEditorForWindows
             _editView = this.FindControl<EditView>("EditView");
             _languagePopup = this.FindControl<Popup>("LanguagePopup");
             _pinButtonIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("PinButtonIcon");
+            _pinButton = this.FindControl<Button>("PinButton");
+            _languageButton = this.FindControl<Button>("LanguageButton");
+            InitializeButtonTooltips();
 
             _baseLayer = this.FindControl<Border>("BaseLayer");
             _flowLayer = this.FindControl<Border>("FlowLayer");
@@ -86,6 +93,56 @@ namespace FolderStyleEditorForWindows
             this.Loaded += (s, e) => StartFlowLoop();
             
             UpdatePinButtonIcon();
+        }
+
+        private void InitializeButtonTooltips()
+        {
+            if (_pinButton != null)
+            {
+                _pinToolTipPopup = CreateHoverPopup(LocalizationManager.Instance["Pin_Tip_DoubleClickHint"], _pinButton);
+            }
+
+            if (_languageButton != null)
+            {
+                _langToolTipPopup = CreateHoverPopup("Language / 语言", _languageButton);
+            }
+        }
+
+        private Popup CreateHoverPopup(string text, Button target)
+        {
+            var popup = new Popup
+            {
+                PlacementTarget = target,
+                Placement = PlacementMode.Pointer,
+                IsLightDismissEnabled = false,
+                Topmost = true,
+                Child = new Border
+                {
+                    Background = Brushes.White,
+                    BorderBrush = Brushes.Black,
+                    BorderThickness = new Thickness(1),
+                    Padding = new Thickness(8, 4),
+                    CornerRadius = new CornerRadius(6),
+                    Child = new TextBlock
+                    {
+                        Text = text,
+                        Foreground = Brushes.Black,
+                        FontSize = 12
+                    }
+                }
+            };
+
+            target.PointerEntered += (s, e) =>
+            {
+                popup.IsOpen = true;
+            };
+
+            target.PointerExited += (s, e) =>
+            {
+                popup.IsOpen = false;
+            };
+
+            return popup;
         }
         
         protected override void OnPointerPressed(PointerPressedEventArgs e)
