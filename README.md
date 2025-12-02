@@ -152,16 +152,44 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 ## 图片
 
 <div align="center">
+    <strong>头图</strong>
+</div>
+
+<div align="center">
+  <img
+    src="https://github.com/user-attachments/assets/8609067c-4082-43c7-b565-7ecb0b7ba503"
+    alt="QQ_1764657539808"
+    style="width: 95%; height: auto;"
+  />
+</div>
+
+<div align="center">
     <strong>软件界面</strong>
 </div>
 
-<img width="1061" height="800" alt="image" src="https://github.com/user-attachments/assets/f953988f-4d0c-47d9-ae4e-dd2b572fed51" />
+<div align="center">
+  <img
+    src="https://github.com/user-attachments/assets/ea46dabf-dc9d-4ebe-ac91-992131b13696"
+    alt="f6928316-c41a-408e-a895-1b416a98698f"
+    style="width: 90%; height: auto;"
+  />
+</div>
 
 <div align="center">
     <strong>修改后的文件夹样式</strong>
 </div>
 
-<img width="238" height="205" alt="QQ_1759019766132" src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548" />
+<div align="center">
+  <img
+    src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548"
+    alt="QQ_1759019766132"
+    style="width: 50%; height: auto;"
+  />
+</div>
+
+<div align="center">
+    你可以利用这个软件轻松将一个应用的文件夹修改成应用的图标
+</div>
 
 ## 技术概述
 
