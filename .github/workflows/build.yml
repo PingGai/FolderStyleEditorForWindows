@@ -13,13 +13,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1   # 只拉当前提交，避免克隆整个历史
+          fetch-depth: 1
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
-          cache: true      # 利用官方内置缓存（会缓存 global-packages 等）
+          # cache: true 这里先不要用，避免锁文件报错
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -28,3 +28,24 @@ jobs:
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.sln', '**/*.csproj') }}
           restore-keys: |
             ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore
+        shell: pwsh
+
+      - name: Build with PowerShell script
+        run: ./build/build.ps1 -Runtime all -Configuration Release
+        shell: pwsh
+
+      - name: Prepare Artifacts for Upload
+        run: |
+          New-Item -ItemType Directory -Force -Path ./artifacts
+          Copy-Item -Path ./publish/win-x64/*.exe -Destination ./artifacts/
+          Copy-Item -Path ./publish/win-x86/*.exe -Destination ./artifacts/
+        shell: pwsh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FolderStyleEditorForWindows-Executables
+          path: ./artifacts/
