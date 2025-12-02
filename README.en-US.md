@@ -145,17 +145,44 @@ If you prefer to build the application yourself, you can use the `build.ps1` scr
 ## Images
 
 <div align="center">
+    <strong>Header Image</strong>
+</div>
+
+<div align="center">
+  <img
+    src="https://github.com/user-attachments/assets/8609067c-4082-43c7-b565-7ecb0b7ba503"
+    alt="Header Image"
+    style="width: 95%; height: auto;"
+  />
+</div>
+
+<div align="center">
     <strong>Software Interface</strong>
 </div>
 
-<img width="1061" height="800" alt="image" src="https://github.com/user-attachments/assets/f953988f-4d0c-47d9-ae4e-dd2b572fed51" />
+<div align="center">
+  <img
+    src="https://github.com/user-attachments/assets/ea46dabf-dc9d-4ebe-ac91-992131b13696"
+    alt="Software Interface"
+    style="width: 90%; height: auto;"
+  />
+</div>
 
 <div align="center">
     <strong>Modified Folder Style</strong>
 </div>
 
-<img width="238" height="205" alt="QQ_1759019766132" src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548" />
+<div align="center">
+  <img
+    src="https://github.com/user-attachments/assets/ae2dacae-1259-450a-b350-d69f89ea8548"
+    alt="Modified Folder Style"
+    style="width: 50%; height: auto;"
+  />
+</div>
 
+<div align="center">
+    You can use this software to easily change an application's folder to its icon.
+</div>
 
 ## Technical Overview
 
