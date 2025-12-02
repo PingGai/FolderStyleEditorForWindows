@@ -36,6 +36,7 @@ namespace FolderStyleEditorForWindows
         private Popup? _languagePopup;
         private readonly DispatcherTimer _doubleClickTimer;
         private int _clickCount;
+        private Avalonia.Svg.Skia.Svg? _pinButtonIcon;
         
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
@@ -64,6 +65,7 @@ namespace FolderStyleEditorForWindows
             _homeView = this.FindControl<HomeView>("HomeView");
             _editView = this.FindControl<EditView>("EditView");
             _languagePopup = this.FindControl<Popup>("LanguagePopup");
+            _pinButtonIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("PinButtonIcon");
 
             _baseLayer = this.FindControl<Border>("BaseLayer");
             _flowLayer = this.FindControl<Border>("FlowLayer");
@@ -82,6 +84,8 @@ namespace FolderStyleEditorForWindows
             this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop);
             
             this.Loaded += (s, e) => StartFlowLoop();
+            
+            UpdatePinButtonIcon();
         }
         
         protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -104,23 +108,17 @@ namespace FolderStyleEditorForWindows
                 
                 // Handle double-click to pin
                 _clickCount++;
-                var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
 
                 if (_clickCount == 1)
                 {
                     _doubleClickTimer.Start();
-                    hoverIconService.ShowPinIcon("Waiting");
                 }
                 else if (_clickCount == 2)
                 {
                     _doubleClickTimer.Stop();
                     _clickCount = 0;
                     
-                    this.Topmost = !this.Topmost;
-                    var toastService = App.Services!.GetRequiredService<IToastService>();
-                    var message = this.Topmost ? LocalizationManager.Instance["Toast_WindowPinned"] : LocalizationManager.Instance["Toast_WindowUnpinned"];
-                    toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
-                    hoverIconService.ShowPinIcon("Success");
+                    ToggleTopmost();
                 }
             }
             
@@ -155,26 +153,26 @@ namespace FolderStyleEditorForWindows
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            if (!_viewModel.IsDragOver)
-            {
-                hoverIconService.ShowPinIcon();
-                hoverIconService.UpdatePosition(e.GetPosition(this));
-            }
+            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            // if (!_viewModel.IsDragOver)
+            // {
+            //     hoverIconService.ShowPinIcon();
+            //     hoverIconService.UpdatePosition(e.GetPosition(this));
+            // }
         }
 
         private void MainWindow_PointerExited(object? sender, PointerEventArgs e)
         {
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            hoverIconService.Hide();
+            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            // hoverIconService.Hide();
         }
 
         private void DoubleClickTimer_Tick(object? sender, EventArgs e)
         {
             _doubleClickTimer.Stop();
             _clickCount = 0;
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            hoverIconService.ShowPinIcon("Ready");
+            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            // hoverIconService.ShowPinIcon("Ready");
         }
 
         private void DragAndDropTarget_DragEnter(object? sender, DragEventArgs e)
@@ -183,8 +181,8 @@ namespace FolderStyleEditorForWindows
             {
                 _viewModel.IsDragOver = true;
                 e.DragEffects = DragDropEffects.Link;
-                var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-                hoverIconService.ShowFileIcon(e.Data, _viewModel.FolderPath);
+                // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+                // hoverIconService.ShowFileIcon(e.Data, _viewModel.FolderPath);
             }
             else
             {
@@ -195,8 +193,8 @@ namespace FolderStyleEditorForWindows
 
         private void DragAndDropTarget_DragOver(object? sender, DragEventArgs e)
         {
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            hoverIconService.UpdatePosition(e.GetPosition(this));
+            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            // hoverIconService.UpdatePosition(e.GetPosition(this));
 
             var file = e.Data.GetFiles()?.FirstOrDefault();
             string iconKey;
@@ -247,16 +245,16 @@ namespace FolderStyleEditorForWindows
         private void DragAndDropTarget_DragLeave(object? sender, DragEventArgs e)
         {
             _viewModel.IsDragOver = false;
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            hoverIconService.Hide();
+            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            // hoverIconService.Hide();
             e.Handled = true;
         }
 
         private void DragAndDropTarget_Drop(object? sender, DragEventArgs e)
         {
             _viewModel.IsDragOver = false;
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            hoverIconService.Hide();
+            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
+            // hoverIconService.Hide();
             e.Handled = true;
 
             if (e.Data.GetFiles()?.FirstOrDefault() is not { } firstItem) return;
@@ -444,12 +442,7 @@ namespace FolderStyleEditorForWindows
         
         private void PinButton_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            this.Topmost = !this.Topmost;
-            var toastService = App.Services!.GetRequiredService<IToastService>();
-            var message = this.Topmost ? LocalizationManager.Instance["Toast_WindowPinned"] : LocalizationManager.Instance["Toast_WindowUnpinned"];
-            toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
-            var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            hoverIconService.ShowPinIcon("Success");
+            ToggleTopmost();
         }
         
         /// <summary>
@@ -554,6 +547,27 @@ namespace FolderStyleEditorForWindows
             var g = (byte)(from.G + (to.G - from.G) * p);
             var b = (byte)(from.B + (to.B - from.B) * p);
             return Color.FromArgb(a, r, g, b);
+        }
+        
+        private void UpdatePinButtonIcon()
+        {
+            if (_pinButtonIcon == null) return;
+    
+            _pinButtonIcon.Path = this.Topmost
+                ? ConfigManager.Config.PinIcon.PinnedIcon
+                : ConfigManager.Config.PinIcon.UnpinnedIcon;
+        }
+
+        private void ToggleTopmost()
+        {
+            this.Topmost = !this.Topmost;
+            UpdatePinButtonIcon();
+
+            var toastService = App.Services!.GetRequiredService<IToastService>();
+            var message = this.Topmost
+                ? LocalizationManager.Instance["Toast_WindowPinned"]
+                : LocalizationManager.Instance["Toast_WindowUnpinned"];
+            toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
         }
     }
     

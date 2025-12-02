@@ -45,6 +45,8 @@ namespace FolderStyleEditorForWindows.Models
     public class PinIconConfig
     {
         public string MainIcon { get; set; } = "";
+        public string PinnedIcon { get; set; } = "";
+        public string UnpinnedIcon { get; set; } = "";
         public string TestPngPath { get; set; } = "";
         public List<PinBadgeIconRule> BadgeIcons { get; set; } = new();
     }

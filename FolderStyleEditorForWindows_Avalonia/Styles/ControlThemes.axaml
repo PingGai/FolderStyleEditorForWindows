@@ -139,7 +139,7 @@
         <Setter Property="Padding" Value="20,0"/>
     </Style>
     <Style Selector="Button.BtnGhost">
-        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Background" Value="#7cffffff"/> <!-- 0.6 白色 -->
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style Selector="Button.BtnDanger">

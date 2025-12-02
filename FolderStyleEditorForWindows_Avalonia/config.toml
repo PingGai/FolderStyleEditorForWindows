@@ -45,6 +45,8 @@ PinDoubleClickThreshold = 500
 # Pin 图标配置
 [PinIcon]
   MainIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
+  PinnedIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
+  UnpinnedIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin-off.svg"
   # 用于诊断渲染问题的PNG图标路径
   TestPngPath = "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
   

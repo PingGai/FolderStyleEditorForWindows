@@ -112,6 +112,14 @@ namespace FolderStyleEditorForWindows.Services
             cfg.PinIcon.MainIcon = string.IsNullOrWhiteSpace(cfg.PinIcon.MainIcon)
                 ? "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
                 : Fix(cfg.PinIcon.MainIcon);
+
+            cfg.PinIcon.PinnedIcon = string.IsNullOrWhiteSpace(cfg.PinIcon.PinnedIcon)
+                ? "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
+                : Fix(cfg.PinIcon.PinnedIcon);
+            cfg.PinIcon.UnpinnedIcon = string.IsNullOrWhiteSpace(cfg.PinIcon.UnpinnedIcon)
+                ? "avares://FolderStyleEditorForWindows/Resources/SVG/pin-off.svg"
+                : Fix(cfg.PinIcon.UnpinnedIcon);
+            
             cfg.PinIcon.TestPngPath = string.IsNullOrWhiteSpace(cfg.PinIcon.TestPngPath)
                 ? "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
                 : Fix(cfg.PinIcon.TestPngPath);

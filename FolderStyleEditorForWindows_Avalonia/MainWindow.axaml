@@ -112,8 +112,7 @@
                <ToolTip.Tip>
                    <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Pin_Tip_DoubleClickHint]}"/>
                </ToolTip.Tip>
-               <svg:Svg Width="20" Height="20" Opacity="0.4"
-                        Path="{Binding Source={x:Static services:ConfigManager.Config}, Path=PinIcon.MainIcon}"
+               <svg:Svg x:Name="PinButtonIcon" Width="20" Height="20" Opacity="0.4"
                         Css="{DynamicResource SvgCss}" />
            </Button>
 
