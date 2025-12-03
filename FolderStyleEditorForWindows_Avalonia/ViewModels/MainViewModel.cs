@@ -30,6 +30,8 @@ namespace FolderStyleEditorForWindows.ViewModels
         private bool _iconScanCompleted = false;
         private CancellationTokenSource? _iconScanCts;
         private string? _pendingIconPath = null;
+        private readonly Dictionary<string, Stack<UndoEntry>> _undoStacks = new();
+        private bool _suppressUndo = false;
 
         private string _folderPath = "";
         public string FolderPath
@@ -42,6 +44,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 // re-entering the edit view from history correctly reloads folder settings.
                 _folderPath = value;
                 OnPropertyChanged();
+                EnsureUndoStackExists(_folderPath);
                 LoadFolderSettings();
             }
         }
@@ -53,8 +56,10 @@ namespace FolderStyleEditorForWindows.ViewModels
             set
             {
                 if (_alias == value) return;
+                var oldValue = _alias;
                 _alias = value;
                 OnPropertyChanged();
+                RecordUndoIfNeeded(UndoField.Alias, oldValue, _alias);
                 // When user types, remove the placeholder state
                 if (IsAliasAsPlaceholder && !string.IsNullOrEmpty(value))
                 {
@@ -88,9 +93,11 @@ namespace FolderStyleEditorForWindows.ViewModels
                     return;
                 }
 
+                var oldValue = _iconPath;
                 _iconPath = value;
                 OnPropertyChanged();
                 QueueIconLoad(_iconPath);
+                RecordUndoIfNeeded(UndoField.IconPath, oldValue, _iconPath);
             }
         }
 
@@ -203,6 +210,8 @@ namespace FolderStyleEditorForWindows.ViewModels
         [SupportedOSPlatform("windows")]
         private void LoadFolderSettings()
         {
+            var prevSuppress = _suppressUndo;
+            _suppressUndo = true;
             CancelIconScan();
             _foundIconPaths.Clear();
             _currentIconIndex = -1;
@@ -213,31 +222,38 @@ namespace FolderStyleEditorForWindows.ViewModels
             IconCounterText = "";
             IsIconCounterVisible = false;
 
-            var settings = new FolderSettings(FolderPath);
-            Alias = settings.Alias;
-            IconPath = settings.IconResource;
+            try
+            {
+                var settings = new FolderSettings(FolderPath);
+                Alias = settings.Alias;
+                IconPath = settings.IconResource;
 
-            if (!Directory.Exists(FolderPath))
-            {
-                IsAliasAsPlaceholder = string.IsNullOrEmpty(Alias);
-                return;
-            }
-            
-            if (string.IsNullOrEmpty(Alias))
-            {
-                Alias = new DirectoryInfo(FolderPath).Name;
-                IsAliasAsPlaceholder = true;
-            }
-            else
-            {
-                IsAliasAsPlaceholder = false;
-            }
+                if (!Directory.Exists(FolderPath))
+                {
+                    IsAliasAsPlaceholder = string.IsNullOrEmpty(Alias);
+                    return;
+                }
+                
+                if (string.IsNullOrEmpty(Alias))
+                {
+                    Alias = new DirectoryInfo(FolderPath).Name;
+                    IsAliasAsPlaceholder = true;
+                }
+                else
+                {
+                    IsAliasAsPlaceholder = false;
+                }
 
-            if (string.IsNullOrEmpty(IconPath))
+                if (string.IsNullOrEmpty(IconPath))
+                {
+                    // 使用默认的文件夹图标
+                    IconPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll,4");
+                    _ = LoadIconsFromFileAsync(IconPath);
+                }
+            }
+            finally
             {
-                // 浣跨敤榛樿鐨勬枃浠跺す鍥炬爣
-                IconPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll,4");
-                _ = LoadIconsFromFileAsync(IconPath);
+                _suppressUndo = prevSuppress;
             }
         }
 
@@ -278,7 +294,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 
                 AddToHistory(FolderPath);
 
-                _toastService.Show("鉁?" + LocalizationManager.Instance["Toast_SaveSuccess"]);
+                _toastService.Show(LocalizationManager.Instance["Toast_SaveSuccess"]);
             }
             catch (UnauthorizedAccessException)
             {
@@ -307,6 +323,55 @@ namespace FolderStyleEditorForWindows.ViewModels
         // Note: This path logic might need to be revisited if we want it to be truly portable.
         // For now, we assume it's in the same directory as the executable.
         private static readonly string HistoryFilePath = Path.Combine(AppContext.BaseDirectory, "history.json");
+
+        private void EnsureUndoStackExists(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath)) return;
+            if (!_undoStacks.ContainsKey(folderPath))
+            {
+                _undoStacks[folderPath] = new Stack<UndoEntry>();
+            }
+        }
+
+        private void RecordUndoIfNeeded(UndoField field, string oldValue, string newValue)
+        {
+            if (_suppressUndo) return;
+            if (string.IsNullOrWhiteSpace(FolderPath)) return;
+            if (oldValue == newValue) return;
+            EnsureUndoStackExists(FolderPath);
+            _undoStacks[FolderPath].Push(new UndoEntry
+            {
+                Field = field,
+                OldValue = oldValue,
+                NewValue = newValue
+            });
+        }
+
+        public void UndoLastChange()
+        {
+            var folder = FolderPath;
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            if (!_undoStacks.TryGetValue(folder, out var stack) || stack.Count == 0) return;
+
+            var entry = stack.Pop();
+            _suppressUndo = true;
+            try
+            {
+                switch (entry.Field)
+                {
+                    case UndoField.Alias:
+                        Alias = entry.OldValue;
+                        break;
+                    case UndoField.IconPath:
+                        IconPath = entry.OldValue;
+                        break;
+                }
+            }
+            finally
+            {
+                _suppressUndo = false;
+            }
+        }
 
         public ICommand SaveCommand { get; }
         public ICommand OpenFromHistoryCommand { get; }
@@ -728,7 +793,23 @@ namespace FolderStyleEditorForWindows.ViewModels
                ResetIcon();
            }
        }
+
+        private enum UndoField
+        {
+            Alias,
+            IconPath
+        }
+
+        private sealed class UndoEntry
+        {
+            public UndoField Field { get; set; }
+            public string OldValue { get; set; } = string.Empty;
+            public string NewValue { get; set; } = string.Empty;
+        }
     }
 }
+
+
+
 
 

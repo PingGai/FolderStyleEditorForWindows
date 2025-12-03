@@ -30,7 +30,15 @@ namespace FolderStyleEditorForWindows.Views
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            if (e.Key == Key.S && e.KeyModifiers == KeyModifiers.Control)
+            if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control)
+            {
+                if (DataContext is ViewModels.MainViewModel vm)
+                {
+                    vm.UndoLastChange();
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.S && e.KeyModifiers == KeyModifiers.Control)
             {
                 if (DataContext is ViewModels.MainViewModel vm && vm.SaveCommand.CanExecute(null))
                     vm.SaveCommand.Execute(null);
