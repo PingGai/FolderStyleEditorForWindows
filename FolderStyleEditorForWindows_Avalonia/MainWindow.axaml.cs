@@ -295,7 +295,7 @@ namespace FolderStyleEditorForWindows
             {
                 _viewModel.DragIconData = geometry;
             }
-            
+
             e.Handled = true;
         }
 
@@ -315,7 +315,7 @@ namespace FolderStyleEditorForWindows
             e.Handled = true;
 
             if (e.Data.GetFiles()?.FirstOrDefault() is not { } firstItem) return;
-            
+
             var path = firstItem.Path.LocalPath;
             if (string.IsNullOrEmpty(path)) return;
 

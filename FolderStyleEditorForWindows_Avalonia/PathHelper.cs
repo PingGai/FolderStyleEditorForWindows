@@ -32,58 +32,83 @@ namespace FolderStyleEditorForWindows
 
             return await HandleExternalIconAsync(targetFolderPath, iconFilePath, iconIndex);
         }
+private static async Task<(string key, string value)[]> HandleExternalIconAsync(
+    string targetFolderPath, string iconFilePath, int chosenGroupIndex)
+{
+    string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows).TrimEnd(Path.DirectorySeparatorChar);
+    string system = Environment.GetFolderPath(Environment.SpecialFolder.System).TrimEnd(Path.DirectorySeparatorChar);
 
-        private static async Task<(string key, string value)[]> HandleExternalIconAsync(
-            string targetFolderPath, string iconFilePath, int chosenGroupIndex)
+    bool underSystem = IsUnder(iconFilePath, system);
+
+    if (underSystem)
+    {
+        var groups = IconExtractor.ListIconGroups(iconFilePath);
+        if (chosenGroupIndex < 0 || chosenGroupIndex >= groups.Count)
         {
-            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows).TrimEnd(Path.DirectorySeparatorChar);
-            string system = Environment.GetFolderPath(Environment.SpecialFolder.System).TrimEnd(Path.DirectorySeparatorChar);
-
-            bool underSystem = IsUnder(iconFilePath, system);
-
-            if (underSystem)
-            {
-                var groups = IconExtractor.ListIconGroups(iconFilePath);
-                if (chosenGroupIndex < 0 || chosenGroupIndex >= groups.Count)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(chosenGroupIndex), $"索引超出范围（共有 {groups.Count} 个 RT_GROUP_ICON）");
-                }
-
-                ushort groupId = ParseGroupId(groups[chosenGroupIndex]);
-                string norm = NormalizeToSystem32(iconFilePath, windows, system);
-                string env = norm.Replace(windows, "%SystemRoot%", StringComparison.OrdinalIgnoreCase);
-
-                return new[] {
-                    ("IconResource", $"{env},-{groupId}")
-                };
-            }
-
-            string iconDir = Path.Combine(targetFolderPath, ".ICON");
-            if (!Directory.Exists(iconDir))
-            {
-                var di = Directory.CreateDirectory(iconDir);
-                di.Attributes |= FileAttributes.Hidden | FileAttributes.System;
-            }
-
-            string newIconName = Path.GetFileNameWithoutExtension(iconFilePath) + $"_{chosenGroupIndex}.ico";
-            string destination = Path.Combine(iconDir, newIconName);
-
-            byte[]? icoBytes = IconExtractor.ExtractIconGroupAsIco(iconFilePath, chosenGroupIndex);
-            if (icoBytes != null)
-            {
-                await File.WriteAllBytesAsync(destination, icoBytes);
-
-                string rel = GetRelativePath(targetFolderPath, destination);
-
-                return new[] {
-                    ("IconFile", rel),
-                    ("IconIndex", "0")
-                };
-            }
-
-            return new[] { ("IconResource", $"{iconFilePath},{chosenGroupIndex}") };
+            throw new ArgumentOutOfRangeException(nameof(chosenGroupIndex), $"索引超出范围（共有 {groups.Count} 个 RT_GROUP_ICON）");
         }
 
+        ushort groupId = ParseGroupId(groups[chosenGroupIndex]);
+        string norm = NormalizeToSystem32(iconFilePath, windows, system);
+        string env = norm.Replace(windows, "%SystemRoot%", StringComparison.OrdinalIgnoreCase);
+
+        return new[]
+        {
+            ("IconResource", $"{env},-{groupId}")
+        };
+    }
+
+    // Handle .ico files specially - copy them directly to .ICON directory
+    if (Path.GetExtension(iconFilePath).Equals(".ico", StringComparison.OrdinalIgnoreCase))
+    {
+        string icoIconDir = Path.Combine(targetFolderPath, ".ICON");
+        if (!Directory.Exists(icoIconDir))
+        {
+            var di = Directory.CreateDirectory(icoIconDir);
+            di.Attributes |= FileAttributes.Hidden | FileAttributes.System;
+        }
+
+        string icoNewIconName = Path.GetFileName(iconFilePath);
+        string icoDestination = Path.Combine(icoIconDir, icoNewIconName);
+
+        // Copy the .ico file directly
+        File.Copy(iconFilePath, icoDestination, overwrite: true);
+
+        string icoRel = GetRelativePath(targetFolderPath, icoDestination);
+
+        return new[]
+        {
+            ("IconFile", icoRel),
+            ("IconIndex", "0")
+        };
+    }
+
+    string iconDir = Path.Combine(targetFolderPath, ".ICON");
+    if (!Directory.Exists(iconDir))
+    {
+        var di = Directory.CreateDirectory(iconDir);
+        di.Attributes |= FileAttributes.Hidden | FileAttributes.System;
+    }
+
+    string newIconName = Path.GetFileNameWithoutExtension(iconFilePath) + $"_{chosenGroupIndex}.ico";
+    string destination = Path.Combine(iconDir, newIconName);
+
+    byte[]? icoBytes = IconExtractor.ExtractIconGroupAsIco(iconFilePath, chosenGroupIndex);
+    if (icoBytes != null)
+    {
+        await File.WriteAllBytesAsync(destination, icoBytes);
+
+        string rel = GetRelativePath(targetFolderPath, destination);
+
+        return new[]
+        {
+            ("IconFile", rel),
+            ("IconIndex", "0")
+        };
+    }
+
+    return new[] { ("IconResource", $"{iconFilePath},{chosenGroupIndex}") };
+}
         private static ushort ParseGroupId(string name)
         {
             if (name.Length > 1 && name[0] == '#' && ushort.TryParse(name.AsSpan(1), out var id))

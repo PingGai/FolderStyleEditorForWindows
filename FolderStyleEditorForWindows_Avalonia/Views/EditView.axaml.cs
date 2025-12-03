@@ -91,6 +91,11 @@ namespace FolderStyleEditorForWindows.Views
                 aliasInput.GotFocus += AliasInput_GotFocus;
                 aliasInput.LostFocus += AliasInput_LostFocus;
                 aliasInput.KeyDown += AliasInput_KeyDown;
+                aliasInput.TextChanged += AliasInput_TextChanged;
+
+                // Add drag and drop support for alias input
+                aliasInput.AddHandler(DragDrop.DragOverEvent, AliasInput_DragOver);
+                aliasInput.AddHandler(DragDrop.DropEvent, AliasInput_Drop);
             }
             
             var iconInput = this.FindControl<TextBox>("iconInput");
@@ -251,6 +256,67 @@ namespace FolderStyleEditorForWindows.Views
                     vm.SaveCommand.Execute(null);
                     e.Handled = true;
                 }
+            }
+        }
+
+        private void AliasInput_TextChanged(object? sender, TextChangedEventArgs e)
+        {
+            if (sender is TextBox textBox)
+            {
+                if (textBox.Text?.Length >= 260)
+                {
+                    // Set to red color for warning (#FFFF5555)
+                    textBox.Foreground = new SolidColorBrush(Color.Parse("#FFFF5555"));
+                }
+                else
+                {
+                    // Restore default color - use the default foreground from resources
+                    if (textBox.TryFindResource("Fg1Brush", out var brush) && brush is SolidColorBrush colorBrush)
+                    {
+                        textBox.Foreground = colorBrush;
+                    }
+                    else
+                    {
+                        textBox.Foreground = Brushes.White;
+                    }
+                }
+            }
+        }
+
+        private void AliasInput_DragOver(object? sender, DragEventArgs e)
+        {
+            if (e.Data.Contains(DataFormats.Text))
+            {
+                e.DragEffects = DragDropEffects.Copy;
+                e.Handled = true;
+            }
+            else
+            {
+                e.DragEffects = DragDropEffects.None;
+                e.Handled = true;
+            }
+        }
+
+        private void AliasInput_Drop(object? sender, DragEventArgs e)
+        {
+            if (sender is TextBox textBox && e.Data.Contains(DataFormats.Text))
+            {
+                string textData = e.Data.GetText()?.Trim() ?? "";
+                if (!string.IsNullOrEmpty(textData))
+                {
+                    // Clean the text by removing quotes
+                    string cleanedText = textData.Trim('"', '\'');
+
+                    if (DataContext is ViewModels.MainViewModel vm)
+                    {
+                        // Set the alias directly - the property setter will handle undo recording
+                        vm.Alias = cleanedText;
+                        textBox.Focus();
+                        textBox.SelectAll();
+                    }
+                }
+
+                e.Handled = true;
             }
         }
  
