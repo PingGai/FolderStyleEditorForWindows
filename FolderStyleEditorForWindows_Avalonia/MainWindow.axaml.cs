@@ -41,6 +41,8 @@ namespace FolderStyleEditorForWindows
         private Button? _languageButton;
         private Popup? _pinToolTipPopup;
         private Popup? _langToolTipPopup;
+        private TextBlock? _pinToolTipTextBlock;
+        private TextBlock? _langToolTipTextBlock;
         
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
@@ -72,7 +74,22 @@ namespace FolderStyleEditorForWindows
             _pinButtonIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("PinButtonIcon");
             _pinButton = this.FindControl<Button>("PinButton");
             _languageButton = this.FindControl<Button>("LanguageButton");
-            InitializeButtonTooltips();
+
+           _pinToolTipPopup = this.FindControl<Popup>("PinToolTipPopup");
+           _langToolTipPopup = this.FindControl<Popup>("LangToolTipPopup");
+           _pinToolTipTextBlock = this.FindControl<TextBlock>("PinToolTipTextBlock");
+           _langToolTipTextBlock = this.FindControl<TextBlock>("LangToolTipTextBlock");
+
+           LocalizationManager.Instance.PropertyChanged += (sender, args) =>
+           {
+               if (args.PropertyName == string.Empty) // Language changed
+               {
+                   if (_pinToolTipTextBlock != null)
+                       _pinToolTipTextBlock.Text = LocalizationManager.Instance["Pin_Tip_DoubleClickHint"];
+                   if (_langToolTipTextBlock != null)
+                       _langToolTipTextBlock.Text = LocalizationManager.Instance["Language_Tip"];
+               }
+           };
 
             _baseLayer = this.FindControl<Border>("BaseLayer");
             _flowLayer = this.FindControl<Border>("FlowLayer");
@@ -95,54 +112,46 @@ namespace FolderStyleEditorForWindows
             UpdatePinButtonIcon();
         }
 
-        private void InitializeButtonTooltips()
+        private async void PinButton_PointerEntered(object? sender, PointerEventArgs e)
         {
-            if (_pinButton != null)
+            if (_pinToolTipPopup != null)
             {
-                _pinToolTipPopup = CreateHoverPopup(LocalizationManager.Instance["Pin_Tip_DoubleClickHint"], _pinButton);
-            }
-
-            if (_languageButton != null)
-            {
-                _langToolTipPopup = CreateHoverPopup("Language / 语言", _languageButton);
+                _pinToolTipPopup.PlacementTarget = _pinButton;
+                _pinToolTipPopup.IsOpen = true;
+                await Task.Delay(10); // Ensure popup is positioned before fading in
+                _pinToolTipPopup.Opacity = 1;
             }
         }
 
-        private Popup CreateHoverPopup(string text, Button target)
+        private async void PinButton_PointerExited(object? sender, PointerEventArgs e)
         {
-            var popup = new Popup
+            if (_pinToolTipPopup != null)
             {
-                PlacementTarget = target,
-                Placement = PlacementMode.Pointer,
-                IsLightDismissEnabled = false,
-                Topmost = true,
-                Child = new Border
-                {
-                    Background = Brushes.White,
-                    BorderBrush = Brushes.Black,
-                    BorderThickness = new Thickness(1),
-                    Padding = new Thickness(8, 4),
-                    CornerRadius = new CornerRadius(6),
-                    Child = new TextBlock
-                    {
-                        Text = text,
-                        Foreground = Brushes.Black,
-                        FontSize = 12
-                    }
-                }
-            };
+                _pinToolTipPopup.Opacity = 0;
+                await Task.Delay(150); // Wait for fade out to complete
+                _pinToolTipPopup.IsOpen = false;
+            }
+        }
 
-            target.PointerEntered += (s, e) =>
+        private async void LanguageButton_PointerEntered(object? sender, PointerEventArgs e)
+        {
+            if (_langToolTipPopup != null)
             {
-                popup.IsOpen = true;
-            };
+                _langToolTipPopup.PlacementTarget = _languageButton;
+                _langToolTipPopup.IsOpen = true;
+                await Task.Delay(10); // Ensure popup is positioned before fading in
+                _langToolTipPopup.Opacity = 1;
+            }
+        }
 
-            target.PointerExited += (s, e) =>
+        private async void LanguageButton_PointerExited(object? sender, PointerEventArgs e)
+        {
+            if (_langToolTipPopup != null)
             {
-                popup.IsOpen = false;
-            };
-
-            return popup;
+                _langToolTipPopup.Opacity = 0;
+                await Task.Delay(150); // Wait for fade out to complete
+                _langToolTipPopup.IsOpen = false;
+            }
         }
         
         protected override void OnPointerPressed(PointerPressedEventArgs e)

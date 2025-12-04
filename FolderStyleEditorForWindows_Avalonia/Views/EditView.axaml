@@ -162,6 +162,7 @@
                                                    Foreground="{StaticResource Fg2Brush}"
                                                    FontWeight="SemiBold"
                                                    Cursor="Hand"
+                                                   TextDecorations="Underline"
                                                    RenderTransformOrigin="0.5,0.5">
                                            <TextBlock.RenderTransform>
                                                <ScaleTransform ScaleX="1" ScaleY="1"/>

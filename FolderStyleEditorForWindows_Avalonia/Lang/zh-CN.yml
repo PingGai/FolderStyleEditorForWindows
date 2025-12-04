@@ -38,6 +38,7 @@ Toast_SaveSuccess: "保存成功"
 Toast_WindowPinned: "窗口已置顶"
 Toast_WindowUnpinned: "窗口已取消置顶"
 Pin_Tip_DoubleClickHint: "双击空白处也可以置顶"
+Language_Tip: "Language / 语言"
 Error_AdminRequired: "需要管理员权限"
 
 # Dialog

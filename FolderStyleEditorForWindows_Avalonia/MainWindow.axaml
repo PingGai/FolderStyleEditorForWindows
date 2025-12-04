@@ -21,8 +21,8 @@
         Background="Transparent"
         Width="448" Height="816"
         CornerRadius="{StaticResource RadiusXl}">
-    
-    <Grid DragDrop.AllowDrop="True" PointerExited="MainWindow_PointerExited">
+
+   <Grid DragDrop.AllowDrop="True" PointerExited="MainWindow_PointerExited">
         <!-- White Background Layer -->
         <Border x:Name="BaseLayer" CornerRadius="{StaticResource RadiusXl}" Background="White" />
 
@@ -105,41 +105,74 @@
                    Spacing="10"
                    ZIndex="998">
            <!-- Pin Toggle Button -->
-           <Button x:Name="PinButton"
-                   Classes="Btn BtnGhost"
-                   Width="38" Height="38"
-                   Click="PinButton_OnClick"
-                   ToolTip.Placement="Pointer"
-                   ToolTip.ShowDelay="150">
-               <ToolTip.Tip>
-                   <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Pin_Tip_DoubleClickHint]}"/>
-               </ToolTip.Tip>
-               <svg:Svg x:Name="PinButtonIcon" Width="20" Height="20" Opacity="0.4"
-                        Css="{DynamicResource SvgCss}" />
-           </Button>
+            <Button x:Name="PinButton"
+                    Classes="Btn BtnGhost"
+                    Width="38" Height="38"
+                    Click="PinButton_OnClick"
+                    PointerEntered="PinButton_PointerEntered"
+                    PointerExited="PinButton_PointerExited">
+                <svg:Svg x:Name="PinButtonIcon" Width="20" Height="20" Opacity="0.4"
+                         Css="{DynamicResource SvgCss}" />
+            </Button>
 
-           <!-- Language Switch Button -->
-           <Button x:Name="LanguageButton" Classes="Btn BtnGhost"
-                   Width="38" Height="38"
-                   Click="LanguageButton_OnClick"
-                   ToolTip.Placement="Pointer"
-                   ToolTip.ShowDelay="150">
-               <ToolTip.Tip>
-                   <TextBlock Text="Language / 语言"/>
-               </ToolTip.Tip>
-               <controls:LanguagesIcon Foreground="{StaticResource Fg2Brush}" Width="20" Height="20" Opacity="0.6"/>
-           </Button>
-       </StackPanel>
+            <!-- Language Switch Button -->
+            <Button x:Name="LanguageButton" Classes="Btn BtnGhost"
+                    Width="38" Height="38"
+                    Click="LanguageButton_OnClick"
+                    PointerEntered="LanguageButton_PointerEntered"
+                    PointerExited="LanguageButton_PointerExited">
+                <controls:LanguagesIcon Foreground="{StaticResource Fg2Brush}" Width="20" Height="20" Opacity="0.6"/>
+            </Button>
+        </StackPanel>
 
-        <!-- Language Popup Menu -->
-        <Popup x:Name="LanguagePopup"
-               PlacementTarget="{Binding #LanguageButton}"
-               IsLightDismissEnabled="True"
-               Placement="TopEdgeAlignedRight"
-               HorizontalOffset="8"
-               VerticalOffset="-8">
-            <views:LanguageMenuView/>
+        <!-- Tooltip Popups -->
+        <Popup x:Name="PinToolTipPopup" IsHitTestVisible="False" Placement="Bottom" Opacity="0">
+            <Popup.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0.15" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Popup.Transitions>
+            <Border Background="#F7F7F7"
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8,4"
+                    BoxShadow="0 2 8 0 #20000000">
+                <TextBlock x:Name="PinToolTipTextBlock"
+                           Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Pin_Tip_DoubleClickHint]}"
+                           Foreground="#212121"
+                           FontSize="12"/>
+            </Border>
         </Popup>
+
+        <Popup x:Name="LangToolTipPopup" IsHitTestVisible="False" Placement="Bottom" Opacity="0">
+            <Popup.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0.15" Easing="CubicEaseOut"/>
+                </Transitions>
+            </Popup.Transitions>
+            <Border Background="#F7F7F7"
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8,4"
+                    BoxShadow="0 2 8 0 #20000000">
+                <TextBlock x:Name="LangToolTipTextBlock"
+                           Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Language_Tip]}"
+                           Foreground="#212121"
+                           FontSize="12"/>
+            </Border>
+        </Popup>
+
+         <!-- Language Popup Menu -->
+         <Popup x:Name="LanguagePopup"
+                PlacementTarget="{Binding #LanguageButton}"
+                IsLightDismissEnabled="True"
+                Placement="TopEdgeAlignedRight"
+                HorizontalOffset="8"
+                VerticalOffset="-8">
+             <views:LanguageMenuView/>
+         </Popup>
 
         <!-- Debug Overlay -->
         <Border HorizontalAlignment="Left"

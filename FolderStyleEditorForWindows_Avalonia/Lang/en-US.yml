@@ -38,6 +38,7 @@ Toast_SaveSuccess: "Saved successfully"
 Toast_WindowPinned: "Window pinned"
 Toast_WindowUnpinned: "Window unpinned"
 Pin_Tip_DoubleClickHint: "Double-click blank area to pin"
+Language_Tip: "Language / 语言"
 Error_AdminRequired: "Administrator permission required"
 
 # Dialog
