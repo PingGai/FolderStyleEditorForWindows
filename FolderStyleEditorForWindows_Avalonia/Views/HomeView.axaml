@@ -7,6 +7,7 @@
              xmlns:c="using:Avalonia.Controls"
              xmlns:i="using:Avalonia.Xaml.Interactivity"
              xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
+             xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
              mc:Ignorable="d" d:DesignWidth="404" d:DesignHeight="762"
              x:Class="FolderStyleEditorForWindows.Views.HomeView"
              x:DataType="vm:MainViewModel">
@@ -66,10 +67,11 @@
                             Margin="0,-2,0,0"/>
                   </Grid>
                    <ScrollViewer MaxHeight="188.4" IsVisible="{Binding History.Count}"
-                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                                  ClipToBounds="False">
+                              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              ClipToBounds="False">
                        <i:Interaction.Behaviors>
                            <ia:VerticalScrollViewerAnimatedBehavior/>
+                           <behaviors:AutoHideScrollBehavior/>
                        </i:Interaction.Behaviors>
                        <ListBox Name="historyList" ItemsSource="{Binding History}" Background="Transparent" BorderThickness="0">
                            <ListBox.ItemContainerTheme>

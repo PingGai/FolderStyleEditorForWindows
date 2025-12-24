@@ -6,6 +6,7 @@
             xmlns:services="using:FolderStyleEditorForWindows.Services"
             xmlns:i="using:Avalonia.Xaml.Interactivity"
             xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
+            xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
             xmlns:sys="using:System"
             mc:Ignorable="d" d:DesignWidth="404" d:DesignHeight="762"
             x:Class="FolderStyleEditorForWindows.Views.EditView"
@@ -54,6 +55,7 @@
      <ScrollViewer Margin="0,54,0,0" Name="editScrollViewer">
          <i:Interaction.Behaviors>
              <ia:VerticalScrollViewerAnimatedBehavior/>
+             <behaviors:AutoHideScrollBehavior/>
          </i:Interaction.Behaviors>
          <StackPanel Spacing="8" Margin="12,12,12,120">
              
@@ -110,6 +112,7 @@
                                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Height="182">
                                     <i:Interaction.Behaviors>
                                         <ia:VerticalScrollViewerAnimatedBehavior/>
+                                        <behaviors:AutoHideScrollBehavior/>
                                     </i:Interaction.Behaviors>
                                     <ListBox ItemsSource="{Binding Icons}"
                                              ItemTemplate="{StaticResource IconDataTemplate}"

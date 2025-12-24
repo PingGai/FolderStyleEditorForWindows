@@ -256,4 +256,13 @@
     <Style Selector="ListBoxItem:selected">
         <Setter Property="CornerRadius" Value="9,9,9,9"/>
     </Style>
+
+    <!-- ScrollBar Transition -->
+    <Style Selector="ScrollBar">
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.3" Easing="CubicEaseOut"/>
+            </Transitions>
+        </Setter>
+    </Style>
 </Styles>
