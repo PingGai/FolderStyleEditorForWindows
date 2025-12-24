@@ -246,4 +246,14 @@
     <Style Selector="Button.TitleBarButton:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="#1A000000"/>
     </Style>
+
+    <!-- Icon Picker ListBoxItem Style -->
+    <Style Selector="ListBoxItem">
+        <Setter Property="CornerRadius" Value="9,9,9,9"/>
+    </Style>
+
+    <!-- Icon Picker ListBoxItem Selected Style -->
+    <Style Selector="ListBoxItem:selected">
+        <Setter Property="CornerRadius" Value="9,9,9,9"/>
+    </Style>
 </Styles>
