@@ -47,7 +47,9 @@ namespace FolderStyleEditorForWindows
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
         private bool _isAnimating = true;
-
+        private bool _closingAnimating;
+        private Control? _fadeRoot;
+ 
         [SupportedOSPlatform("windows")]
         public MainWindow()
         {
@@ -56,7 +58,10 @@ namespace FolderStyleEditorForWindows
 //                 RendererDebugOverlays.Fps | RendererDebugOverlays.DirtyRects;
 // #endif
             InitializeComponent();
-
+            
+            // 启动先设为 0，等 OnOpened 再渐入（否则你可能“看不到”）
+            Opacity = 0;
+ 
             _viewModel = App.Services!.GetRequiredService<MainViewModel>();
             _sessionManager = new EditSessionManager(_viewModel);
             _viewModel.NavigateToEditView = (folderPath, iconSourcePath) => GoToEditView(folderPath, iconSourcePath);
@@ -198,6 +203,84 @@ namespace FolderStyleEditorForWindows
                     BeginMoveDrag(e);
                 }
             }
+        }
+
+        protected override void OnOpened(EventArgs e)
+        {
+            base.OnOpened(e);
+
+            // 等一帧渲染再播（更容易“肉眼可见”）
+            _ = Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                await AnimateFadeIn();
+            }, DispatcherPriority.Render);
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == WindowStateProperty)
+            {
+                var newState = (WindowState?)change.NewValue;
+                
+                // 处理从任务栏点击恢复 (Normal/Maximized)
+                if ((newState == WindowState.Normal || newState == WindowState.Maximized) && Opacity < 1.0)
+                {
+                    _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                    {
+                        await Task.Delay(50); // 等待系统动画
+                        await AnimateFadeIn();
+                    }, DispatcherPriority.Render);
+                }
+                // 处理通过任务栏点击最小化
+                else if (newState == WindowState.Minimized && Opacity > 0)
+                {
+                    // 注意：这里其实系统已经开始最小化了，我们再做动画可能来不及
+                    // 或者会和系统最小化动画叠加。但为了保持状态一致，设为 0 是必要的。
+                    // 也可以尝试播放一个快速的 fade out
+                    Opacity = 0;
+                }
+            }
+        }
+
+        protected override void OnClosing(WindowClosingEventArgs e)
+        {
+            // 已经在动画关闭流程里了，就放行
+            if (_closingAnimating)
+            {
+                base.OnClosing(e);
+                return;
+            }
+
+            // 只有用户触发的关闭才拦截（你原逻辑 OK）
+            if (!e.IsProgrammatic)
+            {
+                e.Cancel = true;
+                _closingAnimating = true;
+
+                // 一定放到 UI 线程队列里跑，避免时序/线程问题
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    try
+                    {
+                        // 确保起始可见
+                        Opacity = 1;
+                        await AnimateFadeOut();
+
+                        // 动画结束后再真正关闭
+                        Close();
+                    }
+                    finally
+                    {
+                        _closingAnimating = false;
+                    }
+                });
+
+                return;
+            }
+
+            base.OnClosing(e);
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -432,6 +515,90 @@ namespace FolderStyleEditorForWindows
                 }
             };
             await animation.RunAsync(view, System.Threading.CancellationToken.None);
+        }
+
+        public async Task AnimateFadeIn()
+        {
+            // Ensure RenderTransform exists for scaling
+            if (this.RenderTransform is not ScaleTransform)
+            {
+                this.RenderTransform = new ScaleTransform();
+            }
+            this.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(150),
+                Easing = new CubicEaseOut(),
+                FillMode = FillMode.Forward, // 关键：停留在最后一帧
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, 0.0),
+                            new Setter(ScaleTransform.ScaleXProperty, 0.95),
+                            new Setter(ScaleTransform.ScaleYProperty, 0.95)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, 1.0),
+                            new Setter(ScaleTransform.ScaleXProperty, 1.0),
+                            new Setter(ScaleTransform.ScaleYProperty, 1.0)
+                        }
+                    }
+                }
+            };
+
+            await animation.RunAsync(this);
+        }
+
+        public async Task AnimateFadeOut()
+        {
+            // Ensure RenderTransform exists for scaling
+            if (this.RenderTransform is not ScaleTransform)
+            {
+                this.RenderTransform = new ScaleTransform();
+            }
+            this.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(200),
+                Easing = new CubicEaseOut(),
+                FillMode = FillMode.Forward, // 关键：否则会回弹
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, 1.0),
+                            new Setter(ScaleTransform.ScaleXProperty, 1.0),
+                            new Setter(ScaleTransform.ScaleYProperty, 1.0)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, 0.0),
+                            new Setter(ScaleTransform.ScaleXProperty, 0.95),
+                            new Setter(ScaleTransform.ScaleYProperty, 0.95)
+                        }
+                    }
+                }
+            };
+
+            await animation.RunAsync(this);
         }
 
         private async Task AnimateOut(Control view)

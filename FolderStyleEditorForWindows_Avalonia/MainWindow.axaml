@@ -22,7 +22,7 @@
         Width="448" Height="816"
         CornerRadius="{StaticResource RadiusXl}">
 
-   <Grid DragDrop.AllowDrop="True" PointerExited="MainWindow_PointerExited">
+    <Grid DragDrop.AllowDrop="True" PointerExited="MainWindow_PointerExited">
         <!-- White Background Layer -->
         <Border x:Name="BaseLayer" CornerRadius="{StaticResource RadiusXl}" Background="White" />
 

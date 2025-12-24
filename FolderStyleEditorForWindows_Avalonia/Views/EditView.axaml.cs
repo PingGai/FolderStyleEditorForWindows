@@ -329,19 +329,21 @@ namespace FolderStyleEditorForWindows.Views
             }
         }
 
-        private void BtnMin_Click(object? sender, RoutedEventArgs e)
+        private async void BtnMin_Click(object? sender, RoutedEventArgs e)
         {
-            if (this.VisualRoot is Window window)
+            if (this.VisualRoot is MainWindow mainWindow)
             {
-                window.WindowState = WindowState.Minimized;
+                await mainWindow.AnimateFadeOut();
+                mainWindow.WindowState = WindowState.Minimized;
             }
         }
 
-        private void BtnClose_Click(object? sender, RoutedEventArgs e)
+        private async void BtnClose_Click(object? sender, RoutedEventArgs e)
         {
-            if (this.VisualRoot is Window window)
+            if (this.VisualRoot is MainWindow mainWindow)
             {
-                window.Close();
+                await mainWindow.AnimateFadeOut();
+                mainWindow.Close();
             }
         }
 
