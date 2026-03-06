@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Avalonia;
 using Avalonia.VisualTree;
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,6 +21,7 @@ namespace FolderStyleEditorForWindows.Views
         private readonly DispatcherTimer _iconListScrollTimer;
         private ScrollViewer? _iconListScrollViewer;
         private double _iconListTargetOffsetY;
+        private bool _pendingInitialScrollReset;
 
         public EditView()
         {
@@ -34,6 +36,8 @@ namespace FolderStyleEditorForWindows.Views
 
         public void Dispose()
         {
+            UnsubscribeFromViewModel();
+
             if (DataContext is ViewModels.MainViewModel vm)
             {
                 vm.ClearIconPreview();
@@ -75,6 +79,8 @@ namespace FolderStyleEditorForWindows.Views
         protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            _pendingInitialScrollReset = true;
+            SubscribeToViewModel();
 
             var btnPickDir = this.FindControl<Button>("btnPickDir");
             if (btnPickDir != null)
@@ -163,6 +169,15 @@ namespace FolderStyleEditorForWindows.Views
                 iconListBox.LayoutUpdated += IconListBox_LayoutUpdated;
                 Dispatcher.UIThread.Post(UpdateIconPreviewVisuals, DispatcherPriority.Loaded);
             }
+
+            ResetEditScrollToTop();
+            Dispatcher.UIThread.Post(ResetEditScrollToTop, DispatcherPriority.Loaded);
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            UnsubscribeFromViewModel();
+            base.OnDetachedFromVisualTree(e);
         }
 
         private void AliasInput_GotFocus(object? sender, RoutedEventArgs e)
@@ -519,6 +534,53 @@ namespace FolderStyleEditorForWindows.Views
                 var shouldPreview = item.DataContext is ViewModels.IconViewModel icon && icon.IsPreviewed && !icon.IsSelected;
                 item.Classes.Set("previewed", shouldPreview);
             }
+        }
+
+        private void SubscribeToViewModel()
+        {
+            if (DataContext is INotifyPropertyChanged notifyPropertyChanged)
+            {
+                notifyPropertyChanged.PropertyChanged -= ViewModel_PropertyChanged;
+                notifyPropertyChanged.PropertyChanged += ViewModel_PropertyChanged;
+            }
+        }
+
+        private void UnsubscribeFromViewModel()
+        {
+            if (DataContext is INotifyPropertyChanged notifyPropertyChanged)
+            {
+                notifyPropertyChanged.PropertyChanged -= ViewModel_PropertyChanged;
+            }
+        }
+
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!_pendingInitialScrollReset ||
+                sender is not ViewModels.MainViewModel vm ||
+                e.PropertyName != nameof(ViewModels.MainViewModel.IsLoadingIcons))
+            {
+                return;
+            }
+
+            if (!vm.IsLoadingIcons)
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    ResetEditScrollToTop();
+                    _pendingInitialScrollReset = false;
+                }, DispatcherPriority.Background);
+            }
+        }
+
+        private void ResetEditScrollToTop()
+        {
+            var editScrollViewer = this.FindControl<ScrollViewer>("editScrollViewer");
+            if (editScrollViewer == null)
+            {
+                return;
+            }
+
+            editScrollViewer.Offset = new Vector(editScrollViewer.Offset.X, 0);
         }
 
         private void SmoothScrollIconPreviewIntoView()
