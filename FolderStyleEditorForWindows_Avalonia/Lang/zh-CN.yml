@@ -6,7 +6,7 @@ Home_DragZone_Part3: "拖拽到此处以自定义"
 Home_ClickHint: "点击以选择文件夹"
 Home_History_Title: "最近编辑"
 Home_History_Clear: "清除"
-Home_History_Empty: "去开始第一次编辑以创建记录~"
+Home_History_Empty: "去开始一次编辑以创建记录~"
 
 # EditView
 Edit_Title: "编辑文件夹样式"
@@ -46,3 +46,10 @@ Dialog_ClearHistory_Title: "清除历史"
 Dialog_ClearHistory_Content: "你的历史记录将被清除，你确定吗？"
 Dialog_Primary_Confirm: "确认"
 Dialog_Secondary_Cancel: "取消"
+Dialog_Primary_Acknowledge: "知道了"
+
+# Home Dialog
+Home_FolderPicker_Title: "选择文件夹"
+Home_AboutDialog_Title: "软件详情"
+Home_AboutDialog_SectionTitle: "关于"
+Home_AboutDialog_Content: "可以快速修改 Windows 系统上文件夹别名，以及快速将一个应用的文件夹设置成它内部的应用图标的工具。"

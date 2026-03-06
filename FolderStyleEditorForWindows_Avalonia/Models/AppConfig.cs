@@ -5,6 +5,7 @@ namespace FolderStyleEditorForWindows.Models
         public string? Language { get; set; }
         public bool LanguageConfigured { get; set; }
         public AppFeaturesConfig Features { get; set; } = new AppFeaturesConfig();
+        public AppInfoConfig AppInfo { get; set; } = new AppInfoConfig();
         public HoverIconConfig HoverIcon { get; set; } = new HoverIconConfig();
         public PinIconConfig PinIcon { get; set; } = new PinIconConfig();
         public AnimationsConfig Animations { get; set; } = new AnimationsConfig();

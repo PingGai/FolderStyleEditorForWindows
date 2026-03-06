@@ -15,6 +15,11 @@ namespace FolderStyleEditorForWindows.Models
         public int PinDoubleClickThreshold { get; set; } = 500;
     }
 
+    public class AppInfoConfig
+    {
+        public string HelpIcon { get; set; } = "";
+    }
+
     public class HoverIconConfig
     {
         public string DefaultIcon { get; set; } = "";

@@ -16,12 +16,20 @@ namespace FolderStyleEditorForWindows.Services
         Secondary
     }
 
+    public enum DialogPrimaryButtonKind
+    {
+        Normal,
+        DangerConfirm
+    }
+
     public sealed class InterruptDialogOptions
     {
         public string Title { get; init; } = string.Empty;
+        public string? SectionTitle { get; init; }
         public string Content { get; init; } = string.Empty;
         public string PrimaryButtonText { get; init; } = string.Empty;
         public string? SecondaryButtonText { get; init; }
+        public DialogPrimaryButtonKind PrimaryButtonKind { get; init; } = DialogPrimaryButtonKind.Normal;
         public bool ShowProgress { get; init; }
         public double ProgressValue { get; init; }
         public bool IsProgressIndeterminate { get; init; }
@@ -67,6 +75,21 @@ namespace FolderStyleEditorForWindows.Services
             set => SetField(ref _content, value);
         }
 
+        private string? _sectionTitle;
+        public string? SectionTitle
+        {
+            get => _sectionTitle;
+            set
+            {
+                if (SetField(ref _sectionTitle, value))
+                {
+                    OnPropertyChanged(nameof(HasSectionTitle));
+                }
+            }
+        }
+
+        public bool HasSectionTitle => !string.IsNullOrWhiteSpace(SectionTitle);
+
         private bool _showProgress;
         public bool ShowProgress
         {
@@ -109,6 +132,13 @@ namespace FolderStyleEditorForWindows.Services
         }
 
         public bool HasSecondaryButton => !string.IsNullOrWhiteSpace(SecondaryButtonText);
+
+        private bool _isPrimaryDanger;
+        public bool IsPrimaryDanger
+        {
+            get => _isPrimaryDanger;
+            set => SetField(ref _isPrimaryDanger, value);
+        }
 
         private double _overlayOpacity;
         public double OverlayOpacity
@@ -208,14 +238,30 @@ namespace FolderStyleEditorForWindows.Services
         {
             ConfirmCommand = new RelayCommand(() => onConfirm());
             CancelCommand = new RelayCommand(() => onCancel());
-            PrimaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
-            PrimaryForeground = new SolidColorBrush(Color.Parse("#D66B6B"));
-            PrimaryBorderBrush = new SolidColorBrush(Color.Parse("#D66B6B"));
-            PrimaryBorderThickness = 1;
-            SecondaryBackground = new SolidColorBrush(Color.Parse("#F8F9FB"));
+            ApplyPrimaryButtonKind(DialogPrimaryButtonKind.Normal);
+            SecondaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
             SecondaryForeground = new SolidColorBrush(Color.Parse("#303034"));
-            SecondaryBorderBrush = new SolidColorBrush(Color.Parse("#E6E6EB"));
+            SecondaryBorderBrush = new SolidColorBrush(Color.Parse("#EEAAAAAA"));
             SecondaryBorderThickness = 1;
+        }
+
+        internal void ApplyPrimaryButtonKind(DialogPrimaryButtonKind kind)
+        {
+            IsPrimaryDanger = kind == DialogPrimaryButtonKind.DangerConfirm;
+
+            if (IsPrimaryDanger)
+            {
+                PrimaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
+                PrimaryForeground = new SolidColorBrush(Color.Parse("#C73A22"));
+                PrimaryBorderBrush = new SolidColorBrush(Color.Parse("#DAE4341D"));
+                PrimaryBorderThickness = 1;
+                return;
+            }
+
+            PrimaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
+            PrimaryForeground = new SolidColorBrush(Color.Parse("#303034"));
+            PrimaryBorderBrush = new SolidColorBrush(Color.Parse("#EEAAAAAA"));
+            PrimaryBorderThickness = 1;
         }
 
         internal void ResetVisualState(bool isActive)
@@ -227,7 +273,7 @@ namespace FolderStyleEditorForWindows.Services
             CardScale = isActive ? 1.0 : 0.96;
             CardOffsetX = isActive ? 0 : 6;
             OverlayBrush = isActive
-                ? new SolidColorBrush(Color.FromArgb(0x40, 0x00, 0x00, 0x00))
+                ? new SolidColorBrush(Color.Parse("#6D8F9999"))
                 : new SolidColorBrush(Colors.Transparent);
         }
 
@@ -267,15 +313,17 @@ namespace FolderStyleEditorForWindows.Services
             await _dispatcher.InvokeAsync(() =>
             {
                 State.Title = options.Title ?? string.Empty;
+                State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
                 State.PrimaryButtonText = options.PrimaryButtonText ?? string.Empty;
                 State.SecondaryButtonText = options.SecondaryButtonText;
+                State.ApplyPrimaryButtonKind(options.PrimaryButtonKind);
                 State.ShowProgress = options.ShowProgress;
                 State.ProgressValue = options.ProgressValue;
                 State.IsProgressIndeterminate = options.IsProgressIndeterminate;
                 State.PrimaryBackground = options.PrimaryBackground ?? State.PrimaryBackground;
                 State.PrimaryForeground = options.PrimaryForeground ?? State.PrimaryForeground;
-                State.PrimaryBorderBrush = options.PrimaryBorderBrush;
+                State.PrimaryBorderBrush = options.PrimaryBorderBrush ?? State.PrimaryBorderBrush;
                 State.PrimaryBorderThickness = options.PrimaryBorderThickness ?? State.PrimaryBorderThickness;
                 State.SecondaryBackground = options.SecondaryBackground ?? State.SecondaryBackground;
                 State.SecondaryForeground = options.SecondaryForeground ?? State.SecondaryForeground;
@@ -285,6 +333,35 @@ namespace FolderStyleEditorForWindows.Services
             });
 
             return await tcs.Task.ConfigureAwait(false);
+        }
+
+        public async Task ShowSingleActionAsync(string title, string content, string acknowledgeText, string? sectionTitle = null)
+        {
+            await ShowAsync(new InterruptDialogOptions
+            {
+                Title = title,
+                SectionTitle = sectionTitle,
+                Content = content,
+                PrimaryButtonText = acknowledgeText
+            });
+        }
+
+        public Task<InterruptDialogResult> ShowDangerConfirmAsync(string title, string content, string confirmText, string cancelText, string? sectionTitle = null)
+        {
+            return ShowAsync(new InterruptDialogOptions
+            {
+                Title = title,
+                SectionTitle = sectionTitle,
+                Content = content,
+                PrimaryButtonText = confirmText,
+                SecondaryButtonText = cancelText,
+                PrimaryButtonKind = DialogPrimaryButtonKind.DangerConfirm
+            });
+        }
+
+        public Task ShowInfoAsync(string title, string sectionTitle, string content, string acknowledgeText)
+        {
+            return ShowSingleActionAsync(title, content, acknowledgeText, sectionTitle);
         }
 
         private void Confirm() => Complete(InterruptDialogResult.Primary);

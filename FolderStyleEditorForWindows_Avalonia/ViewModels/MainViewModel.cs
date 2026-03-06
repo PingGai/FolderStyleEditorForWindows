@@ -190,6 +190,31 @@ namespace FolderStyleEditorForWindows.ViewModels
                     }
                 }
                 
+                PreviewedIcon = _selectedIcon;
+                OnPropertyChanged();
+            }
+        }
+
+        private IconViewModel? _previewedIcon;
+        public IconViewModel? PreviewedIcon
+        {
+            get => _previewedIcon;
+            set
+            {
+                if (_previewedIcon == value) return;
+
+                if (_previewedIcon != null)
+                {
+                    _previewedIcon.IsPreviewed = false;
+                }
+
+                _previewedIcon = value;
+
+                if (_previewedIcon != null)
+                {
+                    _previewedIcon.IsPreviewed = true;
+                }
+
                 OnPropertyChanged();
             }
         }
@@ -438,6 +463,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 icon.Dispose();
             }
             Icons.Clear();
+            PreviewedIcon = null;
             SelectedIcon = null;
         }
  
@@ -523,13 +549,11 @@ namespace FolderStyleEditorForWindows.ViewModels
        {
            if (History.Count == 0) return;
 
-           var result = await _interruptDialogService.ShowAsync(new InterruptDialogOptions
-           {
-               Title = LocalizationManager.Instance["Dialog_ClearHistory_Title"],
-               Content = LocalizationManager.Instance["Dialog_ClearHistory_Content"],
-               PrimaryButtonText = LocalizationManager.Instance["Dialog_Primary_Confirm"],
-               SecondaryButtonText = LocalizationManager.Instance["Dialog_Secondary_Cancel"]
-           });
+           var result = await _interruptDialogService.ShowDangerConfirmAsync(
+               LocalizationManager.Instance["Dialog_ClearHistory_Title"],
+               LocalizationManager.Instance["Dialog_ClearHistory_Content"],
+               LocalizationManager.Instance["Dialog_Primary_Confirm"],
+               LocalizationManager.Instance["Dialog_Secondary_Cancel"]);
 
            if (result == InterruptDialogResult.Primary)
            {
@@ -732,6 +756,8 @@ namespace FolderStyleEditorForWindows.ViewModels
                Icons.Clear();
                return;
            }
+
+           selectedIndex = ResolveSelectedIconIndex(fileName, selectedIndex);
   
            IsLoadingIcons = true;
   
@@ -741,6 +767,7 @@ namespace FolderStyleEditorForWindows.ViewModels
 
                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                {
+                   PreviewedIcon = null;
                    SelectedIcon = null;
                    Icons.Clear();
                    foreach (var icon in newIcons)
@@ -751,9 +778,11 @@ namespace FolderStyleEditorForWindows.ViewModels
                    if (selectedIndex >= 0 && selectedIndex < Icons.Count)
                    {
                        SelectedIcon = Icons[selectedIndex];
+                       PreviewedIcon = Icons[selectedIndex];
                    }
                    else
                    {
+                       PreviewedIcon = null;
                        SelectedIcon = null;
                    }
                });
@@ -769,6 +798,40 @@ namespace FolderStyleEditorForWindows.ViewModels
                {
                    await StartNextIconLoadAsync();
                }
+           }
+       }
+
+       [SupportedOSPlatform("windows")]
+       private static int ResolveSelectedIconIndex(string fileName, int selectedIndex)
+       {
+           if (selectedIndex >= 0)
+           {
+               return selectedIndex;
+           }
+
+           var extension = Path.GetExtension(fileName).ToLowerInvariant();
+           if (extension != ".exe" && extension != ".dll")
+           {
+               return selectedIndex;
+           }
+
+           try
+           {
+               var groupNames = IconExtractor.ListIconGroups(fileName);
+               if (!groupNames.Any())
+               {
+                   return selectedIndex;
+               }
+
+               var expectedGroupName = $"#{Math.Abs(selectedIndex)}";
+               var resolvedIndex = groupNames.FindIndex(name =>
+                   string.Equals(name, expectedGroupName, StringComparison.OrdinalIgnoreCase));
+
+               return resolvedIndex >= 0 ? resolvedIndex : selectedIndex;
+           }
+           catch
+           {
+               return selectedIndex;
            }
        }
        

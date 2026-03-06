@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using FolderStyleEditorForWindows.Models;
 using Tomlyn;
 
@@ -21,7 +20,6 @@ namespace FolderStyleEditorForWindows.Services
 
         private static void LoadConfig()
         {
-            // 如果文件不存在，则创建一个具有默认值的实例并保存（带标准化）
             if (!File.Exists(_configPath))
             {
                 Config = new AppConfig();
@@ -33,7 +31,6 @@ namespace FolderStyleEditorForWindows.Services
             try
             {
                 var tomlString = File.ReadAllText(_configPath);
-                // 设置选项以忽略 TOML 文件中存在但在模型中不存在的属性
                 var modelOptions = new TomlModelOptions
                 {
                     IgnoreMissingProperties = true
@@ -43,11 +40,9 @@ namespace FolderStyleEditorForWindows.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading config.toml: {ex.Message}");
-                // 加载失败时使用默认配置
                 Config = new AppConfig();
             }
 
-            // 统一修正：路径、默认值与 Debug 开关
             NormalizeAndPatch(Config);
             SaveConfig();
         }
@@ -65,19 +60,18 @@ namespace FolderStyleEditorForWindows.Services
             }
         }
 
-        /// <summary>
-        /// 规范化配置：修正 avares 路径、补齐默认值、关闭 Debug 覆盖层，并降低 SVG 不透明度。
-        /// 同时将旧的 “FolderStyleEditorForWindows_Avalonia” 前缀统一迁移为 “FolderStyleEditorForWindows”。
-        /// </summary>
         private static void NormalizeAndPatch(AppConfig cfg)
         {
-            static string Fix(string? s)
+            static string Fix(string? value)
             {
-                if (string.IsNullOrWhiteSpace(s)) return string.Empty;
-                return s.Replace("FolderStyleEditorForWindows_Avalonia", "FolderStyleEditorForWindows");
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return string.Empty;
+                }
+
+                return value.Replace("FolderStyleEditorForWindows_Avalonia", "FolderStyleEditorForWindows");
             }
 
-            // 关闭 Debug 覆盖层并统一 SVG 透明度
             cfg.Debug ??= new DebugConfig();
             cfg.Debug.EnableOverlay = false;
             cfg.Debug.SvgTestPath = string.IsNullOrWhiteSpace(cfg.Debug.SvgTestPath)
@@ -88,7 +82,11 @@ namespace FolderStyleEditorForWindows.Services
                 : Fix(cfg.Debug.PngTestPath);
             cfg.Debug.SvgOpacity = 0.4;
 
-            // HoverIcon 默认与迁移
+            cfg.AppInfo ??= new AppInfoConfig();
+            cfg.AppInfo.HelpIcon = string.IsNullOrWhiteSpace(cfg.AppInfo.HelpIcon)
+                ? "avares://FolderStyleEditorForWindows/Resources/SVG/message-circle-question-mark.svg"
+                : Fix(cfg.AppInfo.HelpIcon);
+
             cfg.HoverIcon ??= new HoverIconConfig();
             cfg.HoverIcon.DefaultIcon = string.IsNullOrWhiteSpace(cfg.HoverIcon.DefaultIcon)
                 ? "avares://FolderStyleEditorForWindows/Resources/SVG/file.svg"
@@ -98,35 +96,39 @@ namespace FolderStyleEditorForWindows.Services
                 : Fix(cfg.HoverIcon.ErrorIcon);
             if (cfg.HoverIcon.MainIcons != null)
             {
-                foreach (var r in cfg.HoverIcon.MainIcons)
-                    r.IconPath = Fix(r.IconPath);
-            }
-            if (cfg.HoverIcon.BadgeIcons != null)
-            {
-                foreach (var r in cfg.HoverIcon.BadgeIcons)
-                    r.IconPath = Fix(r.IconPath);
+                foreach (var rule in cfg.HoverIcon.MainIcons)
+                {
+                    rule.IconPath = Fix(rule.IconPath);
+                }
             }
 
-            // PinIcon 默认与迁移
+            if (cfg.HoverIcon.BadgeIcons != null)
+            {
+                foreach (var rule in cfg.HoverIcon.BadgeIcons)
+                {
+                    rule.IconPath = Fix(rule.IconPath);
+                }
+            }
+
             cfg.PinIcon ??= new PinIconConfig();
             cfg.PinIcon.MainIcon = string.IsNullOrWhiteSpace(cfg.PinIcon.MainIcon)
                 ? "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
                 : Fix(cfg.PinIcon.MainIcon);
-
             cfg.PinIcon.PinnedIcon = string.IsNullOrWhiteSpace(cfg.PinIcon.PinnedIcon)
                 ? "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
                 : Fix(cfg.PinIcon.PinnedIcon);
             cfg.PinIcon.UnpinnedIcon = string.IsNullOrWhiteSpace(cfg.PinIcon.UnpinnedIcon)
                 ? "avares://FolderStyleEditorForWindows/Resources/SVG/pin-off.svg"
                 : Fix(cfg.PinIcon.UnpinnedIcon);
-            
             cfg.PinIcon.TestPngPath = string.IsNullOrWhiteSpace(cfg.PinIcon.TestPngPath)
                 ? "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
                 : Fix(cfg.PinIcon.TestPngPath);
             if (cfg.PinIcon.BadgeIcons != null)
             {
-                foreach (var r in cfg.PinIcon.BadgeIcons)
-                    r.IconPath = Fix(r.IconPath);
+                foreach (var rule in cfg.PinIcon.BadgeIcons)
+                {
+                    rule.IconPath = Fix(rule.IconPath);
+                }
             }
         }
     }

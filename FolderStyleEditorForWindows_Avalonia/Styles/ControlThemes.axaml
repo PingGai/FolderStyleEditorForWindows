@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors">
     
     <!-- TextBlock Styles -->
     <Style Selector="TextBlock.Subtitle">
@@ -42,6 +43,12 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="ClipToBounds" Value="False"/>
+        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.015"/>
+        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="1"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.2"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="0.9"/>
+        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.18"/>
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Name="PART_Border"
@@ -133,6 +140,38 @@
             </Transitions>
         </Setter>
     </Style>
+    <Style Selector="Button.Btn">
+        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.06"/>
+        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.92"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
+    </Style>
+    <Style Selector="Button.BtnGhost">
+        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.06"/>
+        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.92"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
+    </Style>
+    <Style Selector="Button.HoverFloat">
+        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.06"/>
+        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.92"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
+    </Style>
+    <Style Selector="TextBlock.HoverFloat">
+        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.08"/>
+        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="1"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
+        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
+    </Style>
    <!-- Button Variants -->
     <Style Selector="Button.BtnPill">
         <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}"/>
@@ -187,6 +226,15 @@
         <Setter Property="Padding" Value="4"/>
        <Setter Property="BoxShadow" Value="{StaticResource Shadow1}"/>
    </Style>
+   <Style Selector="Border.IcoCell">
+       <Setter Property="ClipToBounds" Value="False"/>
+       <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+       <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.05"/>
+       <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="1"/>
+       <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.4"/>
+       <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="1.1"/>
+       <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.2"/>
+   </Style>
 
    <!-- Let the text in the button have no background by default -->
    <Style Selector="Button /template/ ContentPresenter">
@@ -213,6 +261,28 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="Opacity" Value="0.75"/>
+        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.05"/>
+        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.92"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.8"/>
+        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="1.6"/>
+        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.24"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="PART_Border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                </Border>
+            </ControlTemplate>
+        </Setter>
     </Style>
 
     <Style Selector="Button.TitleBarButton Path">
@@ -243,7 +313,7 @@
         <Setter Property="Margin" Value="0,0,6,6"/>
     </Style>
 
-    <Style Selector="Button.TitleBarButton:pointerover /template/ ContentPresenter">
+    <Style Selector="Button.TitleBarButton:pointerover /template/ Border#PART_Border">
         <Setter Property="Background" Value="#1A000000"/>
     </Style>
 

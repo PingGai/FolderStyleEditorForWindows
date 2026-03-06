@@ -6,7 +6,7 @@ Home_DragZone_Part3: "here to customize"
 Home_ClickHint: "Click to select a folder"
 Home_History_Title: "Recent Edits"
 Home_History_Clear: "Clear"
-Home_History_Empty: "Make your first edit to create a record~"
+Home_History_Empty: "Make an edit to create a record~"
 
 # EditView
 Edit_Title: "Edit Folder Style"
@@ -46,3 +46,10 @@ Dialog_ClearHistory_Title: "Clear History"
 Dialog_ClearHistory_Content: "Your history will be cleared. Are you sure?"
 Dialog_Primary_Confirm: "Confirm"
 Dialog_Secondary_Cancel: "Cancel"
+Dialog_Primary_Acknowledge: "Got it"
+
+# Home Dialog
+Home_FolderPicker_Title: "Select Folder"
+Home_AboutDialog_Title: "App Details"
+Home_AboutDialog_SectionTitle: "About"
+Home_AboutDialog_Content: "A tool that can quickly modify folder aliases on Windows and easily set a folder representing an application to use the application's internal icon."

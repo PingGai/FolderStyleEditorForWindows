@@ -14,28 +14,32 @@
         <Style Selector="ListBoxItem">
             <Setter Property="Padding" Value="4,8"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="OpacityMask" Value="#FFFFFFFF"/>
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="ClipToBounds" Value="False"/>
             <Setter Property="Transitions">
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0.2" Easing="CubicEaseOut"/>
                 </Transitions>
             </Setter>
         </Style>
-        
-        <!-- Force full opacity when not hovered -->
-        <Style Selector="ListBoxItem:not(:pointerover)">
-            <Setter Property="Opacity" Value="0.7"/>
-        </Style>
-
-        <!-- On hover, change opacity and remove default background highlight -->
+ 
+        <!-- Keep full opacity on hover and only suppress default hover background -->
         <Style Selector="ListBoxItem:pointerover">
-            <Setter Property="Opacity" Value="0.85"/>
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
-        <!-- The button itself just needs a background, no opacity -->
-        <Style Selector="Button.LangBtn">
-            <Setter Property="Background" Value="#E6FFFFFF"/>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected:focus /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- Keep original look but tighten shadow radius and slightly increase opacity -->
+        <Style Selector="Button.LangBtn /template/ Border">
+            <Setter Property="BoxShadow" Value="0 1 3 0 #20000000, 0 4 8 0 #1A000000"/>
         </Style>
     </UserControl.Styles>
     <UserControl.DataContext>
@@ -43,14 +47,21 @@
     </UserControl.DataContext>
     <Border Background="Transparent"
             CornerRadius="{StaticResource RadiusMd}"
-            BorderThickness="0">
+            BorderThickness="0"
+            ClipToBounds="False">
         <ScrollViewer MaxHeight="180"
+                      ClipToBounds="False"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <i:Interaction.Behaviors>
                 <ia:VerticalScrollViewerAnimatedBehavior/>
             </i:Interaction.Behaviors>
-            <ListBox ItemsSource="{Binding AvailableLanguages}" Background="Transparent" BorderThickness="0" Width="180">
+            <ListBox ItemsSource="{Binding AvailableLanguages}" Background="Transparent" BorderThickness="0" Width="180" ClipToBounds="False">
+                <ListBox.ItemContainerTheme>
+                    <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="OpacityMask" Value="#FFFFFFFF"/>
+                    </ControlTheme>
+                </ListBox.ItemContainerTheme>
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="models:LanguageInfo">
                         <Button Classes="Btn BtnGhost LangBtn"
@@ -58,9 +69,11 @@
                                 CommandParameter="{Binding}"
                                 HorizontalContentAlignment="Stretch"
                                 MinWidth="160"
+                                Background="#A8FFFFFF"
                                 Padding="8,4"
-                                Margin="0,0,0,-4">
-                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource Fg1Brush}"/>
+                                Margin="0,0,0,0"
+                                ClipToBounds="False">
+                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource Fg1Brush}" Opacity="0.8"/>
                         </Button>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
@@ -68,3 +81,4 @@
         </ScrollViewer>
     </Border>
 </UserControl>
+

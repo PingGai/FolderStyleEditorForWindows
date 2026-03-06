@@ -7,6 +7,7 @@ namespace FolderStyleEditorForWindows.ViewModels
     public class IconViewModel : INotifyPropertyChanged, IDisposable
     {
         private bool _isSelected;
+        private bool _isPreviewed;
 
         public Bitmap Image { get; }
         public string FilePath { get; }
@@ -20,8 +21,23 @@ namespace FolderStyleEditorForWindows.ViewModels
                 if (_isSelected == value) return;
                 _isSelected = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowPreviewOverlay)));
             }
         }
+
+        public bool IsPreviewed
+        {
+            get => _isPreviewed;
+            set
+            {
+                if (_isPreviewed == value) return;
+                _isPreviewed = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPreviewed)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowPreviewOverlay)));
+            }
+        }
+
+        public bool ShowPreviewOverlay => _isPreviewed && !_isSelected;
 
         public IconViewModel(Bitmap image, string filePath, int index)
         {

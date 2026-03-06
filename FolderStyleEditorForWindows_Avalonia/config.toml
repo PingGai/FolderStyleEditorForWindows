@@ -1,26 +1,19 @@
-# FolderStyleEditorForWindows 配置文件
-# 版本: 0.1.8
+# FolderStyleEditorForWindows configuration
 
 [Features]
-# 窗口置顶功能双击间隔阈值（毫秒）
 PinDoubleClickThreshold = 500
 
-# 悬停图标配置
-[HoverIcon]
+[AppInfo]
+  HelpIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/message-circle-question-mark.svg"
 
-  # 主图标默认路径（当未匹配到任何特定规则时）
+[HoverIcon]
   DefaultIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/file.svg"
-  # 错误图标路径
   ErrorIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/ban.svg"
 
-  # 支持的文件类型组
   [HoverIcon.FileTypes]
-  # 支持直接处理的类型
   Supported = ["exe", "dll", "ico"]
-  # 预留，未来用于支持转换的类型
   SupportedToConvert = ["png", "jpg", "jpeg", "bmp", "svg"]
 
-  # 主图标映射规则 (根据文件后缀)
   [[HoverIcon.MainIcons]]
   Extensions = ["exe", "dll"]
   IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/app-window.svg"
@@ -29,71 +22,54 @@ PinDoubleClickThreshold = 500
   Extensions = ["ico"]
   IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg"
 
-  # 角标图标映射规则 (根据文件类型支持状态)
   [[HoverIcon.BadgeIcons]]
-  Status = "Supported" 
+  Status = "Supported"
   IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/check.svg"
-  
+
   [[HoverIcon.BadgeIcons]]
   Status = "SupportedToConvert"
   IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/archive-restore.svg"
-  
+
   [[HoverIcon.BadgeIcons]]
   Status = "Error"
   IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/ban.svg"
 
-# Pin 图标配置
 [PinIcon]
   MainIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
   PinnedIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin.svg"
   UnpinnedIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/pin-off.svg"
-  # 用于诊断渲染问题的PNG图标路径
   TestPngPath = "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
-  
-  [[PinIcon.BadgeIcons]]
-  State = "Ready" # 默认状态，显示角标 2
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/arrow-down-0-1.svg"
-  
-  [[PinIcon.BadgeIcons]]
-  State = "Waiting" # 单击后，等待双击的状态，显示角标 1
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/arrow-down-1-0.svg"
 
   [[PinIcon.BadgeIcons]]
-  State = "Success" # 双击成功后，显示对勾
-  IconPath = "avares://FolderStyleEditorForWindows_Avalonia/Resources/SVG/badge/check.svg"
+  State = "Ready"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/arrow-down-0-1.svg"
+
+  [[PinIcon.BadgeIcons]]
+  State = "Waiting"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/arrow-down-1-0.svg"
+
+  [[PinIcon.BadgeIcons]]
+  State = "Success"
+  IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/badge/check.svg"
 
 [Animations]
-# Toast 通知弹出和消失的动画时长（毫秒）
 ToastAnimationDuration = 300
 
 [Appearance]
-# 全局 SVG 默认颜色 (CSS 格式, 例如 "#RRGGBB" 或 "#AARRGGBB")
 SvgDefaultColor = "#ff606064"
 
 [Debug]
-# 调试覆盖层的总开关
 EnableOverlay = false
-# 是否为悬停图标显示背景色
 ShowHoverIconBackgroundColor = true
-# 调试层背景默认颜色
 HoverIconBgColor = "#DD4444"
-# 是否在调试层显示 SVG 测试组件
 ShowSvgTest = true
-# 调试层 SVG 测试资源路径
 SvgTestPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg"
-# 是否在调试层显示 PNG 测试组件
 ShowPngTest = true
-# 调试层 PNG 测试资源路径
 PngTestPath = "avares://FolderStyleEditorForWindows/Resources/PNG/test-pin.png"
-# SVG 渲染透明度（0~1）
 SvgOpacity = 0.75
-# 是否在调试层显示悬停图标的克隆体
 ShowHoverIconClone = true
 
 [LanguageDefaults]
-# 系统语言为中文（含简体、繁体）时优先匹配的文化名称
 ChineseCultures = ["zh-CN", "zh-Hans", "zh-CHS", "zh-Hant", "zh-HK", "zh-TW"]
-# 系统语言为英文时优先匹配的文化名称
 EnglishCultures = ["en-US", "en-GB", "en"]
-# 若无法匹配上述列表，则使用该文化作为默认回退
 DefaultCulture = "zh-CN"

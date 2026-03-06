@@ -3,25 +3,20 @@
              xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
              x:Class="FolderStyleEditorForWindows.Views.Toast"
              x:DataType="vm:ToastViewModel"
-             IsVisible="{Binding IsVisible}">
-   <UserControl.Styles>
-       <Style Selector="UserControl">
-           <Setter Property="Opacity" Value="0"/>
-           <Setter Property="RenderTransform" Value="scaleY(0.8)"/>
-       </Style>
-       <Style Selector="UserControl[IsVisible=true]">
-           <Setter Property="Opacity" Value="1"/>
-           <Setter Property="RenderTransform" Value="scaleY(1)"/>
-       </Style>
-   </UserControl.Styles>
-    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+             ClipToBounds="False">
+    <Grid HorizontalAlignment="Center"
+          VerticalAlignment="Top"
+          ClipToBounds="False">
         <Border Background="#CCFFFFFF"
                 CornerRadius="20"
-                Padding="24,12">
+                Padding="24,12"
+                VerticalAlignment="Top"
+                ClipToBounds="False"
+                BoxShadow="0 2 7 0 #10000000, 0 6 14 0 #0C000000">
             <TextBlock Text="{Binding Message}"
                        Foreground="{Binding Color}"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center"/>
         </Border>
-    </StackPanel>
+    </Grid>
 </UserControl>

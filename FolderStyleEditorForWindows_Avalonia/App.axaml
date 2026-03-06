@@ -20,6 +20,9 @@
 
             <!-- Brushes -->
             <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource Accent}" Opacity="0.2"/>
+            <SolidColorBrush x:Key="PreviewBrush" Color="{StaticResource Fg2}" Opacity="0.14"/>
+            <SolidColorBrush x:Key="IconSelectionBorderBrush" Color="{StaticResource Fg2}" Opacity="0.45"/>
+            <SolidColorBrush x:Key="IconSelectionFillBrush" Color="{StaticResource Fg2}" Opacity="0.08"/>
             
             <!-- Colors -->
            <Color x:Key="Bg1">#FFFFFFFF</Color>

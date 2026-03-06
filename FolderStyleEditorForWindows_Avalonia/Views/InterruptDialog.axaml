@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:services="using:FolderStyleEditorForWindows.Services"
+             xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
              x:Class="FolderStyleEditorForWindows.Views.InterruptDialog"
              x:DataType="services:InterruptDialogState"
              ZIndex="12000"
@@ -14,7 +15,7 @@
       </Transitions>
     </Grid.Transitions>
 
-    <Border Background="Transparent"
+    <Border Background="{Binding OverlayBrush}"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
       <Border.Transitions>
@@ -61,8 +62,15 @@
       </Grid.RenderTransform>
 
       <Border x:Name="DialogCard"
-              Background="{StaticResource GlassStrongBrush}"
-              BorderBrush="{StaticResource LineBrush}"
+              Classes="HoverFloat"
+              behaviors:HoverFloatBehavior.IsEnabled="True"
+              behaviors:HoverFloatBehavior.HoverScale="1.003"
+              behaviors:HoverFloatBehavior.PressScale="1"
+              behaviors:HoverFloatBehavior.MaxOffsetX="0.7"
+              behaviors:HoverFloatBehavior.MaxOffsetY="0.6"
+              behaviors:HoverFloatBehavior.LerpFactor="0.16"
+              Background="#FFFFF8F6"
+              BorderBrush="#EEAAAAAA"
               BorderThickness="1"
               CornerRadius="14"
               Padding="26,28,26,24"
@@ -78,17 +86,11 @@
 
         <Grid RowDefinitions="Auto,*,Auto,Auto">
         <Border Grid.RowSpan="4"
+                Background="Transparent"
                 VerticalAlignment="Bottom"
                 Height="120"
                 IsHitTestVisible="False"
                 Margin="-20,-20,-20,-20">
-          <Border.Background>
-            <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-              <GradientStop Color="#B8FFFFFF" Offset="0"/>
-              <GradientStop Color="#70FFFFFF" Offset="0.55"/>
-              <GradientStop Color="#00FFFFFF" Offset="1"/>
-            </LinearGradientBrush>
-          </Border.Background>
         </Border>
 
         <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,6">
@@ -103,12 +105,26 @@
 
         <ScrollViewer Grid.Row="1"
                       Margin="0,6,0,6"
+                      MinHeight="0"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
-          <TextBlock Text="{Binding Content}"
-                     FontSize="14"
-                     Foreground="{StaticResource Fg2Brush}"
-                     TextWrapping="Wrap"/>
+          <StackPanel Spacing="8">
+            <TextBlock Text="{Binding SectionTitle}"
+                       IsVisible="{Binding HasSectionTitle}"
+                       FontSize="15"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource Fg1Brush}"
+                       Opacity="0.9"
+                       TextAlignment="Left"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"/>
+            <TextBlock Text="{Binding Content}"
+                       FontSize="14"
+                       Foreground="{StaticResource Fg2Brush}"
+                       TextAlignment="Left"
+                       HorizontalAlignment="Left"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
         </ScrollViewer>
 
         <StackPanel Grid.Row="2"
@@ -127,6 +143,7 @@
                       HorizontalAlignment="Center"
                       Spacing="12">
             <Button Classes="Btn BtnPill"
+                    x:Name="PrimaryButton"
                     Background="{Binding PrimaryBackground}"
                     Foreground="{Binding PrimaryForeground}"
                     BorderBrush="{Binding PrimaryBorderBrush}"

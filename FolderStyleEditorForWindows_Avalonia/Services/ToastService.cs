@@ -13,33 +13,45 @@ namespace FolderStyleEditorForWindows.Services
 
         public void Show(string message, SolidColorBrush? color = null, TimeSpan? duration = null)
         {
-            duration ??= TimeSpan.FromSeconds(3);
             var id = Guid.NewGuid();
             var toast = new ToastViewModel(message, color, id);
-            
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Toasts.Add(toast);
-                toast.IsVisible = true;
-            });
+            _ = ShowAndDismissAsync(toast, duration ?? TimeSpan.FromSeconds(3));
+        }
 
-            Task.Delay(duration.Value).ContinueWith(_ =>
+        private async Task ShowAndDismissAsync(ToastViewModel toast, TimeSpan duration)
+        {
+            var animationDuration = TimeSpan.FromMilliseconds(
+                Math.Max(80, ConfigManager.Config.Animations.ToastAnimationDuration));
+
+            try
             {
-                Dispatcher.UIThread.InvokeAsync(() =>
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    // Set visible before template binding to avoid entry flicker.
+                    toast.IsVisible = true;
+                    Toasts.Add(toast);
+                });
+
+                await Task.Delay(duration);
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     toast.IsVisible = false;
                 });
-            });
-            
-            var animationDuration = TimeSpan.FromMilliseconds(ConfigManager.Config.Animations.ToastAnimationDuration);
-            // 等待动画完成再移除
-            Task.Delay(duration.Value.Add(animationDuration)).ContinueWith(_ =>
+
+                await Task.Delay(animationDuration);
+            }
+            catch
             {
-                Dispatcher.UIThread.InvokeAsync(() =>
+                // Keep service resilient: lifecycle errors should not crash the app.
+            }
+            finally
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     Toasts.Remove(toast);
                 });
-            });
+            }
         }
     }
 }

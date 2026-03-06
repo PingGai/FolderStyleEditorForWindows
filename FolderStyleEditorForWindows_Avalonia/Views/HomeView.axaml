@@ -1,67 +1,167 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
              xmlns:services="using:FolderStyleEditorForWindows.Services"
+             xmlns:controls="using:FolderStyleEditorForWindows.Controls"
              xmlns:c="using:Avalonia.Controls"
              xmlns:i="using:Avalonia.Xaml.Interactivity"
              xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
              xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
+             xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
              mc:Ignorable="d" d:DesignWidth="404" d:DesignHeight="762"
              x:Class="FolderStyleEditorForWindows.Views.HomeView"
              x:DataType="vm:MainViewModel">
+   <UserControl.Styles>
+       <Style Selector="Button#btnAboutInfo">
+           <Setter Property="Width" Value="30"/>
+           <Setter Property="Height" Value="30"/>
+           <Setter Property="Padding" Value="10,0,10,10"/>
+           <Setter Property="Background" Value="Transparent"/>
+           <Setter Property="BorderBrush" Value="Transparent"/>
+           <Setter Property="BorderThickness" Value="0"/>
+           <Setter Property="CornerRadius" Value="999"/>
+           <Setter Property="Cursor" Value="Hand"/>
+           <Setter Property="HorizontalContentAlignment" Value="Center"/>
+           <Setter Property="VerticalContentAlignment" Value="Center"/>
+           <Setter Property="Template">
+               <ControlTemplate>
+                   <Border Name="PART_Border"
+                           Background="{TemplateBinding Background}"
+                           BorderBrush="{TemplateBinding BorderBrush}"
+                           BorderThickness="{TemplateBinding BorderThickness}"
+                           CornerRadius="{TemplateBinding CornerRadius}"
+                           Padding="{TemplateBinding Padding}">
+                       <ContentPresenter Name="PART_ContentPresenter"
+                                         Content="{TemplateBinding Content}"
+                                         ContentTemplate="{TemplateBinding ContentTemplate}"
+                                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                         HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                   </Border>
+               </ControlTemplate>
+           </Setter>
+       </Style>
+       <Style Selector="Button#btnAboutInfo /template/ Border#PART_Border">
+           <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+           <Setter Property="RenderTransform" Value="scale(1)"/>
+           <Setter Property="Transitions">
+               <Transitions>
+                   <TransformOperationsTransition Property="RenderTransform" Duration="0.11" Easing="CubicEaseOut"/>
+               </Transitions>
+           </Setter>
+       </Style>
+       <Style Selector="Button#btnAboutInfo Svg#AboutInfoIcon">
+           <Setter Property="Opacity" Value="0.4"/>
+       </Style>
+       <Style Selector="Button#btnAboutInfo Border#AboutInfoShadowHost">
+           <Setter Property="BoxShadow" Value="0 0 0 0 #00000000"/>
+       </Style>
+       <Style Selector="Button#btnAboutInfo:pointerover Svg#AboutInfoIcon">
+           <Setter Property="Opacity" Value="0.76"/>
+       </Style>
+       <Style Selector="Button#btnAboutInfo:pointerover Border#AboutInfoShadowHost">
+           <Setter Property="BoxShadow" Value="{StaticResource Shadow1}"/>
+       </Style>
+   </UserControl.Styles>
+   <UserControl.Resources>
+       <LinearGradientBrush x:Key="FolderWordAnimatedBrush"
+                            StartPoint="0%,34%"
+                            EndPoint="200%,66%"
+                            SpreadMethod="Repeat">
+           <GradientStop Color="#7b61ff" Offset="0"/>
+           <GradientStop Color="#46c4ff" Offset="0.25"/>
+           <GradientStop Color="#40dd88" Offset="0.5"/>
+           <GradientStop Color="#ffb848" Offset="0.75"/>
+           <GradientStop Color="#7b61ff" Offset="1"/>
+           <GradientStop Color="#46c4ff" Offset="1.25"/>
+           <GradientStop Color="#40dd88" Offset="1.5"/>
+           <GradientStop Color="#ffb848" Offset="1.75"/>
+           <GradientStop Color="#ff7a99" Offset="2"/>
+       </LinearGradientBrush>
+   </UserControl.Resources>
    <Grid RowDefinitions="54, 1*, 1*">
         
         <!-- Title Bar Area -->
         <DockPanel Grid.Row="0">
             <Grid ColumnDefinitions="*,Auto" Margin="12,0">
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                   <Border Width="38" Height="28" CornerRadius="10" Background="Transparent" BoxShadow="{StaticResource Shadow1}" Padding="0" VerticalAlignment="Center">
-                       <Button Name="btnMin" Classes="TitleBarButton TitleBarButtonHover" Padding="0" Width="38" Height="28">
-                           <Path Data="{StaticResource MinimizeIcon}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,4,12"/>
-                       </Button>
-                   </Border>
-                   <Border Width="38" Height="28" CornerRadius="10" Background="Transparent" BoxShadow="{StaticResource Shadow1}" Padding="0" VerticalAlignment="Center">
-                       <Button Name="btnClose" Classes="TitleBarButton TitleBarButtonHover" Padding="0" Width="38" Height="28">
-                           <Path Data="{StaticResource CloseIcon}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,5,4.6"/>
-                       </Button>
-                   </Border>
-                </StackPanel>
+                <controls:TitleBarButtons Grid.Column="1"
+                                          ShowBack="False"
+                                          ShowMinimize="True"
+                                          ShowClose="True"/>
             </Grid>
         </DockPanel>
 
         <!-- Drop Zone Display-->
         <Border Grid.Row="1" Name="dropZone" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" Margin="0" Cursor="Hand" Background="Transparent">
             <StackPanel Spacing="16" HorizontalAlignment="Center">
-                <TextBlock FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource Fg2Brush}" Opacity="0.9" Margin="28 0">
-                    <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part1]}"/>
-                    <Run Text=" "/>
-                    <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part2]}">
-                        <Run.Foreground>
-                            <LinearGradientBrush StartPoint="0%,50%" EndPoint="200%,50%">
-                                <GradientStop Color="#7b61ff" Offset="0"/>
-                                <GradientStop Color="#46c4ff" Offset="0.25"/>
-                                <GradientStop Color="#40dd88" Offset="0.5"/>
-                                <GradientStop Color="#ffb848" Offset="0.75"/>
-                                <GradientStop Color="#ff7a99" Offset="1"/>
-                            </LinearGradientBrush>
-                        </Run.Foreground>
-                    </Run>
-                    <Run Text=" "/>
-                    <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part3]}"/>
-                </TextBlock>
-                <TextBlock Name="ClickHintText" Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_ClickHint]}" Foreground="{StaticResource Fg2Brush}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Background="Transparent" Cursor="Hand"/>
+                <Grid HorizontalAlignment="Center" ClipToBounds="False" Margin="0">
+                    <TextBlock FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource Fg2Brush}" Opacity="0.9" Margin="28 0">
+                        <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part1]}"/>
+                        <Run Text=" "/>
+                        <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part2]}">
+                            <Run.Foreground>
+                                <StaticResource ResourceKey="FolderWordAnimatedBrush"/>
+                            </Run.Foreground>
+                        </Run>
+                        <Run Text=" "/>
+                        <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part3]}"/>
+                    </TextBlock>
+                    <Button Name="btnAboutInfo"
+                            Classes="HoverFloat"
+                            behaviors:HoverFloatBehavior.IsEnabled="True"
+                            behaviors:HoverFloatBehavior.HoverScale="1.06"
+                            behaviors:HoverFloatBehavior.PressScale="0.9"
+                            behaviors:HoverFloatBehavior.MaxOffsetX="2.2"
+                            behaviors:HoverFloatBehavior.MaxOffsetY="2.2"
+                            behaviors:HoverFloatBehavior.LerpFactor="0.22"
+                            Background="Transparent"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,-8,-6,0">
+                        <Border Name="AboutInfoShadowHost"
+                                Background="Transparent"
+                                CornerRadius="999"
+                                Padding="2"
+                                ClipToBounds="False">
+                            <svg:Svg x:Name="AboutInfoIcon"
+                                     Width="17"
+                                     Height="17"
+                                     Css="{DynamicResource SvgCss}"/>
+                        </Border>
+                    </Button>
+                </Grid>
+                <TextBlock Name="ClickHintText"
+                           Classes="HoverFloat"
+                           behaviors:HoverFloatBehavior.IsEnabled="True"
+                           behaviors:HoverFloatBehavior.HoverScale="1.06"
+                           behaviors:HoverFloatBehavior.PressScale="0.9"
+                           behaviors:HoverFloatBehavior.MaxOffsetX="1.8"
+                           behaviors:HoverFloatBehavior.MaxOffsetY="1.2"
+                           behaviors:HoverFloatBehavior.LerpFactor="0.2"
+                           Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_ClickHint]}"
+                           Foreground="{StaticResource Fg2Brush}"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Background="Transparent"
+                           Cursor="Hand"/>
             </StackPanel>
         </Border>
 
         <!-- History -->
        <DockPanel Grid.Row="2" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0 16 0 0">
-           <Border Width="358" CornerRadius="{StaticResource RadiusLg}" Background="#66FFFFFF" BoxShadow="{StaticResource Shadow1}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" Padding="14"
-                   ClipToBounds="False"> <!-- 修复阴影裁剪问题 -->
+           <Border Width="358"
+                   CornerRadius="{StaticResource RadiusLg}"
+                   Background="#66FFFFFF"
+                   BoxShadow="{StaticResource Shadow1}"
+                   BorderBrush="{StaticResource LineBrush}"
+                   BorderThickness="1"
+                   Padding="14"
+                   ClipToBounds="False"> <!-- 淇闃村奖瑁佸壀闂 -->
                <StackPanel>
                   <Grid ColumnDefinitions="*,Auto" Margin="0 0 0 12">
-                      <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Title]}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Fg1Brush}" VerticalAlignment="Center"/>
+                      <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Title]}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Fg1Brush}" VerticalAlignment="Center" Margin="4,0,0,0"/>
                     <Button Name="btnClearHistory" Classes="Btn BtnGhost BtnDanger Light" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Clear]}" Height="28" Padding="10,0"
                             Command="{Binding ClearHistoryCommand}" IsVisible="{Binding History.Count}" Grid.Column="1" Background="Transparent"
                             Margin="0,-2,0,0"/>
@@ -94,14 +194,14 @@
                                <DataTemplate>
                                    <Button Classes="Btn BtnHistory" Command="{Binding $parent[UserControl].DataContext.OpenFromHistoryCommand}" CommandParameter="{Binding}"
                                            Height="30.8" HorizontalContentAlignment="Stretch"
-                                           Background="Transparent" BorderThickness="0">
+                                           Background="Transparent" BorderThickness="0" Margin="4,0,0,0">
                                        <Grid HorizontalAlignment="Stretch">
                                            <Grid.ColumnDefinitions>
                                                <ColumnDefinition Width="*"/>
                                                <ColumnDefinition Width="Auto"/>
                                            </Grid.ColumnDefinitions>
                                            
-                                           <!-- 父路径部分 -->
+                                           <!-- 鐖惰矾寰勯儴鍒?-->
                                            <TextBlock Grid.Column="0"
                                                       Text="{Binding Converter={StaticResource PathDisplayConverter}}"
                                                       Foreground="{StaticResource Fg2Brush}"
@@ -110,7 +210,7 @@
                                                       TextTrimming="CharacterEllipsis"
                                                       Margin="0"/>
                                            
-                                           <!-- 文件夹名称标签 -->
+                                           <!-- 鏂囦欢澶瑰悕绉版爣绛?-->
                                            <Border Grid.Column="1"
                                                    Name="folderTag"
                                                    Background="{StaticResource FolderTagBgLightBrush}"
@@ -121,7 +221,7 @@
                                                    Padding="8,0"
                                                    VerticalAlignment="Center"
                                                    HorizontalAlignment="Right"
-                                                   Margin="0,-0,-14,0"> <!-- 调整Margin，抵消Button的右侧内边距 -->
+                                                   Margin="0,-0,-14,0"> <!-- 璋冩暣Margin锛屾姷娑圔utton鐨勫彸渚у唴杈硅窛 -->
                                                <TextBlock Text="{Binding Converter={StaticResource FolderNameConverter}}"
                                                           Foreground="{StaticResource Fg2Brush}"
                                                           VerticalAlignment="Center"
@@ -130,7 +230,7 @@
                                                           TextTrimming="CharacterEllipsis"/>
                                            </Border>
                                            
-                                           <!-- 渐变遮罩 -->
+                                           <!-- 娓愬彉閬僵 -->
                                            <Border Grid.Column="0"
                                                    ZIndex="1"
                                                    HorizontalAlignment="Right"
@@ -157,3 +257,9 @@
          </DockPanel>
      </Grid>
 </UserControl>
+
+
+
+
+
+

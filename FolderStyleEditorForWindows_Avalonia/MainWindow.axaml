@@ -7,6 +7,7 @@
         xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
         xmlns:services="using:FolderStyleEditorForWindows.Services"
         xmlns:controls="using:FolderStyleEditorForWindows.Controls"
+        xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
         xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
         mc:Ignorable="d" d:DesignWidth="448" d:DesignHeight="816"
         x:Class="FolderStyleEditorForWindows.MainWindow"
@@ -21,6 +22,20 @@
         Background="Transparent"
         Width="448" Height="816"
         CornerRadius="{StaticResource RadiusXl}">
+    <Window.Styles>
+        <Style Selector="Button#PinButton /template/ Border#PinInsetShadow">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Button#PinButton.pinned /template/ Border#PinInsetShadow">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Button#PinButton /template/ Border#PinIconGlow">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Button#PinButton.pinned /template/ Border#PinIconGlow">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+    </Window.Styles>
 
     <Grid DragDrop.AllowDrop="True" PointerExited="MainWindow_PointerExited">
         <!-- White Background Layer -->
@@ -81,12 +96,13 @@
         <views:HoverIconAdorner DataContext="{Binding HoverIcon}" ZIndex="1000"/>
         <ItemsControl ItemsSource="{Binding Toasts}"
                       VerticalAlignment="Top"
-                      Margin="0,20,0,0"
+                      Margin="0,20,0,12"
                       HorizontalAlignment="Center"
+                      ClipToBounds="False"
                       ZIndex="999">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel Spacing="10"/>
+                    <StackPanel Spacing="6"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
@@ -106,17 +122,80 @@
                    ZIndex="998">
            <!-- Pin Toggle Button -->
             <Button x:Name="PinButton"
-                    Classes="Btn BtnGhost"
+                    Classes="Btn BtnGhost HoverFloat"
+                    behaviors:HoverFloatBehavior.IsEnabled="True"
+                    behaviors:HoverFloatBehavior.HoverScale="1.06"
+                    behaviors:HoverFloatBehavior.PressScale="0.9"
+                    behaviors:HoverFloatBehavior.MaxOffsetX="2.4"
+                    behaviors:HoverFloatBehavior.MaxOffsetY="2.4"
+                    behaviors:HoverFloatBehavior.LerpFactor="0.22"
+                    Background="#50FFFFFF"
                     Width="38" Height="38"
                     Click="PinButton_OnClick"
                     PointerEntered="PinButton_PointerEntered"
                     PointerExited="PinButton_PointerExited">
+                <Button.Template>
+                    <ControlTemplate>
+                        <Border Name="PART_Border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                BoxShadow="{StaticResource Shadow1}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Border Name="PinIconGlow"
+                                        IsHitTestVisible="False"
+                                        Width="22"
+                                        Height="22"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        CornerRadius="999"
+                                        Background="Transparent"
+                                        BoxShadow="0 0 14 2 #D9FFFFFF">
+                                    <Border.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut"/>
+                                        </Transitions>
+                                    </Border.Transitions>
+                                </Border>
+                                <Border Name="PinInsetShadow"
+                                        IsHitTestVisible="False"
+                                        CornerRadius="{TemplateBinding CornerRadius}">
+                                    <Border.Background>
+                                        <RadialGradientBrush Center="50%,45%" RadiusX="85%" RadiusY="85%">
+                                            <GradientStop Color="#00000000" Offset="0.56"/>
+                                            <GradientStop Color="#2A000000" Offset="1"/>
+                                        </RadialGradientBrush>
+                                    </Border.Background>
+                                    <Border.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut"/>
+                                        </Transitions>
+                                    </Border.Transitions>
+                                </Border>
+                                <ContentPresenter Name="PART_ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
                 <svg:Svg x:Name="PinButtonIcon" Width="20" Height="20" Opacity="0.4"
                          Css="{DynamicResource SvgCss}" />
             </Button>
 
             <!-- Language Switch Button -->
-            <Button x:Name="LanguageButton" Classes="Btn BtnGhost"
+            <Button x:Name="LanguageButton" Classes="Btn BtnGhost HoverFloat"
+                    behaviors:HoverFloatBehavior.IsEnabled="True"
+                    behaviors:HoverFloatBehavior.HoverScale="1.06"
+                    behaviors:HoverFloatBehavior.PressScale="0.9"
+                    behaviors:HoverFloatBehavior.MaxOffsetX="2.4"
+                    behaviors:HoverFloatBehavior.MaxOffsetY="2.4"
+                    behaviors:HoverFloatBehavior.LerpFactor="0.22"
+                    Background="#50FFFFFF"
                     Width="38" Height="38"
                     Click="LanguageButton_OnClick"
                     PointerEntered="LanguageButton_PointerEntered"
@@ -189,3 +268,4 @@
         <views:InterruptDialog DataContext="{Binding InterruptDialog}" ZIndex="12000"/>
    </Grid>
 </Window>
+

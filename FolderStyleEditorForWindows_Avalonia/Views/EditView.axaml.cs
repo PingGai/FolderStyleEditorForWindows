@@ -1,8 +1,11 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia;
+using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -14,9 +17,19 @@ namespace FolderStyleEditorForWindows.Views
 {
     public partial class EditView : UserControl, IDisposable
     {
+        private readonly DispatcherTimer _iconListScrollTimer;
+        private ScrollViewer? _iconListScrollViewer;
+        private double _iconListTargetOffsetY;
+
         public EditView()
         {
             InitializeComponent();
+
+            _iconListScrollTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(16)
+            };
+            _iconListScrollTimer.Tick += IconListScrollTimer_Tick;
         }
 
         public void Dispose()
@@ -25,12 +38,26 @@ namespace FolderStyleEditorForWindows.Views
             {
                 vm.ClearIconPreview();
             }
+
+            var iconListBox = this.FindControl<ListBox>("iconListBox");
+            if (iconListBox != null)
+            {
+                iconListBox.LayoutUpdated -= IconListBox_LayoutUpdated;
+            }
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
-            if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control)
+            if (e.Key == Key.Escape)
+            {
+                if (VisualRoot is MainWindow mainWindow)
+                {
+                    mainWindow.GoToHomeView();
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Z && e.KeyModifiers == KeyModifiers.Control)
             {
                 if (DataContext is ViewModels.MainViewModel vm)
                 {
@@ -48,24 +75,6 @@ namespace FolderStyleEditorForWindows.Views
         protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
-
-            var btnBack = this.FindControl<Button>("btnBack");
-            if (btnBack != null)
-            {
-                btnBack.Click += BtnBack_Click;
-            }
-
-            var btnMin = this.FindControl<Button>("btnMin");
-            if (btnMin != null)
-            {
-                btnMin.Click += BtnMin_Click;
-            }
-
-            var btnClose = this.FindControl<Button>("btnClose");
-            if (btnClose != null)
-            {
-                btnClose.Click += BtnClose_Click;
-            }
 
             var btnPickDir = this.FindControl<Button>("btnPickDir");
             if (btnPickDir != null)
@@ -138,6 +147,21 @@ namespace FolderStyleEditorForWindows.Views
                         e.Handled = true;
                     }
                 }, RoutingStrategies.Tunnel, handledEventsToo: true);
+            }
+
+            var iconListBox = this.FindControl<ListBox>("iconListBox");
+            _iconListScrollViewer = this.FindControl<ScrollViewer>("iconListScrollViewer");
+            if (iconListBox != null)
+            {
+                iconListBox.SelectionChanged -= IconListBox_SelectionChanged;
+                iconListBox.SelectionChanged += IconListBox_SelectionChanged;
+                iconListBox.RemoveHandler(InputElement.KeyDownEvent, IconListBox_KeyDown);
+                iconListBox.AddHandler(InputElement.KeyDownEvent, IconListBox_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+                iconListBox.PointerPressed -= IconListBox_PointerPressed;
+                iconListBox.PointerPressed += IconListBox_PointerPressed;
+                iconListBox.LayoutUpdated -= IconListBox_LayoutUpdated;
+                iconListBox.LayoutUpdated += IconListBox_LayoutUpdated;
+                Dispatcher.UIThread.Post(UpdateIconPreviewVisuals, DispatcherPriority.Loaded);
             }
         }
 
@@ -320,30 +344,11 @@ namespace FolderStyleEditorForWindows.Views
             }
         }
  
-        private void BtnBack_Click(object? sender, RoutedEventArgs e)
+        private void TitleBarButtons_BackRequested(object? sender, RoutedEventArgs e)
         {
             if (this.VisualRoot is MainWindow mainWindow)
             {
-                // TODO: Add "unsaved changes" dialog logic
                 mainWindow.GoToHomeView();
-            }
-        }
-
-        private async void BtnMin_Click(object? sender, RoutedEventArgs e)
-        {
-            if (this.VisualRoot is MainWindow mainWindow)
-            {
-                await mainWindow.AnimateFadeOut();
-                mainWindow.WindowState = WindowState.Minimized;
-            }
-        }
-
-        private async void BtnClose_Click(object? sender, RoutedEventArgs e)
-        {
-            if (this.VisualRoot is MainWindow mainWindow)
-            {
-                await mainWindow.AnimateFadeOut();
-                mainWindow.Close();
             }
         }
 
@@ -356,7 +361,7 @@ namespace FolderStyleEditorForWindows.Views
                 {
                     var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
                     {
-                        Title = "选择文件夹",
+                        Title = Services.LocalizationManager.Instance["Home_FolderPicker_Title"],
                         AllowMultiple = false
                     });
 
@@ -381,11 +386,11 @@ namespace FolderStyleEditorForWindows.Views
                 {
                     var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
                     {
-                        Title = "选择图标文件",
+                        Title = Services.LocalizationManager.Instance["Edit_Icon_Select"],
                         AllowMultiple = false,
                         FileTypeFilter = new[]
                         {
-                            new FilePickerFileType("图标文件")
+                            new FilePickerFileType(Services.LocalizationManager.Instance["Edit_Icon_Select"])
                             {
                                 Patterns = new[] { "*.ico", "*.exe", "*.dll", "*.png", "*.jpg", "*.jpeg", "*.svg", "*.gif", "*.bmp" }
                             }
@@ -419,6 +424,177 @@ namespace FolderStyleEditorForWindows.Views
                     Console.WriteLine($"Failed to open explorer: {ex.Message}");
                 }
             }
+        }
+
+        private void IconListBox_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is ListBox listBox)
+            {
+                Dispatcher.UIThread.Post(() => listBox.Focus(), DispatcherPriority.Input);
+            }
+        }
+
+        private void IconListBox_LayoutUpdated(object? sender, EventArgs e)
+        {
+            UpdateIconPreviewVisuals();
+        }
+
+        private void IconListBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ListBox listBox && DataContext is ViewModels.MainViewModel vm)
+            {
+                if (listBox.SelectedItem is ViewModels.IconViewModel selectedIcon)
+                {
+                    vm.SelectedIcon = selectedIcon;
+                }
+
+                UpdateIconPreviewVisuals();
+                Dispatcher.UIThread.Post(() => listBox.Focus(), DispatcherPriority.Input);
+            }
+        }
+
+        private void IconListBox_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (sender is not ListBox listBox || DataContext is not ViewModels.MainViewModel vm || vm.Icons.Count == 0)
+            {
+                return;
+            }
+
+            var currentAnchor = vm.PreviewedIcon ?? vm.SelectedIcon;
+            var currentIndex = currentAnchor != null ? vm.Icons.IndexOf(currentAnchor) : 0;
+            if (currentIndex < 0)
+            {
+                currentIndex = 0;
+            }
+
+            // 当前布局固定为每行 5 个图标。如果图标单元尺寸或容器宽度后续调整，这里要同步修改。
+            const int columns = 5;
+            var nextIndex = currentIndex;
+
+            switch (e.Key)
+            {
+                case Key.Left:
+                    nextIndex = Math.Max(0, currentIndex - 1);
+                    break;
+                case Key.Right:
+                    nextIndex = Math.Min(vm.Icons.Count - 1, currentIndex + 1);
+                    break;
+                case Key.Up:
+                    nextIndex = currentIndex < columns ? currentIndex : currentIndex - columns;
+                    break;
+                case Key.Down:
+                    nextIndex = Math.Min(vm.Icons.Count - 1, currentIndex + columns);
+                    break;
+                case Key.Enter:
+                    if (vm.PreviewedIcon != null)
+                    {
+                        vm.SelectedIcon = vm.PreviewedIcon;
+                    }
+                    e.Handled = true;
+                    return;
+                default:
+                    return;
+            }
+
+            e.Handled = true;
+
+            if (nextIndex != currentIndex && nextIndex >= 0 && nextIndex < vm.Icons.Count)
+            {
+                vm.PreviewedIcon = vm.Icons[nextIndex];
+                UpdateIconPreviewVisuals();
+                SmoothScrollIconPreviewIntoView();
+            }
+        }
+
+        private void UpdateIconPreviewVisuals()
+        {
+            var iconListBox = this.FindControl<ListBox>("iconListBox");
+            if (iconListBox == null)
+            {
+                return;
+            }
+
+            foreach (var item in iconListBox.GetVisualDescendants().OfType<ListBoxItem>())
+            {
+                var shouldPreview = item.DataContext is ViewModels.IconViewModel icon && icon.IsPreviewed && !icon.IsSelected;
+                item.Classes.Set("previewed", shouldPreview);
+            }
+        }
+
+        private void SmoothScrollIconPreviewIntoView()
+        {
+            if (_iconListScrollViewer == null)
+            {
+                return;
+            }
+
+            var previewContainer = _iconListScrollViewer
+                .GetVisualDescendants()
+                .OfType<ListBoxItem>()
+                .FirstOrDefault(x => x.IsPointerOver || x.IsFocused);
+
+            if (previewContainer == null)
+            {
+                previewContainer = _iconListScrollViewer
+                    .GetVisualDescendants()
+                    .OfType<ListBoxItem>()
+                    .FirstOrDefault(x => x.DataContext is ViewModels.IconViewModel icon && icon.IsPreviewed);
+            }
+
+            if (previewContainer == null)
+            {
+                return;
+            }
+
+            var relativeTopLeft = previewContainer.TranslatePoint(default, _iconListScrollViewer);
+            if (relativeTopLeft == null)
+            {
+                return;
+            }
+
+            var currentOffset = _iconListScrollViewer.Offset;
+            var top = relativeTopLeft.Value.Y;
+            var bottom = top + previewContainer.Bounds.Height;
+            var viewportHeight = _iconListScrollViewer.Viewport.Height;
+
+            if (top < 0)
+            {
+                _iconListTargetOffsetY = Math.Max(0, currentOffset.Y + top - 8);
+            }
+            else if (bottom > viewportHeight)
+            {
+                var maxOffset = Math.Max(0, _iconListScrollViewer.Extent.Height - viewportHeight);
+                _iconListTargetOffsetY = Math.Min(maxOffset, currentOffset.Y + (bottom - viewportHeight) + 8);
+            }
+            else
+            {
+                return;
+            }
+
+            if (!_iconListScrollTimer.IsEnabled)
+            {
+                _iconListScrollTimer.Start();
+            }
+        }
+
+        private void IconListScrollTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_iconListScrollViewer == null)
+            {
+                _iconListScrollTimer.Stop();
+                return;
+            }
+
+            var currentOffset = _iconListScrollViewer.Offset;
+            var nextY = currentOffset.Y + ((_iconListTargetOffsetY - currentOffset.Y) * 0.28);
+
+            if (Math.Abs(nextY - _iconListTargetOffsetY) < 0.5)
+            {
+                nextY = _iconListTargetOffsetY;
+                _iconListScrollTimer.Stop();
+            }
+
+            _iconListScrollViewer.Offset = new Vector(currentOffset.X, nextY);
         }
 
         private void BeginIconCounterEdit(ViewModels.MainViewModel vm)
@@ -472,3 +648,4 @@ namespace FolderStyleEditorForWindows.Views
 
  }
 }
+

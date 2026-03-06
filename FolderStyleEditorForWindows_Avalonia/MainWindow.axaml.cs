@@ -1,4 +1,4 @@
-using Avalonia.Animation;
+﻿using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Input;
 using Avalonia;
@@ -8,6 +8,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Controls.Shapes;
 using Avalonia.Rendering;
 using Avalonia.Styling;
+using Avalonia.Controls.Metadata;
 using Avalonia.VisualTree;
 using System;
 using System.Diagnostics;
@@ -43,6 +44,9 @@ namespace FolderStyleEditorForWindows
         private Popup? _langToolTipPopup;
         private TextBlock? _pinToolTipTextBlock;
         private TextBlock? _langToolTipTextBlock;
+        private Border? _pinIconGlow;
+        private readonly DispatcherTimer _pinGlowTimer;
+        private double _pinGlowPhase;
         
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
@@ -59,7 +63,7 @@ namespace FolderStyleEditorForWindows
 // #endif
             InitializeComponent();
             
-            // 启动先设为 0，等 OnOpened 再渐入（否则你可能“看不到”）
+            // 鍚姩鍏堣涓?0锛岀瓑 OnOpened 鍐嶆笎鍏ワ紙鍚﹀垯浣犲彲鑳解€滅湅涓嶅埌鈥濓級
             Opacity = 0;
  
             _viewModel = App.Services!.GetRequiredService<MainViewModel>();
@@ -72,6 +76,12 @@ namespace FolderStyleEditorForWindows
                 Interval = TimeSpan.FromMilliseconds(ConfigManager.Config.Features.Features.PinDoubleClickThreshold)
             };
             _doubleClickTimer.Tick += DoubleClickTimer_Tick;
+
+            _pinGlowTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(33)
+            };
+            _pinGlowTimer.Tick += PinGlowTimer_Tick;
             
             _homeView = this.FindControl<HomeView>("HomeView");
             _editView = this.FindControl<EditView>("EditView");
@@ -79,6 +89,10 @@ namespace FolderStyleEditorForWindows
             _pinButtonIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("PinButtonIcon");
             _pinButton = this.FindControl<Button>("PinButton");
             _languageButton = this.FindControl<Button>("LanguageButton");
+            if (_pinButton != null)
+            {
+                _pinButton.TemplateApplied += PinButton_TemplateApplied;
+            }
 
            _pinToolTipPopup = this.FindControl<Popup>("PinToolTipPopup");
            _langToolTipPopup = this.FindControl<Popup>("LangToolTipPopup");
@@ -115,6 +129,18 @@ namespace FolderStyleEditorForWindows
             this.Loaded += (s, e) => StartFlowLoop();
             
             UpdatePinButtonIcon();
+        }
+
+        private void PinButton_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
+        {
+            _pinIconGlow = e.NameScope.Find<Border>("PinIconGlow");
+            if (_pinIconGlow != null && _pinIconGlow.RenderTransform is not ScaleTransform)
+            {
+                _pinIconGlow.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+                _pinIconGlow.RenderTransform = new ScaleTransform(1, 1);
+            }
+
+            UpdatePinGlowVisual();
         }
 
         private async void PinButton_PointerEntered(object? sender, PointerEventArgs e)
@@ -209,7 +235,7 @@ namespace FolderStyleEditorForWindows
         {
             base.OnOpened(e);
 
-            // 等一帧渲染再播（更容易“肉眼可见”）
+            // 绛変竴甯ф覆鏌撳啀鎾紙鏇村鏄撯€滆倝鐪煎彲瑙佲€濓級
             _ = Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 await AnimateFadeIn();
@@ -224,21 +250,21 @@ namespace FolderStyleEditorForWindows
             {
                 var newState = (WindowState?)change.NewValue;
                 
-                // 处理从任务栏点击恢复 (Normal/Maximized)
+                // 澶勭悊浠庝换鍔℃爮鐐瑰嚮鎭㈠ (Normal/Maximized)
                 if ((newState == WindowState.Normal || newState == WindowState.Maximized) && Opacity < 1.0)
                 {
                     _ = Dispatcher.UIThread.InvokeAsync(async () =>
                     {
-                        await Task.Delay(50); // 等待系统动画
+                        await Task.Delay(50); // 绛夊緟绯荤粺鍔ㄧ敾
                         await AnimateFadeIn();
                     }, DispatcherPriority.Render);
                 }
-                // 处理通过任务栏点击最小化
+                // 澶勭悊閫氳繃浠诲姟鏍忕偣鍑绘渶灏忓寲
                 else if (newState == WindowState.Minimized && Opacity > 0)
                 {
-                    // 注意：这里其实系统已经开始最小化了，我们再做动画可能来不及
-                    // 或者会和系统最小化动画叠加。但为了保持状态一致，设为 0 是必要的。
-                    // 也可以尝试播放一个快速的 fade out
+                    // 娉ㄦ剰锛氳繖閲屽叾瀹炵郴缁熷凡缁忓紑濮嬫渶灏忓寲浜嗭紝鎴戜滑鍐嶅仛鍔ㄧ敾鍙兘鏉ヤ笉鍙?
+                    // 鎴栬€呬細鍜岀郴缁熸渶灏忓寲鍔ㄧ敾鍙犲姞銆備絾涓轰簡淇濇寔鐘舵€佷竴鑷达紝璁句负 0 鏄繀瑕佺殑銆?
+                    // 涔熷彲浠ュ皾璇曟挱鏀句竴涓揩閫熺殑 fade out
                     Opacity = 0;
                 }
             }
@@ -246,29 +272,29 @@ namespace FolderStyleEditorForWindows
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
-            // 已经在动画关闭流程里了，就放行
+            // 宸茬粡鍦ㄥ姩鐢诲叧闂祦绋嬮噷浜嗭紝灏辨斁琛?
             if (_closingAnimating)
             {
                 base.OnClosing(e);
                 return;
             }
 
-            // 只有用户触发的关闭才拦截（你原逻辑 OK）
+            // 鍙湁鐢ㄦ埛瑙﹀彂鐨勫叧闂墠鎷︽埅锛堜綘鍘熼€昏緫 OK锛?
             if (!e.IsProgrammatic)
             {
                 e.Cancel = true;
                 _closingAnimating = true;
 
-                // 一定放到 UI 线程队列里跑，避免时序/线程问题
+                // 涓€瀹氭斁鍒?UI 绾跨▼闃熷垪閲岃窇锛岄伩鍏嶆椂搴?绾跨▼闂
                 Dispatcher.UIThread.Post(async () =>
                 {
                     try
                     {
-                        // 确保起始可见
+                        // 纭繚璧峰鍙
                         Opacity = 1;
                         await AnimateFadeOut();
 
-                        // 动画结束后再真正关闭
+                        // 鍔ㄧ敾缁撴潫鍚庡啀鐪熸鍏抽棴
                         Close();
                     }
                     finally
@@ -286,6 +312,13 @@ namespace FolderStyleEditorForWindows
         protected override void OnKeyDown(KeyEventArgs e)
         {
             base.OnKeyDown(e);
+
+            if (e.Key == Key.Escape && _editView?.IsVisible == true)
+            {
+                GoToHomeView();
+                e.Handled = true;
+                return;
+            }
 
             if (e.Key == Key.F2 && _editView?.IsVisible == true)
             {
@@ -530,7 +563,7 @@ namespace FolderStyleEditorForWindows
             {
                 Duration = TimeSpan.FromMilliseconds(150),
                 Easing = new CubicEaseOut(),
-                FillMode = FillMode.Forward, // 关键：停留在最后一帧
+                FillMode = FillMode.Forward, // 鍏抽敭锛氬仠鐣欏湪鏈€鍚庝竴甯?
                 Children =
                 {
                     new KeyFrame
@@ -572,7 +605,7 @@ namespace FolderStyleEditorForWindows
             {
                 Duration = TimeSpan.FromMilliseconds(200),
                 Easing = new CubicEaseOut(),
-                FillMode = FillMode.Forward, // 关键：否则会回弹
+                FillMode = FillMode.Forward, // 鍏抽敭锛氬惁鍒欎細鍥炲脊
                 Children =
                 {
                     new KeyFrame
@@ -786,9 +819,22 @@ namespace FolderStyleEditorForWindows
         {
             if (_pinButtonIcon == null) return;
     
-            _pinButtonIcon.Path = this.Topmost
-                ? ConfigManager.Config.PinIcon.PinnedIcon
-                : ConfigManager.Config.PinIcon.UnpinnedIcon;
+            _pinButtonIcon.Path = ConfigManager.Config.PinIcon.PinnedIcon;
+
+            if (_pinButton != null)
+            {
+                var pinnedBackground = this.Topmost ? "#7CDDDDDD" : "#50FFFFFF";
+                _pinButton.Background = new SolidColorBrush(Color.Parse(pinnedBackground));
+                _pinButton.Classes.Set("pinned", this.Topmost);
+            }
+
+            if (_languageButton != null)
+            {
+                _languageButton.Background = new SolidColorBrush(Color.Parse("#50FFFFFF"));
+            }
+
+            _pinButtonIcon.Opacity = this.Topmost ? 0.82 : 0.4;
+            UpdatePinGlowVisual();
         }
 
         private void ToggleTopmost()
@@ -801,6 +847,65 @@ namespace FolderStyleEditorForWindows
                 ? LocalizationManager.Instance["Toast_WindowPinned"]
                 : LocalizationManager.Instance["Toast_WindowUnpinned"];
             toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
+        }
+
+        private void UpdatePinGlowVisual()
+        {
+            if (_pinIconGlow == null)
+            {
+                return;
+            }
+
+            if (this.Topmost)
+            {
+                if (!_pinGlowTimer.IsEnabled)
+                {
+                    _pinGlowPhase = 0;
+                    _pinGlowTimer.Start();
+                }
+
+                ApplyPinGlowFrame();
+                return;
+            }
+
+            _pinGlowTimer.Stop();
+            _pinGlowPhase = 0;
+            _pinIconGlow.Opacity = 0;
+            if (_pinIconGlow.RenderTransform is ScaleTransform scale)
+            {
+                scale.ScaleX = 1;
+                scale.ScaleY = 1;
+            }
+        }
+
+        private void PinGlowTimer_Tick(object? sender, EventArgs e)
+        {
+            if (!this.Topmost || _pinIconGlow == null)
+            {
+                UpdatePinGlowVisual();
+                return;
+            }
+
+            _pinGlowPhase += 0.08;
+            ApplyPinGlowFrame();
+        }
+
+        private void ApplyPinGlowFrame()
+        {
+            if (_pinIconGlow == null)
+            {
+                return;
+            }
+
+            var pulse = (Math.Sin(_pinGlowPhase) + 1) * 0.5;
+            _pinIconGlow.Opacity = 0.52 + pulse * 0.34;
+
+            if (_pinIconGlow.RenderTransform is ScaleTransform scale)
+            {
+                var glowScale = 1.02 + pulse * 0.28;
+                scale.ScaleX = glowScale;
+                scale.ScaleY = glowScale;
+            }
         }
     }
     
@@ -818,3 +923,4 @@ namespace FolderStyleEditorForWindows
         }
     }
 }
+
