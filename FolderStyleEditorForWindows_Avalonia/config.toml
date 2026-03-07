@@ -5,6 +5,8 @@ PinDoubleClickThreshold = 500
 
 [AppInfo]
   HelpIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/message-circle-question-mark.svg"
+  GitHubIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/github.svg"
+  StarIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/star.svg"
 
 [HoverIcon]
   DefaultIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/file.svg"

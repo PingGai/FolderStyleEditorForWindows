@@ -204,7 +204,7 @@ If you are not opposed to the nature of this project, you are welcome to contrib
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). For license information of third-party libraries, please refer to the [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) and [`LICENSES/`](LICENSES/) directory.
+Copyright 2025-2026 PING. The project's own source code and documentation are licensed under the [Apache License 2.0](LICENSE) (Apache-2.0). Third-party dependencies and assets remain under their respective original licenses; see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md), the [`LICENSES/`](LICENSES/) directory, and [`NOTICE`](NOTICE) for details. One important exception to note is the current SVG rendering chain, which includes `Svg.Custom` under the `MS-PL`; that component is not relicensed to Apache-2.0 and remains under its original license.
 
 ## Stars — Support this project with a star if you like it!
 

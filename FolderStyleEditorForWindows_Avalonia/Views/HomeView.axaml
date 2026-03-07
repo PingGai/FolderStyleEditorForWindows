@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -201,7 +201,7 @@
                                                <ColumnDefinition Width="Auto"/>
                                            </Grid.ColumnDefinitions>
                                            
-                                           <!-- 鐖惰矾寰勯儴鍒?-->
+                                           <!-- 文件夹路径文本 -->
                                            <TextBlock Grid.Column="0"
                                                       Text="{Binding Converter={StaticResource PathDisplayConverter}}"
                                                       Foreground="{StaticResource Fg2Brush}"
@@ -210,7 +210,7 @@
                                                       TextTrimming="CharacterEllipsis"
                                                       Margin="0"/>
                                            
-                                           <!-- 鏂囦欢澶瑰悕绉版爣绛?-->
+                                           <!-- 文件夹状态标签 -->
                                            <Border Grid.Column="1"
                                                    Name="folderTag"
                                                    Background="{StaticResource FolderTagBgLightBrush}"
@@ -257,7 +257,6 @@
          </DockPanel>
      </Grid>
 </UserControl>
-
 
 
 

@@ -8,7 +8,10 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FolderStyleEditorForWindows.Services;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Windows.Input;
+using Avalonia.Controls.Primitives;
+using SvgControl = Avalonia.Svg.Skia.Svg;
 
 namespace FolderStyleEditorForWindows.Views
 {
@@ -20,9 +23,11 @@ namespace FolderStyleEditorForWindows.Views
         private readonly Random _random = new();
         private Button? _primaryButton;
         private InterruptDialogState? _state;
+        private Border? _dialogCard;
         private TranslateTransform? _primaryButtonShakeTransform;
         private double _shakeStrength;
         private bool _isDangerHovered;
+        private readonly Dictionary<Control, PropertyChangedEventHandler> _animatedContainerHandlers = new();
 
         public InterruptDialog()
         {
@@ -35,6 +40,7 @@ namespace FolderStyleEditorForWindows.Views
             _dangerShakeTimer.Tick += DangerShakeTimer_Tick;
 
             _primaryButton = this.FindControl<Button>("PrimaryButton");
+            _dialogCard = this.FindControl<Border>("DialogCard");
             if (_primaryButton != null)
             {
                 _primaryButton.PointerEntered += PrimaryButton_PointerEntered;
@@ -225,6 +231,127 @@ namespace FolderStyleEditorForWindows.Views
                     EnsurePrimaryButtonTransform();
                     _dangerShakeTimer.Start();
                 }
+            }
+        }
+
+        private void ExpandableSectionContent_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Control host ||
+                host.DataContext is not DialogExpandableSectionItem section ||
+                !section.IsExpanded)
+            {
+                return;
+            }
+
+            if (e.Source is Control source && HasInteractiveAncestor(source, host))
+            {
+                return;
+            }
+
+            section.IsExpanded = false;
+            e.Handled = true;
+        }
+
+        private void LicenseTextContainer_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not Control host ||
+                host.DataContext is not DialogLicenseItem item ||
+                !item.IsTextExpanded)
+            {
+                return;
+            }
+
+            if (e.Source is Control source && HasInteractiveAncestor(source, host))
+            {
+                return;
+            }
+
+            item.IsTextExpanded = false;
+            e.Handled = true;
+        }
+
+        private static bool HasInteractiveAncestor(Control source, Control host)
+        {
+            return source != host &&
+                   (source is Button or TextBlock or TextBox or ScrollViewer or ToggleButton or SvgControl ||
+                    source.FindAncestorOfType<Button>() != null ||
+                    source.FindAncestorOfType<TextBox>() != null ||
+                    source.FindAncestorOfType<ScrollViewer>() != null ||
+                    source.FindAncestorOfType<SvgControl>() != null ||
+                    source.FindAncestorOfType<ToggleButton>() != null);
+        }
+
+        private void AnimatedContainer_AttachedToVisualTree(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+        {
+            if (sender is not Border border)
+            {
+                return;
+            }
+
+            PropertyChangedEventHandler handler = (_, args) =>
+            {
+                if (args.PropertyName == nameof(DialogExpandableSectionItem.IsExpanded) ||
+                    args.PropertyName == nameof(DialogLicenseItem.IsTextExpanded))
+                {
+                    ApplyAnimatedContainerState(border, immediate: false);
+
+                    if (_dialogCard != null)
+                    {
+                        _dialogCard.InvalidateMeasure();
+                        _dialogCard.InvalidateArrange();
+                    }
+                }
+            };
+
+            switch (border.DataContext)
+            {
+                case DialogExpandableSectionItem section:
+                    section.PropertyChanged += handler;
+                    _animatedContainerHandlers[border] = handler;
+                    ApplyAnimatedContainerState(border, immediate: true);
+                    break;
+                case DialogLicenseItem item:
+                    item.PropertyChanged += handler;
+                    _animatedContainerHandlers[border] = handler;
+                    ApplyAnimatedContainerState(border, immediate: true);
+                    break;
+            }
+        }
+
+        private void AnimatedContainer_DetachedFromVisualTree(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
+        {
+            if (sender is not Border border || !_animatedContainerHandlers.Remove(border, out var handler))
+            {
+                return;
+            }
+
+            switch (border.DataContext)
+            {
+                case DialogExpandableSectionItem section:
+                    section.PropertyChanged -= handler;
+                    break;
+                case DialogLicenseItem item:
+                    item.PropertyChanged -= handler;
+                    break;
+            }
+        }
+
+        private static void ApplyAnimatedContainerState(Border border, bool immediate)
+        {
+            var expanded = border.DataContext switch
+            {
+                DialogExpandableSectionItem section => section.IsExpanded,
+                DialogLicenseItem item => item.IsTextExpanded,
+                _ => false
+            };
+
+            border.IsHitTestVisible = expanded;
+            border.MaxHeight = expanded ? 100000 : 0;
+            border.Opacity = expanded ? 1 : 0;
+
+            if (border.RenderTransform is ScaleTransform scaleTransform)
+            {
+                scaleTransform.ScaleY = expanded ? 1 : 0.96;
             }
         }
 

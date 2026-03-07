@@ -1,0 +1,26 @@
+{
+  "entries": [
+    {
+      "id": "project-license",
+      "title": "FolderStyleEditorForWindows",
+      "summaryKey": "License_Config_Project_Summary",
+      "projectUrl": "https://github.com/PingGai/FolderStyleEditorForWindows",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+      "sourcePath": "LICENSE",
+      "sortOrder": 0,
+      "showFullText": true,
+      "kind": "project"
+    },
+    {
+      "id": "lucide",
+      "title": "Lucide",
+      "summaryKey": "License_Config_Lucide_Summary",
+      "projectUrl": "https://lucide.dev/",
+      "licenseUrl": "https://github.com/lucide-icons/lucide/blob/main/LICENSE",
+      "sourcePath": "licenses/lucide.txt",
+      "sortOrder": 10,
+      "showFullText": true,
+      "kind": "asset"
+    }
+  ]
+}

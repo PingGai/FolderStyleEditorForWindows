@@ -201,11 +201,7 @@ namespace FolderStyleEditorForWindows.Views
                 return;
             }
 
-            await dialogService.ShowSingleActionAsync(
-                LocalizationManager.Instance["Home_AboutDialog_Title"],
-                LocalizationManager.Instance["Home_AboutDialog_Content"],
-                LocalizationManager.Instance["Dialog_Primary_Acknowledge"],
-                LocalizationManager.Instance["Home_AboutDialog_SectionTitle"]);
+            await dialogService.ShowAboutDialogAsync();
         }
 
     }

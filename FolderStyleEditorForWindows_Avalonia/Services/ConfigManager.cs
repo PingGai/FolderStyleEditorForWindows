@@ -86,6 +86,12 @@ namespace FolderStyleEditorForWindows.Services
             cfg.AppInfo.HelpIcon = string.IsNullOrWhiteSpace(cfg.AppInfo.HelpIcon)
                 ? "avares://FolderStyleEditorForWindows/Resources/SVG/message-circle-question-mark.svg"
                 : Fix(cfg.AppInfo.HelpIcon);
+            cfg.AppInfo.GitHubIcon = string.IsNullOrWhiteSpace(cfg.AppInfo.GitHubIcon)
+                ? "avares://FolderStyleEditorForWindows/Resources/SVG/github.svg"
+                : Fix(cfg.AppInfo.GitHubIcon);
+            cfg.AppInfo.StarIcon = string.IsNullOrWhiteSpace(cfg.AppInfo.StarIcon)
+                ? "avares://FolderStyleEditorForWindows/Resources/SVG/star.svg"
+                : Fix(cfg.AppInfo.StarIcon);
 
             cfg.HoverIcon ??= new HoverIconConfig();
             cfg.HoverIcon.DefaultIcon = string.IsNullOrWhiteSpace(cfg.HoverIcon.DefaultIcon)

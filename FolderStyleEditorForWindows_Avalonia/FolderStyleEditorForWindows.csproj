@@ -42,9 +42,9 @@
 
     <Authors>PingGai</Authors>
     <Company>PingGai</Company>
-    <RepositoryUrl>https://github.com/PingGai/WindowsFolderStyleEditor</RepositoryUrl>
+    <RepositoryUrl>https://github.com/PingGai/FolderStyleEditorForWindows</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
     <!-- 可复现构建 -->
@@ -103,9 +103,11 @@
 
   <!-- 发行物携带：主 LICENSE、第三方清单、/licenses、README（都在上一级目录） -->
   <ItemGroup>
-    <None Include="..\LICENSE" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\licenses\**\*" Pack="true" PackagePath="licenses\" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\README.md" Pack="true" PackagePath="" />
+    <Content Include="..\LICENSE" Link="LICENSE" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\NOTICE" Link="NOTICE" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\licenses.config.json" Link="licenses.config.json" Pack="true" PackagePath="" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\LICENSES\**\*" Link="licenses\%(RecursiveDir)%(Filename)%(Extension)" Pack="true" PackagePath="licenses\" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\README.md" Link="README.md" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>

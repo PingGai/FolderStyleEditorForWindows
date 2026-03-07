@@ -18,6 +18,8 @@ namespace FolderStyleEditorForWindows.Models
     public class AppInfoConfig
     {
         public string HelpIcon { get; set; } = "";
+        public string GitHubIcon { get; set; } = "";
+        public string StarIcon { get; set; } = "";
     }
 
     public class HoverIconConfig

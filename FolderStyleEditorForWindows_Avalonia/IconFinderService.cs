@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -180,9 +180,9 @@ namespace FolderStyleEditorForWindows
         }
 
         /// <summary>
-        /// 浠庢寚瀹氱殑鏂囦欢寮傛鎻愬彇鎵€鏈夊浘鏍囷紝骞跺皢鍏跺寘瑁呬负 IconViewModel 鍒楄〃銆?        /// </summary>
-        /// <param name="filePath">瑕佹彁鍙栧浘鏍囩殑鏂囦欢璺緞銆?/param>
-        /// <returns>涓€涓寘鍚墍鏈夊浘鏍囪鍥炬ā鍨嬬殑鍒楄〃銆?/returns>
+        /// 从指定文件中提取可供选择器展示的图标列表。
+        /// <param name="filePath">要解析的文件路径。</param>
+        /// <returns>包含图标预览数据的列表。</returns>
         [SupportedOSPlatform("windows")]
         public Task<List<IconViewModel>> ExtractIconsFromFileAsync(string filePath)
         {
@@ -253,4 +253,3 @@ namespace FolderStyleEditorForWindows
         }
     }
 }
-

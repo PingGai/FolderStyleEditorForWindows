@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -165,7 +165,7 @@
                                     </ListBox>
                                 </ScrollViewer>
 
-                                <!-- 鍔犺浇鎸囩ず鍣?-->
+                                <!-- 加载指示器 -->
                                 <ProgressBar IsIndeterminate="True"
                                              IsVisible="{Binding IsLoadingIcons}"
                                              VerticalAlignment="Center"
@@ -180,13 +180,13 @@
                             </Grid>
                         </Border>
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" Margin="0,12,0,0">
-                           <!-- 淇濈暀浜嗗師鏈夌殑閲嶇疆鍥炬爣鎸夐挳 -->
+                           <!-- 保留原有的重置图标按钮 -->
                            <Button Name="btnResetIcon" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Icon_Reset]}" Classes="Btn" Grid.Column="0" Command="{Binding ResetIconCommand}"/>
                            
-                           <!-- 鏂板鐨勨€滆嚜鍔ㄨ幏鍙栧浘鏍団€濇寜閽?-->
+                           <!-- 自动获取按钮用于快速提取图标 -->
                            <Button Name="btnAutoGetIcon" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Icon_AutoGet]}" Classes="Btn" Grid.Column="1" Command="{Binding AutoGetIconCommand}"/>
                            
-                           <!-- 鏂板鐨勩€佺敤浜庢樉绀?"1/5" 杩欑璁℃暟鐨勬枃鏈?-->
+                           <!-- 右侧区域显示图标序号、总数与跳转入口 -->
                            <StackPanel Grid.Column="2"
                                        Orientation="Horizontal"
                                        Spacing="4"
@@ -257,4 +257,3 @@
         
     </Grid>
 </UserControl>
-

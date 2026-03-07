@@ -1,4 +1,4 @@
-﻿using Avalonia.Animation;
+using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Input;
 using Avalonia;
@@ -63,7 +63,7 @@ namespace FolderStyleEditorForWindows
 // #endif
             InitializeComponent();
             
-            // 鍚姩鍏堣涓?0锛岀瓑 OnOpened 鍐嶆笎鍏ワ紙鍚﹀垯浣犲彲鑳解€滅湅涓嶅埌鈥濓級
+            // 启动时先设为 0，在 OnOpened 中再做渐入，避免窗口显示过程闪烁
             Opacity = 0;
  
             _viewModel = App.Services!.GetRequiredService<MainViewModel>();
@@ -262,9 +262,9 @@ namespace FolderStyleEditorForWindows
                 // 澶勭悊閫氳繃浠诲姟鏍忕偣鍑绘渶灏忓寲
                 else if (newState == WindowState.Minimized && Opacity > 0)
                 {
-                    // 娉ㄦ剰锛氳繖閲屽叾瀹炵郴缁熷凡缁忓紑濮嬫渶灏忓寲浜嗭紝鎴戜滑鍐嶅仛鍔ㄧ敾鍙兘鏉ヤ笉鍙?
-                    // 鎴栬€呬細鍜岀郴缁熸渶灏忓寲鍔ㄧ敾鍙犲姞銆備絾涓轰簡淇濇寔鐘舵€佷竴鑷达紝璁句负 0 鏄繀瑕佺殑銆?
-                    // 涔熷彲浠ュ皾璇曟挱鏀句竴涓揩閫熺殑 fade out
+                    // 最小化时不再播放淡出动画，否则会从当前状态直接切到最小化
+                    // 恢复时若没有合适的初始值，窗口会从 0 透明度突兀出现
+                    // 这里直接将透明度归零，避免淡出动画干扰窗口状态切换
                     Opacity = 0;
                 }
             }
@@ -272,20 +272,20 @@ namespace FolderStyleEditorForWindows
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
-            // 宸茬粡鍦ㄥ姩鐢诲叧闂祦绋嬮噷浜嗭紝灏辨斁琛?
+            // 已经处于关闭流程中时，避免重复触发关闭逻辑
             if (_closingAnimating)
             {
                 base.OnClosing(e);
                 return;
             }
 
-            // 鍙湁鐢ㄦ埛瑙﹀彂鐨勫叧闂墠鎷︽埅锛堜綘鍘熼€昏緫 OK锛?
+            // 非程序内主动关闭时，先拦截关闭并播放渐出动画，再真正关闭窗口
             if (!e.IsProgrammatic)
             {
                 e.Cancel = true;
                 _closingAnimating = true;
 
-                // 涓€瀹氭斁鍒?UI 绾跨▼闃熷垪閲岃窇锛岄伩鍏嶆椂搴?绾跨▼闂
+                // 把动画安排到 UI 队列里执行，避免在关闭事件中直接阻塞
                 Dispatcher.UIThread.Post(async () =>
                 {
                     try
@@ -563,7 +563,7 @@ namespace FolderStyleEditorForWindows
             {
                 Duration = TimeSpan.FromMilliseconds(150),
                 Easing = new CubicEaseOut(),
-                FillMode = FillMode.Forward, // 鍏抽敭锛氬仠鐣欏湪鏈€鍚庝竴甯?
+                FillMode = FillMode.Forward, // 播放完成后保持最后一帧
                 Children =
                 {
                     new KeyFrame
@@ -923,4 +923,3 @@ namespace FolderStyleEditorForWindows
         }
     }
 }
-

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
@@ -325,13 +325,13 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 // TODO: Implement IPC with elevated helper process
                 // For now, we can show a message or try to restart as admin.
-                _toastService.Show("鉂?" + LocalizationManager.Instance["Error_AdminRequired"],
+                _toastService.Show("⚠ " + LocalizationManager.Instance["Error_AdminRequired"],
                     new SolidColorBrush(Color.Parse("#EBB762")));
                 // UacHelper.RestartAsAdmin();
             }
             catch (Exception ex) when (ex is IOException || ex is SecurityException)
             {
-                _toastService.Show($"鉂?{ex.Message}", new SolidColorBrush(Color.Parse("#EBB762")));
+                _toastService.Show($"⚠ {ex.Message}", new SolidColorBrush(Color.Parse("#EBB762")));
             }
 
             if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -742,10 +742,10 @@ namespace FolderStyleEditorForWindows.ViewModels
            if (string.IsNullOrEmpty(fileName))
            {
                fileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll");
-               selectedIndex = 4; // 榛樿浣跨敤鏂囦欢澶瑰浘鏍囩储寮?
+               selectedIndex = 4; // 默认选中 shell32.dll 的常用文件夹图标
            }
  
-           // 濡傛灉鏄浉瀵硅矾寰勶紝鍒欏皢鍏惰浆鎹负缁濆璺緞
+           // 如果是相对路径，则将其转换为绝对路径
            if (!Path.IsPathRooted(fileName) && !string.IsNullOrEmpty(FolderPath))
            {
                fileName = Path.GetFullPath(Path.Combine(FolderPath, fileName));
@@ -871,7 +871,6 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
     }
 }
-
 
 
 

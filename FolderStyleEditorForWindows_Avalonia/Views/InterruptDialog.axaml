@@ -2,10 +2,76 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:services="using:FolderStyleEditorForWindows.Services"
              xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
+             xmlns:i="using:Avalonia.Xaml.Interactivity"
+             xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
+             xmlns:svg="clr-namespace:Avalonia.Svg.Skia;assembly=Svg.Controls.Skia.Avalonia"
              x:Class="FolderStyleEditorForWindows.Views.InterruptDialog"
              x:DataType="services:InterruptDialogState"
              ZIndex="12000"
              IsHitTestVisible="{Binding IsHitTestVisible}">
+  <UserControl.Styles>
+    <Style Selector="Button.DialogLinkButton">
+      <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+      <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.06"/>
+      <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.92"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="2.4"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
+      <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="BorderBrush" Value="#EEAAAAAA"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Background" Value="#66FFFFFF"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.DialogLinkButton:pointerover">
+      <Setter Property="Background" Value="{Binding RelativeSource={RelativeSource Self}, Path=Background}"/>
+      <Setter Property="BorderBrush" Value="{Binding RelativeSource={RelativeSource Self}, Path=BorderBrush}"/>
+    </Style>
+    <Style Selector="Button.DialogSectionToggle">
+      <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+      <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.03"/>
+      <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.95"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.4"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="1.2"/>
+      <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.2"/>
+      <Setter Property="Padding" Value="14,9"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="BorderBrush" Value="#DDE0E5EA"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Background" Value="#59FFFFFF"/>
+    </Style>
+    <Style Selector="Button.DialogTextToggle">
+      <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+      <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.03"/>
+      <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.95"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.4"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="1.2"/>
+      <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.2"/>
+      <Setter Property="BorderBrush" Value="#E1E4EA"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Background" Value="#7AFFFFFF"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.DialogInlineLink">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="MinHeight" Value="0"/>
+      <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+    </Style>
+    <Style Selector="Button.DialogInlineLink:pointerover">
+      <Setter Property="Opacity" Value="0.75"/>
+    </Style>
+  </UserControl.Styles>
+
   <Grid x:Name="OverlayRoot"
         Opacity="{Binding OverlayOpacity}"
         IsHitTestVisible="{Binding IsHitTestVisible}">
@@ -84,16 +150,8 @@
           </Transitions>
         </Border.Transitions>
 
-        <Grid RowDefinitions="Auto,*,Auto,Auto">
-        <Border Grid.RowSpan="4"
-                Background="Transparent"
-                VerticalAlignment="Bottom"
-                Height="120"
-                IsHitTestVisible="False"
-                Margin="-20,-20,-20,-20">
-        </Border>
-
-        <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,6">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12">
             <TextBlock Text="{Binding Title}"
                        FontSize="18"
                        FontWeight="Bold"
@@ -101,92 +159,305 @@
                        Opacity="0.92"
                        TextAlignment="Center"
                        TextWrapping="Wrap"/>
-        </StackPanel>
-
-        <ScrollViewer Grid.Row="1"
-                      Margin="0,6,0,6"
-                      MinHeight="0"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Spacing="8">
-            <TextBlock Text="{Binding SectionTitle}"
-                       IsVisible="{Binding HasSectionTitle}"
-                       FontSize="15"
-                       FontWeight="Bold"
-                       Foreground="{StaticResource Fg1Brush}"
-                       Opacity="0.9"
-                       TextAlignment="Left"
-                       HorizontalAlignment="Left"
-                       TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding Content}"
-                       FontSize="14"
+            <TextBlock Text="{Binding HeaderMeta}"
+                       IsVisible="{Binding HasHeaderMeta}"
+                       FontSize="13"
                        Foreground="{StaticResource Fg2Brush}"
-                       TextAlignment="Left"
-                       HorizontalAlignment="Left"
+                       Opacity="0.72"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
                        TextWrapping="Wrap"/>
           </StackPanel>
-        </ScrollViewer>
 
-        <StackPanel Grid.Row="2"
-                    Spacing="8"
-                    IsVisible="{Binding ShowProgress}">
-          <ProgressBar IsIndeterminate="{Binding IsProgressIndeterminate}"
-                       Value="{Binding ProgressValue}"
-                       Height="8"
-                       CornerRadius="8"/>
-        </StackPanel>
+          <ScrollViewer Grid.Row="1"
+                        Margin="0,6,0,6"
+                        MinHeight="0"
+                        VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <i:Interaction.Behaviors>
+              <ia:VerticalScrollViewerAnimatedBehavior/>
+            </i:Interaction.Behaviors>
+            <StackPanel Spacing="14">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding SectionTitle}"
+                           IsVisible="{Binding HasSectionTitle}"
+                           FontSize="15"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource Fg1Brush}"
+                           Opacity="0.9"
+                           TextAlignment="Left"
+                           HorizontalAlignment="Left"
+                           TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding Content}"
+                           FontSize="14"
+                           Foreground="{StaticResource Fg2Brush}"
+                           TextAlignment="Left"
+                           HorizontalAlignment="Left"
+                           TextWrapping="Wrap"/>
+              </StackPanel>
 
-        <StackPanel Grid.Row="3"
-                    Margin="0,14,0,0"
-                    Spacing="12">
-          <StackPanel Orientation="Horizontal"
-                      HorizontalAlignment="Center"
+              <StackPanel IsVisible="{Binding HasPairedActionLinks}"
+                          HorizontalAlignment="Center"
+                          Spacing="10"
+                          Margin="0,10,0,16"
+                          ClipToBounds="False">
+                <Button Classes="Btn DialogLinkButton"
+                        HorizontalAlignment="Center"
+                        Padding="12,7"
+                        Margin="10,0"
+                        Command="{Binding FirstActionLink.OpenCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <svg:Svg Path="{Binding FirstActionLink.IconPath}"
+                             Width="16"
+                             Height="16"/>
+                    <TextBlock Text="{Binding FirstActionLink.Text}"
+                               FontWeight="SemiBold"
+                               TextWrapping="NoWrap"/>
+                  </StackPanel>
+                </Button>
+                <Button Classes="Btn DialogLinkButton"
+                        HorizontalAlignment="Center"
+                        Padding="12,7"
+                        Margin="10,0"
+                        Command="{Binding SecondActionLink.OpenCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <svg:Svg Path="{Binding SecondActionLink.IconPath}"
+                             Width="16"
+                             Height="16"/>
+                    <TextBlock Text="{Binding SecondActionLink.Text}"
+                               FontWeight="SemiBold"
+                               TextWrapping="NoWrap"/>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+
+              <ItemsControl ItemsSource="{Binding ExpandableSections}"
+                            IsVisible="{Binding HasExpandableSections}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="services:DialogExpandableSectionItem">
+                    <Border Background="Transparent"
+                            BorderBrush="#00FFFFFF"
+                            BorderThickness="0"
+                            CornerRadius="12"
+                            Padding="18,8,18,6"
+                            Margin="12,0,12,10"
+                            ClipToBounds="False">
+                      <StackPanel Spacing="0"
+                                  MinWidth="250">
+                        <Button Classes="Btn DialogSectionToggle"
+                                Command="{Binding ToggleCommand}">
+                          <Button.Width>
+                            <Binding ElementName="DialogCard"
+                                     Path="Bounds.Width"
+                                     Converter="{StaticResource MathConverter}"
+                                     ConverterParameter="@VALUE*0.8"/>
+                          </Button.Width>
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding Title}"
+                                       FontSize="14"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Fg1Brush}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="⌄"
+                                       FontSize="13"
+                                       Foreground="{StaticResource Fg2Brush}"
+                                       VerticalAlignment="Center"/>
+                          </Grid>
+                        </Button>
+
+                        <Border MaxHeight="0"
+                                Opacity="0"
+                                IsHitTestVisible="False"
+                                ClipToBounds="True"
+                                Background="Transparent"
+                                Padding="8,0,8,14"
+                                AttachedToVisualTree="AnimatedContainer_AttachedToVisualTree"
+                                DetachedFromVisualTree="AnimatedContainer_DetachedFromVisualTree"
+                                PointerPressed="ExpandableSectionContent_PointerPressed">
+                          <Border.RenderTransform>
+                            <ScaleTransform ScaleY="0.96"/>
+                          </Border.RenderTransform>
+                          <Border.RenderTransformOrigin>
+                            0.5,0
+                          </Border.RenderTransformOrigin>
+                          <Border.Transitions>
+                            <Transitions>
+                              <DoubleTransition Property="MaxHeight" Duration="0:0:0.24" Easing="CubicEaseOut"/>
+                              <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                              <DoubleTransition Property="ScaleTransform.ScaleY" Duration="0:0:0.24" Easing="CubicEaseOut"/>
+                            </Transitions>
+                          </Border.Transitions>
+                          <StackPanel Spacing="0">
+                            <ItemsControl ItemsSource="{Binding Items}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="services:DialogLicenseItem">
+                                  <Border BorderBrush="#E8E8EC"
+                                          BorderThickness="0,1,0,0"
+                                          Padding="0,12,0,0">
+                                    <StackPanel Spacing="8">
+                                      <TextBlock Text="{Binding Title}"
+                                                 FontSize="14"
+                                                 FontWeight="SemiBold"
+                                                 Foreground="{StaticResource Fg1Brush}"
+                                                 TextWrapping="Wrap"/>
+                                      <TextBlock Text="{Binding MetaText}"
+                                                 IsVisible="{Binding HasMetaText}"
+                                                 FontSize="12"
+                                                 Foreground="{StaticResource Fg3Brush}"
+                                                 TextWrapping="Wrap"/>
+                                      <TextBlock Text="{Binding Summary}"
+                                                 IsVisible="{Binding HasSummary}"
+                                                 FontSize="13"
+                                                 Foreground="{StaticResource Fg2Brush}"
+                                                 TextWrapping="Wrap"/>
+
+                                      <WrapPanel Orientation="Horizontal" ItemHeight="28">
+                                        <Button Classes="DialogInlineLink"
+                                                Margin="0,0,14,0"
+                                                IsVisible="{Binding HasProjectUrl}"
+                                                Command="{Binding OpenProjectCommand}">
+                                          <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Dialog_Link_Project]}"
+                                                     TextDecorations="Underline"/>
+                                        </Button>
+                                        <Button Classes="DialogInlineLink"
+                                                Margin="0,0,14,0"
+                                                IsVisible="{Binding HasLicenseUrl}"
+                                                Command="{Binding OpenLicenseCommand}">
+                                          <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Dialog_Link_License]}"
+                                                     TextDecorations="Underline"/>
+                                        </Button>
+                                      </WrapPanel>
+
+                                      <StackPanel Spacing="8"
+                                                  IsVisible="{Binding HasFullText}">
+                                        <Button Classes="Btn DialogTextToggle"
+                                                Command="{Binding ToggleTextCommand}">
+                                          <Button.Width>
+                                            <Binding ElementName="DialogCard"
+                                                     Path="Bounds.Width"
+                                                     Converter="{StaticResource MathConverter}"
+                                                     ConverterParameter="@VALUE*0.52"/>
+                                          </Button.Width>
+                                          <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Dialog_License_Toggle]}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Fg1Brush}"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="⌄"
+                                                       FontSize="12"
+                                                       Foreground="{StaticResource Fg2Brush}"/>
+                                          </Grid>
+                                        </Button>
+
+                                        <Border Background="#7AFFFFFF"
+                                                BorderBrush="#E1E4EA"
+                                                BorderThickness="1"
+                                                CornerRadius="10"
+                                                Padding="12"
+                                                Margin="0,2,0,0"
+                                                MaxHeight="0"
+                                                Opacity="0"
+                                                IsHitTestVisible="False"
+                                                ClipToBounds="True"
+                                                AttachedToVisualTree="AnimatedContainer_AttachedToVisualTree"
+                                                DetachedFromVisualTree="AnimatedContainer_DetachedFromVisualTree"
+                                                PointerPressed="LicenseTextContainer_PointerPressed">
+                                          <Border.RenderTransform>
+                                            <ScaleTransform ScaleY="0.96"/>
+                                          </Border.RenderTransform>
+                                          <Border.RenderTransformOrigin>
+                                            0.5,0
+                                          </Border.RenderTransformOrigin>
+                                          <Border.Transitions>
+                                            <Transitions>
+                                              <DoubleTransition Property="MaxHeight" Duration="0:0:0.24" Easing="CubicEaseOut"/>
+                                              <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                              <DoubleTransition Property="ScaleTransform.ScaleY" Duration="0:0:0.24" Easing="CubicEaseOut"/>
+                                            </Transitions>
+                                          </Border.Transitions>
+                                          <TextBlock Text="{Binding FullText}"
+                                                     FontFamily="Cascadia Mono,Consolas,Monospace"
+                                                     FontSize="12"
+                                                     Foreground="{StaticResource Fg2Brush}"
+                                                     TextWrapping="Wrap"/>
+                                        </Border>
+                                      </StackPanel>
+                                    </StackPanel>
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <StackPanel Spacing="8"
+                          IsVisible="{Binding ShowProgress}">
+                <ProgressBar IsIndeterminate="{Binding IsProgressIndeterminate}"
+                             Value="{Binding ProgressValue}"
+                             Height="8"
+                             CornerRadius="8"/>
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+
+          <StackPanel Grid.Row="2"
+                      Margin="0,14,0,0"
                       Spacing="12">
-            <Button Classes="Btn BtnPill"
-                    x:Name="PrimaryButton"
-                    Background="{Binding PrimaryBackground}"
-                    Foreground="{Binding PrimaryForeground}"
-                    BorderBrush="{Binding PrimaryBorderBrush}"
-                    BorderThickness="{Binding PrimaryBorderThickness}"
-                    CornerRadius="12"
-                    Padding="14,10"
-                    MinWidth="110"
-                    Opacity="0.75"
-                    Command="{Binding ConfirmCommand}">
-              <Button.Width>
-                <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
-                  <Binding ElementName="DialogCard" Path="Bounds.Width"/>
-                  <Binding Path="HasSecondaryButton"/>
-                </MultiBinding>
-              </Button.Width>
-              <TextBlock Text="{Binding PrimaryButtonText}"
-                         FontWeight="SemiBold"
-                         HorizontalAlignment="Center"/>
-            </Button>
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="12">
+              <Button Classes="Btn BtnPill"
+                      x:Name="PrimaryButton"
+                      Background="{Binding PrimaryBackground}"
+                      Foreground="{Binding PrimaryForeground}"
+                      BorderBrush="{Binding PrimaryBorderBrush}"
+                      BorderThickness="{Binding PrimaryBorderThickness}"
+                      CornerRadius="12"
+                      Padding="14,10"
+                      MinWidth="110"
+                      Opacity="0.75"
+                      Command="{Binding ConfirmCommand}">
+                <Button.Width>
+                  <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
+                    <Binding ElementName="DialogCard" Path="Bounds.Width"/>
+                    <Binding Path="HasSecondaryButton"/>
+                  </MultiBinding>
+                </Button.Width>
+                <TextBlock Text="{Binding PrimaryButtonText}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+              </Button>
 
-            <Button Classes="Btn BtnPill BtnGhost"
-                    BorderBrush="{Binding SecondaryBorderBrush}"
-                    Foreground="{Binding SecondaryForeground}"
-                    Background="{Binding SecondaryBackground}"
-                    BorderThickness="{Binding SecondaryBorderThickness}"
-                    CornerRadius="12"
-                    Padding="14,10"
-                    MinWidth="110"
-                    Opacity="0.75"
-                    Command="{Binding CancelCommand}"
-                    IsVisible="{Binding HasSecondaryButton}">
-              <Button.Width>
-                <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
-                  <Binding ElementName="DialogCard" Path="Bounds.Width"/>
-                  <Binding Path="HasSecondaryButton"/>
-                </MultiBinding>
-              </Button.Width>
-              <TextBlock Text="{Binding SecondaryButtonText}"
-                         FontWeight="SemiBold"
-                         HorizontalAlignment="Center"/>
-            </Button>
+              <Button Classes="Btn BtnPill BtnGhost"
+                      BorderBrush="{Binding SecondaryBorderBrush}"
+                      Foreground="{Binding SecondaryForeground}"
+                      Background="{Binding SecondaryBackground}"
+                      BorderThickness="{Binding SecondaryBorderThickness}"
+                      CornerRadius="12"
+                      Padding="14,10"
+                      MinWidth="110"
+                      Opacity="0.75"
+                      Command="{Binding CancelCommand}"
+                      IsVisible="{Binding HasSecondaryButton}">
+                <Button.Width>
+                  <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
+                    <Binding ElementName="DialogCard" Path="Bounds.Width"/>
+                    <Binding Path="HasSecondaryButton"/>
+                  </MultiBinding>
+                </Button.Width>
+                <TextBlock Text="{Binding SecondaryButtonText}"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+              </Button>
+            </StackPanel>
           </StackPanel>
-        </StackPanel>
         </Grid>
       </Border>
     </Grid>
