@@ -17,6 +17,12 @@ namespace FolderStyleEditorForWindows
         public bool IsCompleted { get; init; }
     }
 
+    public sealed class IconExtractionProgress
+    {
+        public required List<IconViewModel> Batch { get; init; }
+        public bool IsCompleted { get; init; }
+    }
+
     public class IconFinderService
     {
         [SupportedOSPlatform("windows")]
@@ -218,6 +224,77 @@ namespace FolderStyleEditorForWindows
                 
                 return iconViewModels;
             });
+        }
+
+        [SupportedOSPlatform("windows")]
+        public Task ExtractIconsFromFileIncrementalAsync(
+            string filePath,
+            IProgress<IconExtractionProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(async () =>
+            {
+                var extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+                if (extension == ".ico")
+                {
+                    try
+                    {
+                        var icoBytes = File.ReadAllBytes(filePath);
+                        using var ms = new MemoryStream(icoBytes);
+                        var bitmap = new Bitmap(ms);
+                        progress?.Report(new IconExtractionProgress
+                        {
+                            Batch = new List<IconViewModel> { new IconViewModel(bitmap, filePath, 0) },
+                            IsCompleted = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to load .ico file: {ex.Message}");
+                        progress?.Report(new IconExtractionProgress
+                        {
+                            Batch = new List<IconViewModel>(),
+                            IsCompleted = true
+                        });
+                    }
+
+                    return;
+                }
+
+                var batch = new List<IconViewModel>();
+                const int batchSize = 15;
+
+                async Task FlushAsync(bool isCompleted)
+                {
+                    progress?.Report(new IconExtractionProgress
+                    {
+                        Batch = batch,
+                        IsCompleted = isCompleted
+                    });
+                    batch = new List<IconViewModel>();
+
+                    if (!isCompleted)
+                    {
+                        await Task.Delay(16, cancellationToken);
+                    }
+                }
+
+                ShellHelper.ExtractIconsForPreviewIncremental(
+                    filePath,
+                    (bitmap, index) =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        batch.Add(new IconViewModel(bitmap, filePath, index));
+                        if (batch.Count >= batchSize)
+                        {
+                            FlushAsync(isCompleted: false).GetAwaiter().GetResult();
+                        }
+                    },
+                    cancellationToken);
+
+                await FlushAsync(isCompleted: true);
+            }, cancellationToken);
         }
 
         [SupportedOSPlatform("windows")]

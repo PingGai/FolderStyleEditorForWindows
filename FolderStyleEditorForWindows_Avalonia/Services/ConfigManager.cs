@@ -136,6 +136,9 @@ namespace FolderStyleEditorForWindows.Services
                     rule.IconPath = Fix(rule.IconPath);
                 }
             }
+
+            cfg.Features ??= new AppFeaturesConfig();
+            cfg.Features.PermissionPrompt ??= new PermissionPromptConfig();
         }
     }
 }

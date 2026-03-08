@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security;
+using System.Threading;
 
 namespace FolderStyleEditorForWindows
 {
@@ -131,11 +134,7 @@ namespace FolderStyleEditorForWindows
                 iIconIndex = iconIndex
             };
 
-            uint hr = SHGetSetFolderCustomSettings(ref settings, folderPath, FCS_FORCEWRITE);
-            if (hr != 0)
-            {
-                Console.WriteLine($"设置图标失败，HRESULT: 0x{hr:X}");
-            }
+            ThrowIfShellFailure(SHGetSetFolderCustomSettings(ref settings, folderPath, FCS_FORCEWRITE), folderPath, "set-folder-icon");
         }
 
         /// <summary>
@@ -151,11 +150,7 @@ namespace FolderStyleEditorForWindows
                 iIconIndex = 0
             };
 
-            uint hr = SHGetSetFolderCustomSettings(ref settings, folderPath, FCS_FORCEWRITE);
-            if (hr != 0)
-            {
-                Console.WriteLine($"移除图标失败，HRESULT: 0x{hr:X}");
-            }
+            ThrowIfShellFailure(SHGetSetFolderCustomSettings(ref settings, folderPath, FCS_FORCEWRITE), folderPath, "remove-folder-icon");
 
             string desktopIniPath = Path.Combine(folderPath, "desktop.ini");
             if (File.Exists(desktopIniPath))
@@ -169,7 +164,7 @@ namespace FolderStyleEditorForWindows
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"清理 desktop.ini 文件失败: {ex.Message}");
+                    throw new IOException("清理 desktop.ini 文件失败。", ex);
                 }
             }
             
@@ -183,8 +178,27 @@ namespace FolderStyleEditorForWindows
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"移除文件夹只读属性失败: {ex.Message}");
+                throw new IOException("移除文件夹只读属性失败。", ex);
             }
+        }
+
+        private static void ThrowIfShellFailure(uint hr, string folderPath, string operation)
+        {
+            if (hr == 0)
+            {
+                return;
+            }
+
+            var exception = Marshal.GetExceptionForHR(unchecked((int)hr));
+            if (exception is UnauthorizedAccessException or SecurityException)
+            {
+                throw exception;
+            }
+
+            throw new FolderStyleEditorForWindows.Services.FolderStyleMutationException(
+                FolderStyleEditorForWindows.Services.FolderStyleMutationStatus.ShellFailure,
+                $"Shell operation '{operation}' failed for '{folderPath}' (HRESULT: 0x{hr:X8}).",
+                exception ?? new Win32Exception(unchecked((int)hr)));
         }
         
         public static bool HasIcons(string filePath)
@@ -263,6 +277,58 @@ namespace FolderStyleEditorForWindows
             }
 
             return extractedIcons;
+        }
+
+        public static void ExtractIconsForPreviewIncremental(
+            string filePath,
+            Action<Avalonia.Media.Imaging.Bitmap, int> onIconExtracted,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            uint iconCount = ExtractIconEx(filePath, -1, null, null, 0);
+            if (iconCount == 0)
+            {
+                return;
+            }
+
+            var largeIconHandles = new IntPtr[iconCount];
+            uint extractedCount = ExtractIconEx(filePath, 0, largeIconHandles, null, iconCount);
+            if (extractedCount == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < extractedCount; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                IntPtr hIcon = largeIconHandles[i];
+                if (hIcon == IntPtr.Zero)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var avaloniaBitmap = CreateAvaloniaBitmapFromIconHandle(hIcon);
+                    if (avaloniaBitmap != null)
+                    {
+                        onIconExtracted(avaloniaBitmap, i);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error converting icon at index {i}: {ex.Message}");
+                }
+                finally
+                {
+                    DestroyIcon(hIcon);
+                }
+            }
         }
 
         private static Avalonia.Media.Imaging.Bitmap? CreateAvaloniaBitmapFromIconHandle(IntPtr hIcon)

@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -8,6 +9,8 @@ using FolderStyleEditorForWindows.Services;
 using FolderStyleEditorForWindows.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,24 +19,47 @@ namespace FolderStyleEditorForWindows.Views
 {
     public partial class HomeView : UserControl
     {
+        private const int GradientCycles = 3;
         private readonly DispatcherTimer _folderWordGradientTimer;
         private LinearGradientBrush? _folderWordAnimatedBrush;
-        private readonly double[] _folderWordGradientBaseOffsets = { 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2 };
-        private double _folderWordGradientShift;
+        private readonly Color[] _defaultGradientColors =
+        {
+            Color.Parse("#8A6CFF"),
+            Color.Parse("#65CCFF"),
+            Color.Parse("#62E59B"),
+            Color.Parse("#FFC263"),
+            Color.Parse("#FF92B4")
+        };
+        private readonly Color[] _elevatedGradientColors =
+        {
+            Color.Parse("#FFB347"),
+            Color.Parse("#FFD56A"),
+            Color.Parse("#F3DF84"),
+            Color.Parse("#E0A93F"),
+            Color.Parse("#FFD07A")
+        };
+        private readonly ElevationSessionState? _elevationSessionState;
+        private double _folderWordGradientPhase;
+        private bool _isElevatedPalette;
 
         public HomeView()
         {
             InitializeComponent();
 
-            var dropZone = this.FindControl<Border>("dropZone");
-            if (dropZone != null)
-            {
-                dropZone.PointerPressed += DropZone_PointerPressed;
-            }
             var aboutInfoButton = this.FindControl<Button>("btnAboutInfo");
             if (aboutInfoButton != null)
             {
                 aboutInfoButton.Click += BtnAboutInfo_Click;
+            }
+            var clickHintText = this.FindControl<TextBlock>("ClickHintText");
+            if (clickHintText != null)
+            {
+                clickHintText.PointerPressed += ClickHintText_PointerPressed;
+            }
+            var folderWordButton = this.FindControl<Button>("FolderWordButton");
+            if (folderWordButton != null)
+            {
+                folderWordButton.Click += FolderWordButton_Click;
             }
 
             var aboutInfoIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("AboutInfoIcon");
@@ -59,27 +85,108 @@ namespace FolderStyleEditorForWindows.Views
                 brushResource is LinearGradientBrush brush)
             {
                 _folderWordAnimatedBrush = brush;
+                _elevationSessionState = App.Services?.GetRequiredService<ElevationSessionState>();
+                if (_elevationSessionState != null)
+                {
+                    _elevationSessionState.PropertyChanged += ElevationSessionState_PropertyChanged;
+                    ApplyFolderGradientPalette(_elevationSessionState.IsElevatedSessionActive);
+                }
                 _folderWordGradientTimer.Start();
             }
         }
 
         private void FolderWordGradientTimer_Tick(object? sender, EventArgs e)
         {
-            if (_folderWordAnimatedBrush == null || _folderWordAnimatedBrush.GradientStops.Count != _folderWordGradientBaseOffsets.Length)
+            if (_folderWordAnimatedBrush == null)
             {
                 return;
             }
 
-            _folderWordGradientShift -= 0.012;
-            if (_folderWordGradientShift <= -1)
+            _folderWordGradientPhase += 0.01;
+            if (_folderWordGradientPhase >= 1)
             {
-                _folderWordGradientShift = 0;
+                _folderWordGradientPhase -= 1;
             }
 
-            for (var i = 0; i < _folderWordGradientBaseOffsets.Length; i++)
+            EnsureGradientPattern();
+            UpdateGradientOffsets();
+        }
+
+        private void ElevationSessionState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ElevationSessionState.IsElevatedSessionActive) && _elevationSessionState != null)
             {
-                _folderWordAnimatedBrush.GradientStops[i].Offset = _folderWordGradientBaseOffsets[i] + _folderWordGradientShift;
+                ApplyFolderGradientPalette(_elevationSessionState.IsElevatedSessionActive);
             }
+        }
+
+        private void ApplyFolderGradientPalette(bool isElevated)
+        {
+            if (_folderWordAnimatedBrush == null)
+            {
+                return;
+            }
+
+            _isElevatedPalette = isElevated;
+            EnsureGradientPattern();
+            UpdateGradientOffsets();
+        }
+
+        private void EnsureGradientPattern()
+        {
+            if (_folderWordAnimatedBrush == null)
+            {
+                return;
+            }
+
+            var colors = _isElevatedPalette ? _elevatedGradientColors : _defaultGradientColors;
+            var expectedStopCount = (colors.Length * GradientCycles) + 1;
+            if (_folderWordAnimatedBrush.GradientStops.Count == expectedStopCount)
+            {
+                return;
+            }
+
+            _folderWordAnimatedBrush.GradientStops.Clear();
+            for (var cycle = 0; cycle < GradientCycles; cycle++)
+            {
+                for (var colorIndex = 0; colorIndex < colors.Length; colorIndex++)
+                {
+                    _folderWordAnimatedBrush.GradientStops.Add(new GradientStop(
+                        colors[colorIndex],
+                        cycle + (colorIndex / (double)colors.Length)));
+                }
+            }
+
+            _folderWordAnimatedBrush.GradientStops.Add(new GradientStop(colors[0], GradientCycles));
+        }
+
+        private void UpdateGradientOffsets()
+        {
+            if (_folderWordAnimatedBrush == null)
+            {
+                return;
+            }
+
+            var colors = _isElevatedPalette ? _elevatedGradientColors : _defaultGradientColors;
+            if (colors.Length == 0)
+            {
+                return;
+            }
+
+            var stopIndex = 0;
+            for (var cycle = 0; cycle < GradientCycles; cycle++)
+            {
+                for (var colorIndex = 0; colorIndex < colors.Length; colorIndex++)
+                {
+                    var offset = cycle + (colorIndex / (double)colors.Length) - _folderWordGradientPhase;
+                    _folderWordAnimatedBrush.GradientStops[stopIndex].Color = colors[colorIndex];
+                    _folderWordAnimatedBrush.GradientStops[stopIndex].Offset = offset;
+                    stopIndex++;
+                }
+            }
+
+            _folderWordAnimatedBrush.GradientStops[stopIndex].Color = colors[0];
+            _folderWordAnimatedBrush.GradientStops[stopIndex].Offset = GradientCycles - _folderWordGradientPhase;
         }
 
         private void HomeView_DragOver(object? sender, DragEventArgs e)
@@ -98,7 +205,7 @@ namespace FolderStyleEditorForWindows.Views
             e.Handled = true;
         }
 
-        private void HomeView_Drop(object? sender, DragEventArgs e)
+        private async void HomeView_Drop(object? sender, DragEventArgs e)
         {
             if (e.Data.GetFiles() is { } files && files.Any())
             {
@@ -125,9 +232,9 @@ namespace FolderStyleEditorForWindows.Views
                     return;
                 }
 
-                if (!string.IsNullOrEmpty(folderPath) && VisualRoot is MainWindow mainWindow)
+                if (!string.IsNullOrEmpty(folderPath) && DataContext is MainViewModel vm)
                 {
-                    mainWindow.GoToEditView(folderPath, iconSourcePath);
+                    await vm.StartEditSessionAsync(folderPath, iconSourcePath);
                 }
             }
 
@@ -164,13 +271,8 @@ namespace FolderStyleEditorForWindows.Views
             return false;
         }
 
-        private async void DropZone_PointerPressed(object? sender, PointerPressedEventArgs e)
+        private async Task OpenFolderPickerAsync()
         {
-            if (e.Source is Control source && source.FindAncestorOfType<Button>() != null)
-            {
-                return;
-            }
-
             var topLevel = TopLevel.GetTopLevel(this);
             if (topLevel?.StorageProvider is not { } storageProvider)
             {
@@ -188,9 +290,26 @@ namespace FolderStyleEditorForWindows.Views
                 var folderPath = folder[0].Path.LocalPath;
                 if (DataContext is MainViewModel vm)
                 {
-                    vm.StartEditSession(folderPath);
+                    await vm.StartEditSessionAsync(folderPath);
                 }
             }
+        }
+
+        private async void ClickHintText_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            await OpenFolderPickerAsync();
+            e.Handled = true;
+        }
+
+        private async void FolderWordButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not MainViewModel vm)
+            {
+                return;
+            }
+
+            await vm.ToggleElevationSessionAsync();
+            e.Handled = true;
         }
 
         private async void BtnAboutInfo_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

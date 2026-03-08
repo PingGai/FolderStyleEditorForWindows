@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Newtonsoft.Json;
 using FolderStyleEditorForWindows;
 using FolderStyleEditorForWindows.Services;
@@ -24,6 +25,8 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly IToastService _toastService;
         private readonly HoverIconService _hoverIconService;
         private readonly InterruptDialogService _interruptDialogService;
+        private readonly FolderStyleSaveCoordinator _saveCoordinator;
+        private readonly ElevationSessionState _elevationSessionState;
         private List<string> _foundIconPaths = new List<string>();
         private int _currentIconIndex = -1;
         private bool _isScanningIcons = false;
@@ -31,7 +34,16 @@ namespace FolderStyleEditorForWindows.ViewModels
         private CancellationTokenSource? _iconScanCts;
         private string? _pendingIconPath = null;
         private readonly Dictionary<string, Stack<UndoEntry>> _undoStacks = new();
+        private readonly Dictionary<string, Stack<UndoEntry>> _redoStacks = new();
+        private readonly Dictionary<string, List<string>> _savedAliasHistory = new();
+        private readonly Dictionary<string, int> _savedAliasHistoryCursor = new();
+        private readonly ObservableCollection<AliasAutocompleteItemViewModel> _aliasAutocompleteCandidates = new();
+        private static readonly string AliasHistoryFilePath = Path.Combine(AppContext.BaseDirectory, "alias-history.json");
+        private string _aliasAutocompleteSeed = string.Empty;
         private bool _suppressUndo = false;
+        private bool _suppressAliasAutocomplete = false;
+        private int _iconLoadingVersion;
+        private CancellationTokenSource? _iconLoadCts;
 
         private string _folderPath = "";
         public string FolderPath
@@ -60,6 +72,22 @@ namespace FolderStyleEditorForWindows.ViewModels
                 _alias = value;
                 OnPropertyChanged();
                 RecordUndoIfNeeded(UndoField.Alias, oldValue, _alias);
+                if (!_suppressUndo)
+                {
+                    ResetSavedAliasCursor(FolderPath);
+                }
+                if (!_suppressAliasAutocomplete)
+                {
+                    if (IsAliasAutocompleteExpanded &&
+                        !string.IsNullOrEmpty(_aliasAutocompletePreviewText) &&
+                        !string.Equals(_aliasAutocompletePreviewText, _alias, StringComparison.Ordinal))
+                    {
+                        _aliasAutocompleteSeed = string.Empty;
+                        IsAliasAutocompleteExpanded = false;
+                        AliasAutocompleteSelectedIndex = -1;
+                    }
+                    UpdateAliasAutocomplete();
+                }
                 // When user types, remove the placeholder state
                 if (IsAliasAsPlaceholder && !string.IsNullOrEmpty(value))
                 {
@@ -164,6 +192,68 @@ namespace FolderStyleEditorForWindows.ViewModels
             set { if (_isAliasAsPlaceholder == value) return; _isAliasAsPlaceholder = value; OnPropertyChanged(); }
         }
 
+        private bool _isElevationSessionActive;
+        public bool IsElevationSessionActive
+        {
+            get => _isElevationSessionActive;
+            set
+            {
+                if (_isElevationSessionActive == value) return;
+                _isElevationSessionActive = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<AliasAutocompleteItemViewModel> AliasAutocompleteCandidates => _aliasAutocompleteCandidates;
+
+        private string _aliasAutocompletePreviewText = string.Empty;
+        public string AliasAutocompletePreviewText
+        {
+            get => _aliasAutocompletePreviewText;
+            private set
+            {
+                if (_aliasAutocompletePreviewText == value) return;
+                _aliasAutocompletePreviewText = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(AliasAutocompleteInlineSuffix));
+                OnPropertyChanged(nameof(HasAliasAutocompleteInlineSuffix));
+            }
+        }
+
+        public string AliasAutocompleteInlineSuffix =>
+            !string.IsNullOrEmpty(AliasAutocompletePreviewText) &&
+            !string.IsNullOrEmpty(Alias) &&
+            AliasAutocompletePreviewText.StartsWith(Alias, StringComparison.OrdinalIgnoreCase) &&
+            AliasAutocompletePreviewText.Length > Alias.Length
+                ? AliasAutocompletePreviewText[Alias.Length..]
+                : string.Empty;
+
+        public bool HasAliasAutocompleteInlineSuffix => !string.IsNullOrEmpty(AliasAutocompleteInlineSuffix);
+
+        private bool _isAliasAutocompleteExpanded;
+        public bool IsAliasAutocompleteExpanded
+        {
+            get => _isAliasAutocompleteExpanded;
+            private set
+            {
+                if (_isAliasAutocompleteExpanded == value) return;
+                _isAliasAutocompleteExpanded = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private int _aliasAutocompleteSelectedIndex = -1;
+        public int AliasAutocompleteSelectedIndex
+        {
+            get => _aliasAutocompleteSelectedIndex;
+            private set
+            {
+                if (_aliasAutocompleteSelectedIndex == value) return;
+                _aliasAutocompleteSelectedIndex = value;
+                OnPropertyChanged();
+            }
+        }
+
         public ObservableCollection<IconViewModel> Icons { get; } = new();
 
         private IconViewModel? _selectedIcon;
@@ -186,7 +276,10 @@ namespace FolderStyleEditorForWindows.ViewModels
                     var newIconPath = $"{_selectedIcon.FilePath},{_selectedIcon.Index}";
                     if (IconPath != newIconPath)
                     {
-                        IconPath = newIconPath;
+                        var oldValue = _iconPath;
+                        _iconPath = newIconPath;
+                        OnPropertyChanged(nameof(IconPath));
+                        RecordUndoIfNeeded(UndoField.IconPath, oldValue, _iconPath);
                     }
                 }
                 
@@ -227,6 +320,18 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 if (_isLoadingIcons == value) return;
                 _isLoadingIcons = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private bool _isLoadingIconsIndicatorVisible;
+        public bool IsLoadingIconsIndicatorVisible
+        {
+            get => _isLoadingIconsIndicatorVisible;
+            set
+            {
+                if (_isLoadingIconsIndicatorVisible == value) return;
+                _isLoadingIconsIndicatorVisible = value;
                 OnPropertyChanged();
             }
         }
@@ -285,53 +390,36 @@ namespace FolderStyleEditorForWindows.ViewModels
         [SupportedOSPlatform("windows")]
         public async void SaveFolderSettings()
         {
-            try
+            var outcome = await _saveCoordinator.SaveAsync(new FolderStyleMutationRequest
             {
-                DesktopIniHelper.WriteValue(FolderPath, "LocalizedResourceName", IsAliasAsPlaceholder ? "" : Alias);
+                FolderPath = FolderPath,
+                Alias = Alias,
+                IsAliasPlaceholder = IsAliasAsPlaceholder,
+                IconPath = IconPath
+            });
 
-                if (!string.IsNullOrEmpty(IconPath))
+            if (outcome.Result.IsSuccess)
+            {
+                RecordSavedAlias(FolderPath, Alias);
+                if (outcome.Result.HistoryShouldBeWritten)
                 {
-                    var iconSettings = await PathHelper.ProcessIconPathAsync(FolderPath, IconPath);
-                    
-                    // Clear all possible icon-related keys first to avoid conflicts
-                    DesktopIniHelper.WriteValue(FolderPath, "IconResource", null);
-                    DesktopIniHelper.WriteValue(FolderPath, "IconFile", null);
-                    DesktopIniHelper.WriteValue(FolderPath, "IconIndex", null);
-
-                    string finalIconPathForRefresh = "";
-                    foreach (var (key, value) in iconSettings)
-                    {
-                        DesktopIniHelper.WriteValue(FolderPath, key, value);
-                        if (key == "IconResource") finalIconPathForRefresh = value;
-                        if (key == "IconFile") finalIconPathForRefresh = value;
-                    }
-                    
-                    ShellHelper.SetFolderIcon(FolderPath, finalIconPathForRefresh);
+                    AddToHistory(FolderPath);
                 }
-                else
-                {
-                    // If no icon is set, clear all settings and refresh
-                    DesktopIniHelper.WriteValue(FolderPath, "IconResource", null);
-                    DesktopIniHelper.WriteValue(FolderPath, "IconFile", null);
-                    DesktopIniHelper.WriteValue(FolderPath, "IconIndex", null);
-                    ShellHelper.RemoveFolderIcon(FolderPath);
-                }
-                
-                AddToHistory(FolderPath);
 
                 _toastService.Show(LocalizationManager.Instance["Toast_SaveSuccess"]);
             }
-            catch (UnauthorizedAccessException)
+            else if (outcome.Result.Status != FolderStyleMutationStatus.CanceledByUser)
             {
-                // TODO: Implement IPC with elevated helper process
-                // For now, we can show a message or try to restart as admin.
-                _toastService.Show("⚠ " + LocalizationManager.Instance["Error_AdminRequired"],
-                    new SolidColorBrush(Color.Parse("#EBB762")));
-                // UacHelper.RestartAsAdmin();
+                await _interruptDialogService.ShowFailureAsync(
+                    LocalizationManager.Instance["Dialog_SaveFailed_Title"],
+                    LocalizationManager.Instance["Dialog_SaveFailed_Headline"],
+                    outcome.Result.Message,
+                    outcome.Result.Details);
             }
-            catch (Exception ex) when (ex is IOException || ex is SecurityException)
+
+            if (outcome.ShouldNavigateHome)
             {
-                _toastService.Show($"⚠ {ex.Message}", new SolidColorBrush(Color.Parse("#EBB762")));
+                NavigateToHomeView?.Invoke();
             }
 
             if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -356,6 +444,18 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 _undoStacks[folderPath] = new Stack<UndoEntry>();
             }
+            if (!_redoStacks.ContainsKey(folderPath))
+            {
+                _redoStacks[folderPath] = new Stack<UndoEntry>();
+            }
+            if (!_savedAliasHistory.ContainsKey(folderPath))
+            {
+                _savedAliasHistory[folderPath] = new List<string>();
+            }
+            if (!_savedAliasHistoryCursor.ContainsKey(folderPath))
+            {
+                _savedAliasHistoryCursor[folderPath] = -1;
+            }
         }
 
         private void RecordUndoIfNeeded(UndoField field, string oldValue, string newValue)
@@ -370,6 +470,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 OldValue = oldValue,
                 NewValue = newValue
             });
+            _redoStacks[FolderPath].Clear();
         }
 
         public void UndoLastChange()
@@ -391,11 +492,89 @@ namespace FolderStyleEditorForWindows.ViewModels
                         IconPath = entry.OldValue;
                         break;
                 }
+
+                if (_redoStacks.TryGetValue(folder, out var redoStack))
+                {
+                    redoStack.Push(entry);
+                }
             }
             finally
             {
                 _suppressUndo = false;
             }
+        }
+
+        public void RedoLastChange()
+        {
+            var folder = FolderPath;
+            if (string.IsNullOrWhiteSpace(folder)) return;
+            if (!_redoStacks.TryGetValue(folder, out var stack) || stack.Count == 0) return;
+
+            var entry = stack.Pop();
+            _suppressUndo = true;
+            try
+            {
+                switch (entry.Field)
+                {
+                    case UndoField.Alias:
+                        Alias = entry.NewValue;
+                        break;
+                    case UndoField.IconPath:
+                        IconPath = entry.NewValue;
+                        break;
+                }
+
+                if (_undoStacks.TryGetValue(folder, out var undoStack))
+                {
+                    undoStack.Push(entry);
+                }
+            }
+            finally
+            {
+                _suppressUndo = false;
+            }
+        }
+
+        public void NavigateSavedAliasHistory(int direction)
+        {
+            if (IsAliasAutocompleteExpanded)
+            {
+                CycleAliasAutocompleteSelection(direction < 0 ? -1 : 1);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(FolderPath) || !_savedAliasHistory.TryGetValue(FolderPath, out var history) || history.Count == 0)
+            {
+                return;
+            }
+
+            var cursor = _savedAliasHistoryCursor.TryGetValue(FolderPath, out var current) ? current : -1;
+
+            if (direction < 0)
+            {
+                cursor = Math.Min(history.Count - 1, cursor + 1);
+            }
+            else if (direction > 0)
+            {
+                cursor = Math.Max(0, cursor - 1);
+            }
+            else
+            {
+                return;
+            }
+
+            _savedAliasHistoryCursor[FolderPath] = cursor;
+            _suppressUndo = true;
+            try
+            {
+                Alias = history[cursor];
+            }
+            finally
+            {
+                _suppressUndo = false;
+            }
+
+            UpdateAliasAutocomplete();
         }
 
         public ICommand SaveCommand { get; }
@@ -414,14 +593,39 @@ namespace FolderStyleEditorForWindows.ViewModels
         public DebugOverlayViewModel DebugOverlay { get; }
         public InterruptDialogState InterruptDialog => _interruptDialogService.State;
         
-        public void StartEditSession(string folderPath, string? iconSourcePath = null)
+        public async Task StartEditSessionAsync(string folderPath, string? iconSourcePath = null)
         {
+            var access = await _saveCoordinator.PrepareAccessForFolderAsync(folderPath);
+            if (!access.CanContinue)
+            {
+                if (access.ShouldNavigateHome)
+                {
+                    NavigateToHomeView?.Invoke();
+                }
+
+                return;
+            }
+
             FolderPath = folderPath;
+            RecordSavedAlias(folderPath, Alias);
             if (!string.IsNullOrEmpty(iconSourcePath))
             {
                 IconPath = iconSourcePath;
             }
+            UpdateAliasAutocomplete();
             NavigateToEditView?.Invoke(folderPath, iconSourcePath);
+        }
+
+        public async Task ToggleElevationSessionAsync()
+        {
+            if (_saveCoordinator.IsElevationSessionActive)
+            {
+                await _saveCoordinator.DisableElevationSessionAsync();
+                _toastService.Show(LocalizationManager.Instance["Toast_ElevationExited"], new SolidColorBrush(Color.Parse("#D7A85B")));
+                return;
+            }
+
+            await _saveCoordinator.EnsureElevationSessionAsync();
         }
 
         private void QueueIconLoad(string path)
@@ -468,16 +672,26 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
  
         [SupportedOSPlatform("windows")]
-        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService)
+        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService, FolderStyleSaveCoordinator saveCoordinator, ElevationSessionState elevationSessionState)
         {
             _iconFinderService = new IconFinderService();
             _toastService = toastService;
             _hoverIconService = hoverIconService;
             _interruptDialogService = interruptDialogService;
+            _saveCoordinator = saveCoordinator;
+            _elevationSessionState = elevationSessionState;
+            IsElevationSessionActive = _elevationSessionState.IsElevatedSessionActive;
+            _elevationSessionState.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(ElevationSessionState.IsElevatedSessionActive))
+                {
+                    IsElevationSessionActive = _elevationSessionState.IsElevatedSessionActive;
+                }
+            };
             DebugOverlay = new DebugOverlayViewModel(ConfigManager.Config, HoverIcon);
             
             SaveCommand = new RelayCommand(SaveFolderSettings);
-            OpenFromHistoryCommand = new RelayCommand<string?>(OpenFromHistory);
+            OpenFromHistoryCommand = new RelayCommand<string?>(async path => await OpenFromHistoryAsync(path));
             ClearHistoryCommand = new RelayCommand(async () => await ConfirmClearHistoryAsync());
             AutoGetIconCommand = new RelayCommand(AutoGetIcon);
             LoadIconsCommand = new RelayCommand<string?>(async (filePath) => await LoadIconsFromFileAsync(filePath));
@@ -485,12 +699,13 @@ namespace FolderStyleEditorForWindows.ViewModels
             ResetIconCommand = new RelayCommand(ResetIcon);
             ClearAllStylesCommand = new RelayCommand(ClearAllStyles);
             LoadHistory();
+            LoadAliasHistory();
         }
 
-        private void OpenFromHistory(string? path)
+        private async Task OpenFromHistoryAsync(string? path)
         {
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-            StartEditSession(path);
+            await StartEditSessionAsync(path);
         }
 
         private void LoadHistory()
@@ -510,6 +725,31 @@ namespace FolderStyleEditorForWindows.ViewModels
         {
             var json = JsonConvert.SerializeObject(History, Formatting.Indented);
             File.WriteAllText(HistoryFilePath, json);
+        }
+
+        private void LoadAliasHistory()
+        {
+            if (!File.Exists(AliasHistoryFilePath)) return;
+            var json = File.ReadAllText(AliasHistoryFilePath);
+            var history = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(json);
+            if (history == null) return;
+
+            _savedAliasHistory.Clear();
+            _savedAliasHistoryCursor.Clear();
+            foreach (var item in history)
+            {
+                _savedAliasHistory[item.Key] = item.Value
+                    .Where(alias => !string.IsNullOrWhiteSpace(alias))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                _savedAliasHistoryCursor[item.Key] = 0;
+            }
+        }
+
+        private void SaveAliasHistory()
+        {
+            var json = JsonConvert.SerializeObject(_savedAliasHistory, Formatting.Indented);
+            File.WriteAllText(AliasHistoryFilePath, json);
         }
 
         private void AddToHistory(string path)
@@ -555,7 +795,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                LocalizationManager.Instance["Dialog_Primary_Confirm"],
                LocalizationManager.Instance["Dialog_Secondary_Cancel"]);
 
-           if (result == InterruptDialogResult.Primary)
+           if (result.Result == InterruptDialogResult.Primary)
            {
                ClearHistoryInternal();
            }
@@ -759,33 +999,79 @@ namespace FolderStyleEditorForWindows.ViewModels
 
            selectedIndex = ResolveSelectedIconIndex(fileName, selectedIndex);
   
+           var loadingVersion = ++_iconLoadingVersion;
+           _iconLoadCts?.Cancel();
+           _iconLoadCts = new CancellationTokenSource();
+           var iconLoadToken = _iconLoadCts.Token;
            IsLoadingIcons = true;
+           IsLoadingIconsIndicatorVisible = false;
+           _ = Task.Run(async () =>
+           {
+               await Task.Delay(250);
+               await Dispatcher.UIThread.InvokeAsync(() =>
+               {
+                   if (IsLoadingIcons && loadingVersion == _iconLoadingVersion)
+                   {
+                       IsLoadingIconsIndicatorVisible = true;
+                   }
+               });
+           });
   
            try
            {
-                var newIcons = await Task.Run(() => _iconFinderService.ExtractIconsFromFileAsync(fileName));
-
                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                {
+                   foreach (var icon in Icons)
+                   {
+                       icon.Dispose();
+                   }
+
                    PreviewedIcon = null;
                    SelectedIcon = null;
                    Icons.Clear();
-                   foreach (var icon in newIcons)
+               });
+
+               var progress = new Progress<IconExtractionProgress>(update =>
+               {
+                   if (loadingVersion != _iconLoadingVersion)
                    {
-                       Icons.Add(icon);
+                       foreach (var staleIcon in update.Batch)
+                       {
+                           staleIcon.Dispose();
+                       }
+
+                       return;
                    }
 
-                   if (selectedIndex >= 0 && selectedIndex < Icons.Count)
+                   Dispatcher.UIThread.Post(() =>
                    {
-                       SelectedIcon = Icons[selectedIndex];
-                       PreviewedIcon = Icons[selectedIndex];
-                   }
-                   else
-                   {
-                       PreviewedIcon = null;
-                       SelectedIcon = null;
-                   }
+                       if (loadingVersion != _iconLoadingVersion)
+                       {
+                           foreach (var staleIcon in update.Batch)
+                           {
+                               staleIcon.Dispose();
+                           }
+
+                           return;
+                       }
+
+                       foreach (var icon in update.Batch)
+                       {
+                           Icons.Add(icon);
+                       }
+
+                       if (selectedIndex >= 0 && selectedIndex < Icons.Count && SelectedIcon != Icons[selectedIndex])
+                       {
+                           SelectedIcon = Icons[selectedIndex];
+                           PreviewedIcon = Icons[selectedIndex];
+                       }
+                   }, DispatcherPriority.Background);
                });
+
+               await _iconFinderService.ExtractIconsFromFileIncrementalAsync(fileName, progress, iconLoadToken);
+           }
+           catch (OperationCanceledException)
+           {
            }
            catch (Exception ex)
            {
@@ -793,7 +1079,12 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
            finally
            {
-               IsLoadingIcons = false;
+               if (loadingVersion == _iconLoadingVersion)
+               {
+                   IsLoadingIcons = false;
+                   IsLoadingIconsIndicatorVisible = false;
+               }
+
                if (_pendingIconPath != null)
                {
                    await StartNextIconLoadAsync();
@@ -836,12 +1127,13 @@ namespace FolderStyleEditorForWindows.ViewModels
        }
        
        [SupportedOSPlatform("windows")]
-       public void RestoreDefaultAliasIfNeeded()
-       {
-           if (string.IsNullOrEmpty(Alias))
-           {
-               if (Directory.Exists(FolderPath))
-               {
+        public void RestoreDefaultAliasIfNeeded()
+        {
+            DismissAliasAutocomplete();
+            if (string.IsNullOrEmpty(Alias))
+            {
+                if (Directory.Exists(FolderPath))
+                {
                    Alias = new DirectoryInfo(FolderPath).Name;
                    IsAliasAsPlaceholder = true;
                }
@@ -857,10 +1149,237 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
        }
 
-        private enum UndoField
+       private enum UndoField
+       {
+           Alias,
+           IconPath
+       }
+
+       private void RecordSavedAlias(string folderPath, string alias)
+       {
+           if (string.IsNullOrWhiteSpace(folderPath))
+           {
+               return;
+           }
+
+           EnsureUndoStackExists(folderPath);
+
+           var list = _savedAliasHistory[folderPath];
+           if (list.Count == 0 || !string.Equals(list[0], alias, StringComparison.Ordinal))
+            {
+                list.Insert(0, alias);
+            }
+
+            _savedAliasHistoryCursor[folderPath] = 0;
+            SaveAliasHistory();
+            UpdateAliasAutocomplete();
+        }
+
+       private void ResetSavedAliasCursor(string folderPath)
+       {
+           if (string.IsNullOrWhiteSpace(folderPath))
+           {
+               return;
+           }
+
+            EnsureUndoStackExists(folderPath);
+            _savedAliasHistoryCursor[folderPath] = 0;
+        }
+
+        public void DismissAliasAutocomplete()
         {
-            Alias,
-            IconPath
+            _aliasAutocompleteSeed = string.Empty;
+            IsAliasAutocompleteExpanded = false;
+            AliasAutocompleteSelectedIndex = -1;
+            AliasAutocompletePreviewText = string.Empty;
+            RefreshAliasAutocompleteSelectionState();
+            _aliasAutocompleteCandidates.Clear();
+        }
+
+        public bool TryAcceptOrExpandAliasAutocomplete()
+        {
+            UpdateAliasAutocomplete();
+            if (_aliasAutocompleteCandidates.Count == 0)
+            {
+                return false;
+            }
+
+            if (_aliasAutocompleteCandidates.Count == 1)
+            {
+                CommitAliasAutocompleteCandidate(0);
+                return true;
+            }
+
+            if (!IsAliasAutocompleteExpanded)
+            {
+                _aliasAutocompleteSeed = Alias ?? string.Empty;
+                IsAliasAutocompleteExpanded = true;
+                AliasAutocompleteSelectedIndex = 0;
+                ApplyAliasAutocompletePreview(0);
+                RefreshAliasAutocompletePreviewText();
+                RefreshAliasAutocompleteSelectionState();
+                return true;
+            }
+
+            return CycleAliasAutocompleteSelection(1);
+        }
+
+        public bool CycleAliasAutocompleteSelection(int delta)
+        {
+            if (!IsAliasAutocompleteExpanded || _aliasAutocompleteCandidates.Count == 0)
+            {
+                return false;
+            }
+
+            var nextIndex = AliasAutocompleteSelectedIndex < 0 ? 0 : AliasAutocompleteSelectedIndex + delta;
+            if (nextIndex < 0)
+            {
+                nextIndex = _aliasAutocompleteCandidates.Count - 1;
+            }
+            else if (nextIndex >= _aliasAutocompleteCandidates.Count)
+            {
+                nextIndex = 0;
+            }
+
+            AliasAutocompleteSelectedIndex = nextIndex;
+            ApplyAliasAutocompletePreview(nextIndex);
+            RefreshAliasAutocompletePreviewText();
+            RefreshAliasAutocompleteSelectionState();
+            return true;
+        }
+
+        public void SelectAliasAutocompleteCandidate(AliasAutocompleteItemViewModel candidate)
+        {
+            var index = _aliasAutocompleteCandidates.IndexOf(candidate);
+            if (index >= 0)
+            {
+                CommitAliasAutocompleteCandidate(index);
+            }
+        }
+
+        private void UpdateAliasAutocomplete()
+        {
+            if (_suppressAliasAutocomplete || string.IsNullOrWhiteSpace(FolderPath))
+            {
+                DismissAliasAutocomplete();
+                return;
+            }
+
+            EnsureUndoStackExists(FolderPath);
+            var input = Alias ?? string.Empty;
+            var searchInput = IsAliasAutocompleteExpanded && !string.IsNullOrWhiteSpace(_aliasAutocompleteSeed)
+                ? _aliasAutocompleteSeed
+                : input;
+            if (string.IsNullOrWhiteSpace(searchInput))
+            {
+                DismissAliasAutocomplete();
+                return;
+            }
+
+            var matches = _savedAliasHistory[FolderPath]
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => x.StartsWith(searchInput, StringComparison.OrdinalIgnoreCase))
+                .Where(x => !string.Equals(x, searchInput, StringComparison.Ordinal))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            _aliasAutocompleteCandidates.Clear();
+            foreach (var match in matches)
+            {
+                _aliasAutocompleteCandidates.Add(new AliasAutocompleteItemViewModel(match));
+            }
+
+            if (_aliasAutocompleteCandidates.Count == 0)
+            {
+                IsAliasAutocompleteExpanded = false;
+                AliasAutocompleteSelectedIndex = -1;
+                AliasAutocompletePreviewText = string.Empty;
+                return;
+            }
+
+            if (IsAliasAutocompleteExpanded)
+            {
+                if (AliasAutocompleteSelectedIndex < 0 || AliasAutocompleteSelectedIndex >= _aliasAutocompleteCandidates.Count)
+                {
+                    AliasAutocompleteSelectedIndex = 0;
+                }
+            }
+            else
+            {
+                AliasAutocompleteSelectedIndex = -1;
+            }
+
+            RefreshAliasAutocompletePreviewText();
+            RefreshAliasAutocompleteSelectionState();
+        }
+
+        private void CommitAliasAutocompleteCandidate(int index)
+        {
+            if (index < 0 || index >= _aliasAutocompleteCandidates.Count)
+            {
+                return;
+            }
+
+            _suppressAliasAutocomplete = true;
+            _suppressUndo = true;
+            try
+            {
+                Alias = _aliasAutocompleteCandidates[index].Text;
+            }
+            finally
+            {
+                _suppressUndo = false;
+                _suppressAliasAutocomplete = false;
+            }
+
+            DismissAliasAutocomplete();
+        }
+
+        private void RefreshAliasAutocompleteSelectionState()
+        {
+            for (var i = 0; i < _aliasAutocompleteCandidates.Count; i++)
+            {
+                _aliasAutocompleteCandidates[i].IsSelected = IsAliasAutocompleteExpanded && i == AliasAutocompleteSelectedIndex;
+            }
+        }
+
+        private void RefreshAliasAutocompletePreviewText()
+        {
+            if (_aliasAutocompleteCandidates.Count == 0)
+            {
+                AliasAutocompletePreviewText = string.Empty;
+                return;
+            }
+
+            if (IsAliasAutocompleteExpanded &&
+                AliasAutocompleteSelectedIndex >= 0 &&
+                AliasAutocompleteSelectedIndex < _aliasAutocompleteCandidates.Count)
+            {
+                AliasAutocompletePreviewText = _aliasAutocompleteCandidates[AliasAutocompleteSelectedIndex].Text;
+                return;
+            }
+
+            AliasAutocompletePreviewText = _aliasAutocompleteCandidates[0].Text;
+        }
+
+        private void ApplyAliasAutocompletePreview(int index)
+        {
+            if (index < 0 || index >= _aliasAutocompleteCandidates.Count)
+            {
+                return;
+            }
+
+            _suppressAliasAutocomplete = true;
+            _suppressUndo = true;
+            try
+            {
+                Alias = _aliasAutocompleteCandidates[index].Text;
+            }
+            finally
+            {
+                _suppressUndo = false;
+                _suppressAliasAutocomplete = false;
+            }
         }
 
         private sealed class UndoEntry
@@ -869,9 +1388,29 @@ namespace FolderStyleEditorForWindows.ViewModels
             public string OldValue { get; set; } = string.Empty;
             public string NewValue { get; set; } = string.Empty;
         }
+
+        public sealed class AliasAutocompleteItemViewModel : INotifyPropertyChanged
+        {
+            public AliasAutocompleteItemViewModel(string text)
+            {
+                Text = text;
+            }
+
+            public string Text { get; }
+
+            private bool _isSelected;
+            public bool IsSelected
+            {
+                get => _isSelected;
+                set
+                {
+                    if (_isSelected == value) return;
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+        }
     }
 }
-
-
-
-

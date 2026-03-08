@@ -42,6 +42,9 @@
 
     <Authors>PingGai</Authors>
     <Company>PingGai</Company>
+    <Title>FolderStyleEditorForWindows</Title>
+    <Product>FolderStyleEditorForWindows</Product>
+    <Description>FolderStyleEditorForWindows</Description>
     <RepositoryUrl>https://github.com/PingGai/FolderStyleEditorForWindows</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

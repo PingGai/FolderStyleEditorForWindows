@@ -47,12 +47,12 @@ namespace FolderStyleEditorForWindows
         private Border? _pinIconGlow;
         private readonly DispatcherTimer _pinGlowTimer;
         private double _pinGlowPhase;
+        private double _lastEditScrollOffsetY;
         
         private readonly FrameLimiter _limiter = new(60);
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
         private bool _isAnimating = true;
         private bool _closingAnimating;
-        private Control? _fadeRoot;
  
         [SupportedOSPlatform("windows")]
         public MainWindow()
@@ -127,8 +127,36 @@ namespace FolderStyleEditorForWindows
             this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop);
             
             this.Loaded += (s, e) => StartFlowLoop();
+            Activated += MainWindow_Activated;
+            Deactivated += MainWindow_Deactivated;
             
             UpdatePinButtonIcon();
+        }
+
+        private void MainWindow_Deactivated(object? sender, EventArgs e)
+        {
+            if (_editView != null && _editView.IsVisible)
+            {
+                _lastEditScrollOffsetY = _editView.GetEditScrollOffsetY();
+            }
+        }
+
+        private void MainWindow_Activated(object? sender, EventArgs e)
+        {
+            if (_editView == null || !_editView.IsVisible)
+            {
+                return;
+            }
+
+            var offset = _lastEditScrollOffsetY;
+            Dispatcher.UIThread.Post(() =>
+            {
+                _editView?.RestoreEditScrollOffsetY(offset);
+            }, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() =>
+            {
+                _editView?.RestoreEditScrollOffsetY(offset);
+            }, DispatcherPriority.Input);
         }
 
         private void PinButton_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
@@ -464,7 +492,7 @@ namespace FolderStyleEditorForWindows
 
             if (!string.IsNullOrEmpty(folderPath))
             {
-                _viewModel.StartEditSession(folderPath, iconSourcePath);
+                _ = _viewModel.StartEditSessionAsync(folderPath, iconSourcePath);
             }
         }
 

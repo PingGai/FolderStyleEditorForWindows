@@ -17,10 +17,32 @@ namespace FolderStyleEditorForWindows
 
             try
             {
-                var directoryInfo = new DirectoryInfo(fullPath);
+                var normalizedPath = Path.GetFullPath(fullPath);
+                var rootPath = Path.GetPathRoot(normalizedPath) ?? string.Empty;
+                var isRootPath = string.Equals(
+                    normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase);
+
+                if (isRootPath)
+                {
+                    return (string.Empty, rootPath);
+                }
+
+                var trimmedPath = normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var directoryInfo = new DirectoryInfo(trimmedPath);
                 string folderName = directoryInfo.Name;
                 string parentPath = directoryInfo.Parent?.FullName ?? string.Empty;
-                
+
+                if (!string.IsNullOrEmpty(rootPath) &&
+                    string.Equals(
+                        parentPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                        rootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    parentPath = rootPath;
+                }
+
                 return (parentPath, folderName);
             }
             catch

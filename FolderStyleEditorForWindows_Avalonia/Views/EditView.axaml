@@ -54,8 +54,41 @@
         <Style Selector="ListBox#iconListBox ListBoxItem:selected.previewed /template/ ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight2}"/>
         </Style>
+        <Style Selector="Button.AliasAutocompleteItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+            <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.03"/>
+            <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.96"/>
+            <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.2"/>
+            <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="0.9"/>
+        </Style>
+        <Style Selector="Button.AliasAutocompleteItem:pointerover">
+            <Setter Property="Background" Value="#EEF1F6"/>
+        </Style>
+        <Style Selector="TextBlock#aliasGhostText">
+            <Setter Property="Foreground" Value="{StaticResource Fg3Brush}"/>
+            <Setter Property="Opacity" Value="0.84"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
    </UserControl.Styles>
    <UserControl.Resources>
+        <LinearGradientBrush x:Key="EditTitleGoldAnimatedBrush"
+                             StartPoint="0%,34%"
+                             EndPoint="160%,66%"
+                             SpreadMethod="Repeat">
+            <GradientStop Color="#FFB347" Offset="0"/>
+            <GradientStop Color="#FFD56A" Offset="0.2"/>
+            <GradientStop Color="#FFF1A3" Offset="0.4"/>
+            <GradientStop Color="#E0A93F" Offset="0.6"/>
+            <GradientStop Color="#FFD07A" Offset="0.8"/>
+            <GradientStop Color="#FFB347" Offset="1"/>
+        </LinearGradientBrush>
         <DataTemplate x:Key="IconDataTemplate" x:DataType="vm:IconViewModel">
             <Border Classes="IcoCell"
                     BorderThickness="1"
@@ -83,7 +116,31 @@
                                          ShowMinimize="True"
                                          ShowClose="True"
                                          BackRequested="TitleBarButtons_BackRequested"/>
-               <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Title]}" Grid.Column="0" Grid.ColumnSpan="3" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Fg1Brush}" Opacity="0.8" FontSize="16" FontWeight="SemiBold" IsHitTestVisible="False"/>
+               <Button Name="EditTitleButton"
+                       Grid.Column="0"
+                       Grid.ColumnSpan="3"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Background="Transparent"
+                       BorderBrush="Transparent"
+                       BorderThickness="0"
+                       Padding="6,2"
+                       Classes="HoverFloat"
+                       behaviors:HoverFloatBehavior.IsEnabled="True"
+                       behaviors:HoverFloatBehavior.HoverScale="1.04"
+                       behaviors:HoverFloatBehavior.PressScale="0.92"
+                       behaviors:HoverFloatBehavior.MaxOffsetX="1.5"
+                       behaviors:HoverFloatBehavior.MaxOffsetY="1"
+                       behaviors:HoverFloatBehavior.LerpFactor="0.2">
+                   <TextBlock Name="EditTitleText"
+                              Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Title]}"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Foreground="{StaticResource Fg1Brush}"
+                              Opacity="0.8"
+                              FontSize="16"
+                              FontWeight="SemiBold"/>
+               </Button>
             </Grid>
         </DockPanel>
 
@@ -123,14 +180,75 @@
                     <StackPanel Spacing="10">
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Info_Title]}" Classes="Subtitle"/>
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Alias_Label]}" Classes="Body"/>
-                        <TextBox Name="aliasInput" Text="{Binding Alias}" Watermark="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Alias_Watermark]}" Classes="Input"
-                                 Classes.placeholder="{Binding IsAliasAsPlaceholder}">
-                            <TextBox.Styles>
-                                <Style Selector="TextBox.Input.placeholder">
-                                    <Setter Property="Foreground" Value="{StaticResource Fg3Brush}"/>
-                                </Style>
-                            </TextBox.Styles>
-                        </TextBox>
+                        <Grid x:Name="AliasAutocompleteHost"
+                              ClipToBounds="False">
+                            <Grid>
+                                <TextBlock Name="aliasGhostText"
+                                           Text="{Binding AliasAutocompletePreviewText}"
+                                           IsVisible="{Binding HasAliasAutocompleteInlineSuffix}"
+                                           VerticalAlignment="Center"
+                                           Margin="13,-1,12,0"
+                                           FontSize="14"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{StaticResource Fg3Brush}"
+                                           RenderTransform="{Binding #aliasInput.RenderTransform}"
+                                           RenderTransformOrigin="{Binding #aliasInput.RenderTransformOrigin}"/>
+                                <TextBox Name="aliasInput"
+                                         Text="{Binding Alias}"
+                                         Background="#01FFFFFF"
+                                         Watermark="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Alias_Watermark]}"
+                                         Classes="Input"
+                                         Classes.placeholder="{Binding IsAliasAsPlaceholder}">
+                                    <TextBox.Styles>
+                                        <Style Selector="TextBox.Input.placeholder">
+                                            <Setter Property="Foreground" Value="{StaticResource Fg3Brush}"/>
+                                        </Style>
+                                    </TextBox.Styles>
+                                </TextBox>
+                            </Grid>
+                            <Popup Name="aliasAutocompletePopup"
+                                   Placement="Bottom"
+                                   HorizontalOffset="0"
+                                   VerticalOffset="8"
+                                   IsOpen="{Binding IsAliasAutocompleteExpanded}">
+                                <Border Background="Transparent"
+                                        Padding="8"
+                                        ClipToBounds="False">
+                                    <Border Background="#F6FFFFFF"
+                                            BorderBrush="{StaticResource LineBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="8"
+                                            BoxShadow="{StaticResource Shadow1}"
+                                            MinWidth="{Binding #aliasInput.Bounds.Width}">
+                                        <ScrollViewer MaxHeight="150"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      PointerWheelChanged="AliasAutocompleteScrollViewer_PointerWheelChanged">
+                                            <i:Interaction.Behaviors>
+                                                <ia:VerticalScrollViewerAnimatedBehavior/>
+                                                <behaviors:AutoHideScrollBehavior/>
+                                            </i:Interaction.Behaviors>
+                                            <ItemsControl ItemsSource="{Binding AliasAutocompleteCandidates}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:MainViewModel+AliasAutocompleteItemViewModel">
+                                                        <Button Classes="AliasAutocompleteItem"
+                                                                Background="{Binding IsSelected, Converter={StaticResource BoolToBrushConverter}, ConverterParameter='PreviewBrush'}"
+                                                                Margin="0,0,0,6"
+                                                                PointerPressed="AliasAutocompleteCandidate_PointerPressed"
+                                                                >
+                                                            <TextBlock Text="{Binding Text}"
+                                                                       Foreground="{StaticResource Fg2Brush}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Border>
+                            </Popup>
+                        </Grid>
 
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Icon_Label]}" Classes="Body" Margin="0,14,0,0"/>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -167,12 +285,12 @@
 
                                 <!-- 加载指示器 -->
                                 <ProgressBar IsIndeterminate="True"
-                                             IsVisible="{Binding IsLoadingIcons}"
+                                             IsVisible="{Binding IsLoadingIconsIndicatorVisible}"
                                              VerticalAlignment="Center"
                                              HorizontalAlignment="Stretch"
                                              Margin="20,0"/>
                                 <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Icon_Loading]}"
-                                           IsVisible="{Binding IsLoadingIcons}"
+                                           IsVisible="{Binding IsLoadingIconsIndicatorVisible}"
                                            VerticalAlignment="Center"
                                            HorizontalAlignment="Center"
                                            Foreground="{StaticResource Fg2Brush}"

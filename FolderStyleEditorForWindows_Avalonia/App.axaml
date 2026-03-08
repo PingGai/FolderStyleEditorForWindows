@@ -16,6 +16,7 @@
             <vc:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
             <vc:PathDisplayConverter x:Key="PathDisplayConverter"/>
             <vc:FolderNameConverter x:Key="FolderNameConverter"/>
+            <vc:HistoryPathFadeWidthConverter x:Key="HistoryPathFadeWidthConverter"/>
             <vc:DialogButtonWidthConverter x:Key="DialogButtonWidthConverter"/>
 
             <!-- Brushes -->
@@ -34,7 +35,7 @@
            <Color x:Key="Ok">#3EAD70</Color>
            <Color x:Key="Line">#E6E6EB</Color>
            <Color x:Key="FolderTagBg">#E6F3FF</Color>
-           <Color x:Key="FolderTagBorder">#8EB5E3</Color>
+           <Color x:Key="FolderTagBorder">#9CBDE1</Color>
            <Color x:Key="FolderTagBgLight">#BFFFFFFF</Color>
            
           <SolidColorBrush x:Key="Bg1Brush" Color="{StaticResource Bg1}"/>

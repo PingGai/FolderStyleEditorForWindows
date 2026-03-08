@@ -5,23 +5,43 @@ using Avalonia.Platform.Storage;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia;
+using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using FolderStyleEditorForWindows;
+using FolderStyleEditorForWindows.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FolderStyleEditorForWindows.Views
 {
     public partial class EditView : UserControl, IDisposable
     {
+        private const int TitleGradientCycles = 3;
+        private bool _suppressAliasAutocompleteDismissOnce;
         private readonly DispatcherTimer _iconListScrollTimer;
+        private readonly DispatcherTimer _titleGradientTimer;
+        private ScrollViewer? _editScrollViewer;
         private ScrollViewer? _iconListScrollViewer;
         private double _iconListTargetOffsetY;
         private bool _pendingInitialScrollReset;
+        private LinearGradientBrush? _titleGoldBrush;
+        private TextBlock? _editTitleText;
+        private double _titleGradientPhase;
+        private ElevationSessionState? _elevationSessionState;
+        private readonly Color[] _titleGradientColors =
+        {
+            Color.Parse("#FFB347"),
+            Color.Parse("#FFD56A"),
+            Color.Parse("#F3DF84"),
+            Color.Parse("#E0A93F"),
+            Color.Parse("#FFD07A")
+        };
 
         public EditView()
         {
@@ -32,6 +52,11 @@ namespace FolderStyleEditorForWindows.Views
                 Interval = TimeSpan.FromMilliseconds(16)
             };
             _iconListScrollTimer.Tick += IconListScrollTimer_Tick;
+            _titleGradientTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(33)
+            };
+            _titleGradientTimer.Tick += TitleGradientTimer_Tick;
         }
 
         public void Dispose()
@@ -99,6 +124,22 @@ namespace FolderStyleEditorForWindows.Views
             {
                 btnOpenExplorer.Click += BtnOpenExplorer_Click;
             }
+            var editTitleButton = this.FindControl<Button>("EditTitleButton");
+            if (editTitleButton != null)
+            {
+                editTitleButton.Click += EditTitleButton_Click;
+            }
+            _editTitleText = this.FindControl<TextBlock>("EditTitleText");
+            if (Resources.TryGetResource("EditTitleGoldAnimatedBrush", null, out var titleBrush) && titleBrush is LinearGradientBrush brush)
+            {
+                _titleGoldBrush = brush;
+            }
+            _elevationSessionState = App.Services?.GetRequiredService<ElevationSessionState>();
+            if (_elevationSessionState != null)
+            {
+                _elevationSessionState.PropertyChanged += ElevationSessionState_PropertyChanged;
+                ApplyEditTitleStyle(_elevationSessionState.IsElevatedSessionActive);
+            }
 
             var aliasInput = this.FindControl<TextBox>("aliasInput");
             if (aliasInput != null)
@@ -111,6 +152,11 @@ namespace FolderStyleEditorForWindows.Views
                 // Add drag and drop support for alias input
                 aliasInput.AddHandler(DragDrop.DragOverEvent, AliasInput_DragOver);
                 aliasInput.AddHandler(DragDrop.DropEvent, AliasInput_Drop);
+            }
+            var aliasAutocompletePopup = this.FindControl<Popup>("aliasAutocompletePopup");
+            if (aliasAutocompletePopup != null && aliasInput != null)
+            {
+                aliasAutocompletePopup.PlacementTarget = aliasInput;
             }
             
             var iconInput = this.FindControl<TextBox>("iconInput");
@@ -144,6 +190,7 @@ namespace FolderStyleEditorForWindows.Views
             }
 
             var editScrollViewer = this.FindControl<ScrollViewer>("editScrollViewer");
+            _editScrollViewer = editScrollViewer;
             if (editScrollViewer != null && iconCounterHost != null)
             {
                 editScrollViewer.AddHandler(PointerWheelChangedEvent, (sender, e) =>
@@ -153,6 +200,8 @@ namespace FolderStyleEditorForWindows.Views
                         e.Handled = true;
                     }
                 }, RoutingStrategies.Tunnel, handledEventsToo: true);
+                editScrollViewer.RemoveHandler(RequestBringIntoViewEvent, EditScrollViewer_RequestBringIntoView);
+                editScrollViewer.AddHandler(RequestBringIntoViewEvent, EditScrollViewer_RequestBringIntoView, RoutingStrategies.Bubble, handledEventsToo: true);
             }
 
             var iconListBox = this.FindControl<ListBox>("iconListBox");
@@ -177,6 +226,11 @@ namespace FolderStyleEditorForWindows.Views
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnsubscribeFromViewModel();
+            if (_elevationSessionState != null)
+            {
+                _elevationSessionState.PropertyChanged -= ElevationSessionState_PropertyChanged;
+            }
+            _titleGradientTimer.Stop();
             base.OnDetachedFromVisualTree(e);
         }
 
@@ -192,6 +246,17 @@ namespace FolderStyleEditorForWindows.Views
         {
             if (DataContext is ViewModels.MainViewModel vm)
             {
+                if (_suppressAliasAutocompleteDismissOnce)
+                {
+                    _suppressAliasAutocompleteDismissOnce = false;
+                    return;
+                }
+                var popup = this.FindControl<Popup>("aliasAutocompletePopup");
+                if (popup?.IsOpen == true && popup.Child?.IsPointerOver == true)
+                {
+                    return;
+                }
+                vm.DismissAliasAutocomplete();
                 vm.RestoreDefaultAliasIfNeeded();
             }
         }
@@ -288,12 +353,56 @@ namespace FolderStyleEditorForWindows.Views
 
         private void AliasInput_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter)
+            if (DataContext is ViewModels.MainViewModel vm)
             {
-                if (DataContext is ViewModels.MainViewModel vm && vm.SaveCommand.CanExecute(null))
+                if (e.Key == Key.Tab)
                 {
-                    vm.SaveCommand.Execute(null);
+                    if (vm.TryAcceptOrExpandAliasAutocomplete())
+                    {
+                        if (sender is TextBox tabTextBox)
+                        {
+                            tabTextBox.CaretIndex = vm.Alias?.Length ?? 0;
+                        }
+                        e.Handled = true;
+                    }
+                    return;
+                }
+
+                if (e.Key == Key.Enter)
+                {
+                    if (vm.SaveCommand.CanExecute(null))
+                    {
+                        vm.SaveCommand.Execute(null);
+                        e.Handled = true;
+                    }
+                    return;
+                }
+
+                if (e.Key == Key.Up)
+                {
+                    vm.NavigateSavedAliasHistory(-1);
+                    if (sender is TextBox upTextBox)
+                    {
+                        upTextBox.CaretIndex = vm.Alias?.Length ?? 0;
+                    }
                     e.Handled = true;
+                    return;
+                }
+
+                if (e.Key == Key.Down)
+                {
+                    vm.NavigateSavedAliasHistory(1);
+                    if (sender is TextBox downTextBox)
+                    {
+                        downTextBox.CaretIndex = vm.Alias?.Length ?? 0;
+                    }
+                    e.Handled = true;
+                    return;
+                }
+
+                if (e.Key is Key.Back or Key.Space)
+                {
+                    vm.DismissAliasAutocomplete();
                 }
             }
         }
@@ -319,6 +428,38 @@ namespace FolderStyleEditorForWindows.Views
                         textBox.Foreground = Brushes.White;
                     }
                 }
+            }
+        }
+
+        private void AliasAutocompleteScrollViewer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm && vm.IsAliasAutocompleteExpanded)
+            {
+                vm.CycleAliasAutocompleteSelection(e.Delta.Y > 0 ? -1 : 1);
+                var aliasInput = this.FindControl<TextBox>("aliasInput");
+                if (aliasInput != null)
+                {
+                    aliasInput.CaretIndex = vm.Alias?.Length ?? 0;
+                }
+                e.Handled = true;
+            }
+        }
+
+        private void AliasAutocompleteCandidate_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is Button button &&
+                button.DataContext is ViewModels.MainViewModel.AliasAutocompleteItemViewModel candidate &&
+                DataContext is ViewModels.MainViewModel vm)
+            {
+                _suppressAliasAutocompleteDismissOnce = true;
+                vm.SelectAliasAutocompleteCandidate(candidate);
+                var aliasInput = this.FindControl<TextBox>("aliasInput");
+                if (aliasInput != null)
+                {
+                    aliasInput.Focus();
+                    aliasInput.CaretIndex = vm.Alias?.Length ?? 0;
+                }
+                e.Handled = true;
             }
         }
 
@@ -365,6 +506,113 @@ namespace FolderStyleEditorForWindows.Views
             {
                 mainWindow.GoToHomeView();
             }
+        }
+
+        private async void EditTitleButton_Click(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                await vm.ToggleElevationSessionAsync();
+            }
+        }
+
+        private void ElevationSessionState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ElevationSessionState.IsElevatedSessionActive) && _elevationSessionState != null)
+            {
+                ApplyEditTitleStyle(_elevationSessionState.IsElevatedSessionActive);
+            }
+        }
+
+        private void ApplyEditTitleStyle(bool isElevated)
+        {
+            if (_editTitleText == null)
+            {
+                return;
+            }
+
+            if (isElevated && _titleGoldBrush != null)
+            {
+                EnsureTitleGradientPattern();
+                UpdateTitleGradientOffsets();
+                _editTitleText.Foreground = _titleGoldBrush;
+                if (!_titleGradientTimer.IsEnabled)
+                {
+                    _titleGradientTimer.Start();
+                }
+                return;
+            }
+
+            _titleGradientTimer.Stop();
+            _editTitleText.Foreground = Avalonia.Application.Current?.TryGetResource("Fg2Brush", null, out var brush) == true && brush is IBrush fgBrush
+                ? fgBrush
+                : new SolidColorBrush(Color.Parse("#606064"));
+        }
+
+        private void TitleGradientTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_titleGoldBrush == null)
+            {
+                return;
+            }
+
+            _titleGradientPhase += 0.01;
+            if (_titleGradientPhase >= 1)
+            {
+                _titleGradientPhase -= 1;
+            }
+
+            EnsureTitleGradientPattern();
+            UpdateTitleGradientOffsets();
+        }
+
+        private void EnsureTitleGradientPattern()
+        {
+            if (_titleGoldBrush == null)
+            {
+                return;
+            }
+
+            var expectedStopCount = (_titleGradientColors.Length * TitleGradientCycles) + 1;
+            if (_titleGoldBrush.GradientStops.Count == expectedStopCount)
+            {
+                return;
+            }
+
+            _titleGoldBrush.GradientStops.Clear();
+            for (var cycle = 0; cycle < TitleGradientCycles; cycle++)
+            {
+                for (var colorIndex = 0; colorIndex < _titleGradientColors.Length; colorIndex++)
+                {
+                    _titleGoldBrush.GradientStops.Add(new GradientStop(
+                        _titleGradientColors[colorIndex],
+                        cycle + (colorIndex / (double)_titleGradientColors.Length)));
+                }
+            }
+
+            _titleGoldBrush.GradientStops.Add(new GradientStop(_titleGradientColors[0], TitleGradientCycles));
+        }
+
+        private void UpdateTitleGradientOffsets()
+        {
+            if (_titleGoldBrush == null)
+            {
+                return;
+            }
+
+            var stopIndex = 0;
+            for (var cycle = 0; cycle < TitleGradientCycles; cycle++)
+            {
+                for (var colorIndex = 0; colorIndex < _titleGradientColors.Length; colorIndex++)
+                {
+                    _titleGoldBrush.GradientStops[stopIndex].Color = _titleGradientColors[colorIndex];
+                    _titleGoldBrush.GradientStops[stopIndex].Offset = cycle + (colorIndex / (double)_titleGradientColors.Length) - _titleGradientPhase;
+                    stopIndex++;
+                }
+            }
+
+            _titleGoldBrush.GradientStops[stopIndex].Color = _titleGradientColors[0];
+            _titleGoldBrush.GradientStops[stopIndex].Offset = TitleGradientCycles - _titleGradientPhase;
         }
 
         private async void BtnPickDir_Click(object? sender, RoutedEventArgs e)
@@ -458,13 +706,23 @@ namespace FolderStyleEditorForWindows.Views
         {
             if (sender is ListBox listBox && DataContext is ViewModels.MainViewModel vm)
             {
+                var editScrollViewer = this.FindControl<ScrollViewer>("editScrollViewer");
+                var preservedEditOffset = editScrollViewer?.Offset.Y ?? 0;
+
                 if (listBox.SelectedItem is ViewModels.IconViewModel selectedIcon)
                 {
                     vm.SelectedIcon = selectedIcon;
                 }
 
                 UpdateIconPreviewVisuals();
-                Dispatcher.UIThread.Post(() => listBox.Focus(), DispatcherPriority.Input);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    listBox.Focus();
+                    if (editScrollViewer != null)
+                    {
+                        editScrollViewer.Offset = new Vector(editScrollViewer.Offset.X, preservedEditOffset);
+                    }
+                }, DispatcherPriority.Input);
             }
         }
 
@@ -657,6 +915,52 @@ namespace FolderStyleEditorForWindows.Views
             }
 
             _iconListScrollViewer.Offset = new Vector(currentOffset.X, nextY);
+        }
+
+        private void EditScrollViewer_RequestBringIntoView(object? sender, RequestBringIntoViewEventArgs e)
+        {
+            if (sender is not ScrollViewer editScrollViewer)
+            {
+                return;
+            }
+
+            if (e.TargetObject is not Visual target)
+            {
+                return;
+            }
+
+            if (target.FindAncestorOfType<ListBox>() is ListBox listBox && listBox.Name == "iconListBox")
+            {
+                // 阻止图标列表焦点变更把外层编辑页滚动到最底部。
+                var current = editScrollViewer.Offset;
+                editScrollViewer.Offset = new Vector(current.X, current.Y);
+                e.Handled = true;
+                return;
+            }
+
+            if (target.FindAncestorOfType<TextBox>() is TextBox textBox &&
+                textBox.Name == "aliasInput" &&
+                !_pendingInitialScrollReset)
+            {
+                // 窗口重新获得焦点时，Avalonia 会尝试把上次聚焦的输入框重新 BringIntoView。
+                // 外层 ScrollViewer 接到这个请求后会重新排版并把视图推到偏下位置。
+                e.Handled = true;
+            }
+        }
+
+        public double GetEditScrollOffsetY()
+        {
+            return _editScrollViewer?.Offset.Y ?? 0;
+        }
+
+        public void RestoreEditScrollOffsetY(double offsetY)
+        {
+            if (_editScrollViewer == null)
+            {
+                return;
+            }
+
+            _editScrollViewer.Offset = new Vector(_editScrollViewer.Offset.X, Math.Max(0, offsetY));
         }
 
         private void BeginIconCounterEdit(ViewModels.MainViewModel vm)

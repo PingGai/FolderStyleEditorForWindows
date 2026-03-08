@@ -99,7 +99,7 @@
                       Margin="0,20,0,12"
                       HorizontalAlignment="Center"
                       ClipToBounds="False"
-                      ZIndex="999">
+                      ZIndex="13000">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Spacing="6"/>

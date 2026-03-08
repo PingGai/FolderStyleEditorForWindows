@@ -25,8 +25,12 @@ public partial class App : Application
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<HoverIconViewModel>();
         services.AddSingleton<HoverIconService>();
+        services.AddSingleton<ElevationSessionState>();
         services.AddSingleton<LicenseCatalogService>();
         services.AddSingleton<InterruptDialogService>();
+        services.AddSingleton<FolderStyleMutationEngine>();
+        services.AddSingleton<ElevatedHelperController>();
+        services.AddSingleton<FolderStyleSaveCoordinator>();
         services.AddSingleton<MainViewModel>();
         Services = services.BuildServiceProvider();
         
@@ -61,8 +65,11 @@ public partial class App : Application
             "svg [stroke=\"none\"] { stroke: none !important; }"
         );
         
-        Current.Resources["SvgCss"] = svgCss;
-        Current.Resources["SvgOpacityValue"] = svgOpacity;
+        if (Current != null)
+        {
+            Current.Resources["SvgCss"] = svgCss;
+            Current.Resources["SvgOpacityValue"] = svgOpacity;
+        }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -70,6 +77,14 @@ public partial class App : Application
             desktop.MainWindow = new MainWindow
             {
                 DataContext = mainViewModel
+            };
+
+            desktop.Exit += async (_, _) =>
+            {
+                if (Services.GetService(typeof(ElevatedHelperController)) is ElevatedHelperController helperController)
+                {
+                    await helperController.DisposeAsync();
+                }
             };
 
             desktop.MainWindow.Loaded += (sender, args) =>

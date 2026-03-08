@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
              xmlns:services="using:FolderStyleEditorForWindows.Services"
+             xmlns:vc="using:FolderStyleEditorForWindows.ValueConverters"
              xmlns:controls="using:FolderStyleEditorForWindows.Controls"
              xmlns:c="using:Avalonia.Controls"
              xmlns:i="using:Avalonia.Xaml.Interactivity"
@@ -63,21 +64,43 @@
        <Style Selector="Button#btnAboutInfo:pointerover Border#AboutInfoShadowHost">
            <Setter Property="BoxShadow" Value="{StaticResource Shadow1}"/>
        </Style>
+       <Style Selector="Button#FolderWordButton">
+           <Setter Property="Background" Value="Transparent"/>
+           <Setter Property="BorderBrush" Value="Transparent"/>
+           <Setter Property="BorderThickness" Value="0"/>
+           <Setter Property="Padding" Value="0"/>
+           <Setter Property="MinHeight" Value="0"/>
+           <Setter Property="Cursor" Value="Hand"/>
+           <Setter Property="Template">
+               <ControlTemplate>
+                   <Border Name="PART_Border"
+                           Background="{TemplateBinding Background}"
+                           BorderBrush="{TemplateBinding BorderBrush}"
+                           BorderThickness="{TemplateBinding BorderThickness}"
+                           CornerRadius="{TemplateBinding CornerRadius}"
+                           Padding="{TemplateBinding Padding}">
+                       <ContentPresenter Name="PART_ContentPresenter"
+                                         Content="{TemplateBinding Content}"
+                                         ContentTemplate="{TemplateBinding ContentTemplate}"
+                                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                         HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                   </Border>
+               </ControlTemplate>
+           </Setter>
+       </Style>
    </UserControl.Styles>
    <UserControl.Resources>
+       <vc:FolderTagBorderBrushConverter x:Key="FolderTagBorderBrushConverter"/>
        <LinearGradientBrush x:Key="FolderWordAnimatedBrush"
                             StartPoint="0%,34%"
-                            EndPoint="200%,66%"
+                            EndPoint="160%,66%"
                             SpreadMethod="Repeat">
            <GradientStop Color="#7b61ff" Offset="0"/>
-           <GradientStop Color="#46c4ff" Offset="0.25"/>
-           <GradientStop Color="#40dd88" Offset="0.5"/>
-           <GradientStop Color="#ffb848" Offset="0.75"/>
+           <GradientStop Color="#46c4ff" Offset="0.2"/>
+           <GradientStop Color="#40dd88" Offset="0.4"/>
+           <GradientStop Color="#ffb848" Offset="0.6"/>
+           <GradientStop Color="#ff7a99" Offset="0.8"/>
            <GradientStop Color="#7b61ff" Offset="1"/>
-           <GradientStop Color="#46c4ff" Offset="1.25"/>
-           <GradientStop Color="#40dd88" Offset="1.5"/>
-           <GradientStop Color="#ffb848" Offset="1.75"/>
-           <GradientStop Color="#ff7a99" Offset="2"/>
        </LinearGradientBrush>
    </UserControl.Resources>
    <Grid RowDefinitions="54, 1*, 1*">
@@ -93,20 +116,52 @@
         </DockPanel>
 
         <!-- Drop Zone Display-->
-        <Border Grid.Row="1" Name="dropZone" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" Margin="0" Cursor="Hand" Background="Transparent">
+        <Border Grid.Row="1" Name="dropZone" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" Margin="0" Background="Transparent">
             <StackPanel Spacing="16" HorizontalAlignment="Center">
                 <Grid HorizontalAlignment="Center" ClipToBounds="False" Margin="0">
-                    <TextBlock FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{StaticResource Fg2Brush}" Opacity="0.9" Margin="28 0">
-                        <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part1]}"/>
-                        <Run Text=" "/>
-                        <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part2]}">
-                            <Run.Foreground>
-                                <StaticResource ResourceKey="FolderWordAnimatedBrush"/>
-                            </Run.Foreground>
-                        </Run>
-                        <Run Text=" "/>
-                        <Run Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part3]}"/>
-                    </TextBlock>
+                    <WrapPanel HorizontalAlignment="Center" Margin="28,0" ItemHeight="34">
+                        <TextBlock FontSize="24"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg2Brush}"
+                                   Opacity="0.9"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part1]}"/>
+                        <TextBlock FontSize="24"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg2Brush}"
+                                   Opacity="0.9"
+                                   VerticalAlignment="Center"
+                                   Text=" "/>
+                        <Button Name="FolderWordButton"
+                                Classes="HoverFloat"
+                                behaviors:HoverFloatBehavior.IsEnabled="True"
+                                behaviors:HoverFloatBehavior.HoverScale="1.05"
+                                behaviors:HoverFloatBehavior.PressScale="0.92"
+                                behaviors:HoverFloatBehavior.MaxOffsetX="1.6"
+                                behaviors:HoverFloatBehavior.MaxOffsetY="1.2"
+                                behaviors:HoverFloatBehavior.LerpFactor="0.2"
+                                VerticalAlignment="Center">
+                            <TextBlock FontSize="24"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part2]}">
+                                <TextBlock.Foreground>
+                                    <StaticResource ResourceKey="FolderWordAnimatedBrush"/>
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                        </Button>
+                        <TextBlock FontSize="24"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg2Brush}"
+                                   Opacity="0.9"
+                                   VerticalAlignment="Center"
+                                   Text=" "/>
+                        <TextBlock FontSize="24"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg2Brush}"
+                                   Opacity="0.9"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_DragZone_Part3]}"/>
+                    </WrapPanel>
                     <Button Name="btnAboutInfo"
                             Classes="HoverFloat"
                             behaviors:HoverFloatBehavior.IsEnabled="True"
@@ -214,7 +269,6 @@
                                            <Border Grid.Column="1"
                                                    Name="folderTag"
                                                    Background="{StaticResource FolderTagBgLightBrush}"
-                                                   BorderBrush="{StaticResource FolderTagBorderBrush}"
                                                    BorderThickness="1"
                                                    CornerRadius="14"
                                                    Height="28"
@@ -222,6 +276,12 @@
                                                    VerticalAlignment="Center"
                                                    HorizontalAlignment="Right"
                                                    Margin="0,-0,-14,0"> <!-- 璋冩暣Margin锛屾姷娑圔utton鐨勫彸渚у唴杈硅窛 -->
+                                               <Border.BorderBrush>
+                                                   <MultiBinding Converter="{StaticResource FolderTagBorderBrushConverter}">
+                                                       <Binding />
+                                                       <Binding Path="$parent[UserControl].DataContext.IsElevationSessionActive"/>
+                                                   </MultiBinding>
+                                               </Border.BorderBrush>
                                                <TextBlock Text="{Binding Converter={StaticResource FolderNameConverter}}"
                                                           Foreground="{StaticResource Fg2Brush}"
                                                           VerticalAlignment="Center"
@@ -234,8 +294,13 @@
                                            <Border Grid.Column="0"
                                                    ZIndex="1"
                                                    HorizontalAlignment="Right"
-                                                   Width="{Binding #folderTag.Bounds.Width}"
-                                                   IsVisible="{Binding #folderTag.IsVisible}">
+                                                   IsVisible="True">
+                                               <Border.Width>
+                                                   <MultiBinding Converter="{StaticResource HistoryPathFadeWidthConverter}">
+                                                       <Binding />
+                                                       <Binding Path="#folderTag.Bounds.Width"/>
+                                                   </MultiBinding>
+                                               </Border.Width>
                                                <Border.Background>
                                                    <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
                                                        <GradientStop Color="#00FFFFFF" Offset="0"/>
@@ -257,8 +322,3 @@
          </DockPanel>
      </Grid>
 </UserControl>
-
-
-
-
-

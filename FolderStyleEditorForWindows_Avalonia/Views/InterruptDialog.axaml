@@ -70,6 +70,26 @@
     <Style Selector="Button.DialogInlineLink:pointerover">
       <Setter Property="Opacity" Value="0.75"/>
     </Style>
+    <Style Selector="CheckBox.DialogCheckbox">
+      <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+      <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.03"/>
+      <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.95"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.2"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="1.2"/>
+      <Setter Property="Foreground" Value="{StaticResource Fg3Brush}"/>
+      <Setter Property="Margin" Value="0,4,0,0"/>
+    </Style>
+    <Style Selector="Button.DialogContextMenuButton">
+      <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+      <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.03"/>
+      <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.95"/>
+      <Setter Property="Background" Value="#FFFFFFFF"/>
+      <Setter Property="BorderBrush" Value="#EEAAAAAA"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="CornerRadius" Value="10"/>
+    </Style>
   </UserControl.Styles>
 
   <Grid x:Name="OverlayRoot"
@@ -160,11 +180,21 @@
                        TextAlignment="Center"
                        TextWrapping="Wrap"/>
             <TextBlock Text="{Binding HeaderMeta}"
+                       x:Name="DialogHeaderMetaText"
                        IsVisible="{Binding HasHeaderMeta}"
                        FontSize="13"
                        Foreground="{StaticResource Fg2Brush}"
                        Opacity="0.72"
                        HorizontalAlignment="Center"
+                       Classes="HoverFloat"
+                       behaviors:HoverFloatBehavior.IsEnabled="True"
+                       behaviors:HoverFloatBehavior.HoverScale="1.04"
+                       behaviors:HoverFloatBehavior.PressScale="0.93"
+                       behaviors:HoverFloatBehavior.MaxOffsetX="1.1"
+                       behaviors:HoverFloatBehavior.MaxOffsetY="0.8"
+                       behaviors:HoverFloatBehavior.LerpFactor="0.18"
+                       Cursor="Hand"
+                       PointerPressed="DialogHeaderMetaText_PointerPressed"
                        TextAlignment="Center"
                        TextWrapping="Wrap"/>
           </StackPanel>
@@ -194,6 +224,18 @@
                            TextAlignment="Left"
                            HorizontalAlignment="Left"
                            TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding EmphasisText}"
+                           IsVisible="{Binding HasEmphasisText}"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           Foreground="{Binding EmphasisForeground}"
+                           TextAlignment="Left"
+                           HorizontalAlignment="Left"
+                           TextWrapping="Wrap"/>
+                <CheckBox Classes="DialogCheckbox"
+                          IsVisible="{Binding HasCheckbox}"
+                          IsChecked="{Binding Checkbox.IsChecked}"
+                          Content="{Binding Checkbox.Text}"/>
               </StackPanel>
 
               <StackPanel IsVisible="{Binding HasPairedActionLinks}"
@@ -404,6 +446,51 @@
                              Height="8"
                              CornerRadius="8"/>
               </StackPanel>
+
+              <Border IsVisible="{Binding HasCodeBlock}"
+                      x:Name="DialogCodeBlockHost"
+                      Classes="HoverFloat"
+                      behaviors:HoverFloatBehavior.IsEnabled="True"
+                      behaviors:HoverFloatBehavior.HoverScale="1.02"
+                      behaviors:HoverFloatBehavior.PressScale="0.97"
+                      behaviors:HoverFloatBehavior.MaxOffsetX="1.3"
+                      behaviors:HoverFloatBehavior.MaxOffsetY="1.1"
+                      Background="#7AFFFFFF"
+                      BorderBrush="#E1E4EA"
+                      BorderThickness="1"
+                      CornerRadius="12"
+                      Padding="10">
+                <Border.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Dialog_CodeBlock_SelectAll]}"
+                              Click="CodeBlockSelectAllMenuItem_Click"/>
+                    <MenuItem Header="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Dialog_CodeBlock_Copy]}"
+                              Click="CodeBlockCopyMenuItem_Click"/>
+                  </ContextMenu>
+                </Border.ContextMenu>
+                <ScrollViewer x:Name="DialogCodeBlockScrollViewer"
+                              Classes="HoverFloat"
+                              behaviors:HoverFloatBehavior.IsEnabled="True"
+                              behaviors:HoverFloatBehavior.HoverScale="1.02"
+                              behaviors:HoverFloatBehavior.PressScale="0.97"
+                              behaviors:HoverFloatBehavior.MaxOffsetX="1.2"
+                              behaviors:HoverFloatBehavior.MaxOffsetY="1"
+                              behaviors:HoverFloatBehavior.LerpFactor="0.2"
+                              MinHeight="160"
+                              MaxHeight="160"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                  <i:Interaction.Behaviors>
+                    <ia:VerticalScrollViewerAnimatedBehavior/>
+                  </i:Interaction.Behaviors>
+                  <SelectableTextBlock x:Name="DialogCodeBlockTextBox"
+                                       Focusable="False"
+                                       FocusAdorner="{x:Null}"
+                                       SelectionBrush="#338FB3D9"
+                                       TextWrapping="Wrap"
+                                       Text="{Binding CodeBlock.Content}"/>
+                </ScrollViewer>
+              </Border>
             </StackPanel>
           </ScrollViewer>
 
@@ -430,9 +517,19 @@
                     <Binding Path="HasSecondaryButton"/>
                   </MultiBinding>
                 </Button.Width>
-                <TextBlock Text="{Binding PrimaryButtonText}"
-                           FontWeight="SemiBold"
-                           HorizontalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            Spacing="6">
+                  <TextBlock Text="{Binding PrimaryButtonText}"
+                             FontWeight="SemiBold"
+                             HorizontalAlignment="Center"/>
+                  <TextBlock Text="{Binding PrimaryCountdownText}"
+                             IsVisible="{Binding PrimaryCountdownVisible}"
+                             Foreground="{StaticResource Fg3Brush}"
+                             Opacity="0.8"
+                             FontSize="12"
+                             VerticalAlignment="Center"/>
+                </StackPanel>
               </Button>
 
               <Button Classes="Btn BtnPill BtnGhost"
@@ -461,5 +558,6 @@
         </Grid>
       </Border>
     </Grid>
+
   </Grid>
 </UserControl>

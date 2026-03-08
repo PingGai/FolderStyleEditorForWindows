@@ -23,10 +23,77 @@ namespace FolderStyleEditorForWindows.Services
         Secondary
     }
 
+    public sealed class InterruptDialogResponse
+    {
+        public InterruptDialogResult Result { get; init; }
+        public bool IsCheckboxChecked { get; init; }
+    }
+
     public enum DialogPrimaryButtonKind
     {
         Normal,
         DangerConfirm
+    }
+
+    public sealed class DialogButtonCountdownOptions
+    {
+        public int Seconds { get; init; }
+    }
+
+    public sealed class DialogCheckboxOption : INotifyPropertyChanged
+    {
+        private bool _isChecked;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public DialogCheckboxOption(string text, bool isChecked = false)
+        {
+            Text = text;
+            _isChecked = isChecked;
+        }
+
+        public string Text { get; }
+
+        public bool IsChecked
+        {
+            get => _isChecked;
+            set
+            {
+                if (_isChecked == value)
+                {
+                    return;
+                }
+
+                _isChecked = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsChecked)));
+            }
+        }
+    }
+
+    public sealed class DialogContextMenuItem
+    {
+        public DialogContextMenuItem(string text, ICommand command, bool showSeparatorBefore = false)
+        {
+            Text = text;
+            Command = command;
+            ShowSeparatorBefore = showSeparatorBefore;
+        }
+
+        public string Text { get; }
+        public ICommand Command { get; }
+        public bool ShowSeparatorBefore { get; }
+    }
+
+    public sealed class DialogCodeBlockItem
+    {
+        public DialogCodeBlockItem(string content, IEnumerable<DialogContextMenuItem> menuItems)
+        {
+            Content = content;
+            MenuItems = new ObservableCollection<DialogContextMenuItem>(menuItems);
+        }
+
+        public string Content { get; }
+        public ObservableCollection<DialogContextMenuItem> MenuItems { get; }
     }
 
     public sealed class DialogActionLinkItem
@@ -159,9 +226,12 @@ namespace FolderStyleEditorForWindows.Services
         public string? HeaderMeta { get; init; }
         public string? SectionTitle { get; init; }
         public string Content { get; init; } = string.Empty;
+        public string? EmphasisText { get; init; }
+        public IBrush? EmphasisForeground { get; init; }
         public string PrimaryButtonText { get; init; } = string.Empty;
         public string? SecondaryButtonText { get; init; }
         public DialogPrimaryButtonKind PrimaryButtonKind { get; init; } = DialogPrimaryButtonKind.Normal;
+        public DialogButtonCountdownOptions? PrimaryCountdown { get; init; }
         public bool ShowProgress { get; init; }
         public double ProgressValue { get; init; }
         public bool IsProgressIndeterminate { get; init; }
@@ -173,6 +243,8 @@ namespace FolderStyleEditorForWindows.Services
         public IBrush? SecondaryForeground { get; init; }
         public IBrush? SecondaryBorderBrush { get; init; }
         public double? SecondaryBorderThickness { get; init; }
+        public DialogCheckboxOption? Checkbox { get; init; }
+        public DialogCodeBlockItem? CodeBlock { get; init; }
         public IReadOnlyList<DialogActionLinkItem>? ActionLinks { get; init; }
         public IReadOnlyList<DialogExpandableSectionItem>? ExpandableSections { get; init; }
     }
@@ -187,6 +259,8 @@ namespace FolderStyleEditorForWindows.Services
         private string _content = string.Empty;
         private string? _headerMeta;
         private string? _sectionTitle;
+        private string? _emphasisText;
+        private IBrush _emphasisForeground = new SolidColorBrush(Color.Parse("#E07167"));
         private bool _showProgress;
         private bool _isProgressIndeterminate;
         private double _progressValue;
@@ -206,6 +280,11 @@ namespace FolderStyleEditorForWindows.Services
         private IBrush _secondaryBorderBrush = new SolidColorBrush(Color.Parse("#E6E6EB"));
         private double _secondaryBorderThickness = 1;
         private double _cardOffsetX;
+        private bool _hasPrimaryCountdown;
+        private int _primaryCountdownRemainingSeconds;
+        private string _primaryCountdownText = string.Empty;
+        private DialogCheckboxOption? _checkbox;
+        private DialogCodeBlockItem? _codeBlock;
         private ObservableCollection<DialogActionLinkItem> _actionLinks = new();
         private ObservableCollection<DialogExpandableSectionItem> _expandableSections = new();
 
@@ -226,6 +305,8 @@ namespace FolderStyleEditorForWindows.Services
         public string Content { get => _content; set => SetField(ref _content, value); }
         public string? HeaderMeta { get => _headerMeta; set { if (SetField(ref _headerMeta, value)) OnPropertyChanged(nameof(HasHeaderMeta)); } }
         public string? SectionTitle { get => _sectionTitle; set { if (SetField(ref _sectionTitle, value)) OnPropertyChanged(nameof(HasSectionTitle)); } }
+        public string? EmphasisText { get => _emphasisText; set { if (SetField(ref _emphasisText, value)) OnPropertyChanged(nameof(HasEmphasisText)); } }
+        public IBrush EmphasisForeground { get => _emphasisForeground; set => SetField(ref _emphasisForeground, value); }
         public bool ShowProgress { get => _showProgress; set => SetField(ref _showProgress, value); }
         public bool IsProgressIndeterminate { get => _isProgressIndeterminate; set => SetField(ref _isProgressIndeterminate, value); }
         public double ProgressValue { get => _progressValue; set => SetField(ref _progressValue, value); }
@@ -245,17 +326,26 @@ namespace FolderStyleEditorForWindows.Services
         public IBrush SecondaryBorderBrush { get => _secondaryBorderBrush; set => SetField(ref _secondaryBorderBrush, value); }
         public double SecondaryBorderThickness { get => _secondaryBorderThickness; set => SetField(ref _secondaryBorderThickness, value); }
         public double CardOffsetX { get => _cardOffsetX; set => SetField(ref _cardOffsetX, value); }
+        public bool HasPrimaryCountdown { get => _hasPrimaryCountdown; set { if (SetField(ref _hasPrimaryCountdown, value)) OnPropertyChanged(nameof(PrimaryCountdownVisible)); } }
+        public int PrimaryCountdownRemainingSeconds { get => _primaryCountdownRemainingSeconds; set => SetField(ref _primaryCountdownRemainingSeconds, value); }
+        public string PrimaryCountdownText { get => _primaryCountdownText; set { if (SetField(ref _primaryCountdownText, value)) OnPropertyChanged(nameof(PrimaryCountdownVisible)); } }
+        public DialogCheckboxOption? Checkbox { get => _checkbox; set { if (SetField(ref _checkbox, value)) OnPropertyChanged(nameof(HasCheckbox)); } }
+        public DialogCodeBlockItem? CodeBlock { get => _codeBlock; set { if (SetField(ref _codeBlock, value)) OnPropertyChanged(nameof(HasCodeBlock)); } }
         public ObservableCollection<DialogActionLinkItem> ActionLinks { get => _actionLinks; set { if (SetField(ref _actionLinks, value)) OnPropertyChanged(nameof(HasActionLinks)); } }
         public ObservableCollection<DialogExpandableSectionItem> ExpandableSections { get => _expandableSections; set { if (SetField(ref _expandableSections, value)) OnPropertyChanged(nameof(HasExpandableSections)); } }
 
         public bool HasSectionTitle => !string.IsNullOrWhiteSpace(SectionTitle);
         public bool HasHeaderMeta => !string.IsNullOrWhiteSpace(HeaderMeta);
+        public bool HasEmphasisText => !string.IsNullOrWhiteSpace(EmphasisText);
         public bool HasSecondaryButton => !string.IsNullOrWhiteSpace(SecondaryButtonText);
         public bool HasActionLinks => ActionLinks.Count > 0;
         public bool HasPairedActionLinks => ActionLinks.Count == 2;
         public DialogActionLinkItem? FirstActionLink => ActionLinks.Count > 0 ? ActionLinks[0] : null;
         public DialogActionLinkItem? SecondActionLink => ActionLinks.Count > 1 ? ActionLinks[1] : null;
         public bool HasExpandableSections => ExpandableSections.Count > 0;
+        public bool HasCheckbox => Checkbox != null;
+        public bool HasCodeBlock => CodeBlock != null && !string.IsNullOrWhiteSpace(CodeBlock.Content);
+        public bool PrimaryCountdownVisible => HasPrimaryCountdown && !string.IsNullOrWhiteSpace(PrimaryCountdownText);
 
         public ICommand ConfirmCommand { get; }
         public ICommand CancelCommand { get; }
@@ -573,21 +663,30 @@ namespace FolderStyleEditorForWindows.Services
     {
         private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
         private readonly LicenseCatalogService _licenseCatalogService;
-        private TaskCompletionSource<InterruptDialogResult>? _pendingCompletion;
+        private readonly IToastService _toastService;
+        private readonly DispatcherTimer _primaryCountdownTimer;
+        private TaskCompletionSource<InterruptDialogResponse>? _pendingCompletion;
 
         public InterruptDialogState State { get; }
 
-        public InterruptDialogService(LicenseCatalogService licenseCatalogService)
+        public InterruptDialogService(LicenseCatalogService licenseCatalogService, IToastService toastService)
         {
             _licenseCatalogService = licenseCatalogService;
+            _toastService = toastService;
             State = new InterruptDialogState(Confirm, Cancel);
             State.ResetVisualState(false);
+            _primaryCountdownTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _primaryCountdownTimer.Tick += PrimaryCountdownTimer_Tick;
         }
 
-        public async Task<InterruptDialogResult> ShowAsync(InterruptDialogOptions options)
+        public async Task<InterruptDialogResponse> ShowAsync(InterruptDialogOptions options)
         {
-            _pendingCompletion?.TrySetResult(InterruptDialogResult.None);
-            var tcs = new TaskCompletionSource<InterruptDialogResult>();
+            StopPrimaryCountdown();
+            _pendingCompletion?.TrySetResult(new InterruptDialogResponse { Result = InterruptDialogResult.None });
+            var tcs = new TaskCompletionSource<InterruptDialogResponse>();
             _pendingCompletion = tcs;
 
             await _dispatcher.InvokeAsync(() =>
@@ -596,6 +695,8 @@ namespace FolderStyleEditorForWindows.Services
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
+                State.EmphasisText = options.EmphasisText;
+                State.EmphasisForeground = options.EmphasisForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
                 State.PrimaryButtonText = options.PrimaryButtonText ?? string.Empty;
                 State.SecondaryButtonText = options.SecondaryButtonText;
                 State.ApplyPrimaryButtonKind(options.PrimaryButtonKind);
@@ -610,9 +711,25 @@ namespace FolderStyleEditorForWindows.Services
                 State.SecondaryForeground = options.SecondaryForeground ?? State.SecondaryForeground;
                 State.SecondaryBorderBrush = options.SecondaryBorderBrush ?? State.SecondaryBorderBrush;
                 State.SecondaryBorderThickness = options.SecondaryBorderThickness ?? State.SecondaryBorderThickness;
+                State.Checkbox = options.Checkbox;
+                State.CodeBlock = options.CodeBlock;
                 State.ActionLinks = new ObservableCollection<DialogActionLinkItem>(options.ActionLinks ?? Array.Empty<DialogActionLinkItem>());
                 State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>(options.ExpandableSections ?? Array.Empty<DialogExpandableSectionItem>());
                 State.ResetVisualState(true);
+
+                if (options.PrimaryCountdown is { Seconds: > 0 } countdown)
+                {
+                    State.HasPrimaryCountdown = true;
+                    State.PrimaryCountdownRemainingSeconds = countdown.Seconds;
+                    State.PrimaryCountdownText = $"({countdown.Seconds}s)";
+                    _primaryCountdownTimer.Start();
+                }
+                else
+                {
+                    State.HasPrimaryCountdown = false;
+                    State.PrimaryCountdownRemainingSeconds = 0;
+                    State.PrimaryCountdownText = string.Empty;
+                }
             });
 
             return await tcs.Task.ConfigureAwait(false);
@@ -650,7 +767,7 @@ namespace FolderStyleEditorForWindows.Services
             });
         }
 
-        public Task<InterruptDialogResult> ShowDangerConfirmAsync(string title, string content, string confirmText, string cancelText, string? sectionTitle = null)
+        public Task<InterruptDialogResponse> ShowDangerConfirmAsync(string title, string content, string confirmText, string cancelText, string? sectionTitle = null)
         {
             return ShowAsync(new InterruptDialogOptions
             {
@@ -660,6 +777,55 @@ namespace FolderStyleEditorForWindows.Services
                 PrimaryButtonText = confirmText,
                 SecondaryButtonText = cancelText,
                 PrimaryButtonKind = DialogPrimaryButtonKind.DangerConfirm
+            });
+        }
+
+        public Task<InterruptDialogResponse> ShowElevationPromptAsync()
+        {
+            var loc = LocalizationManager.Instance;
+            return ShowAsync(new InterruptDialogOptions
+            {
+                Title = loc["Dialog_Elevation_Title"],
+                EmphasisText = loc["Dialog_Elevation_RequiredHeadline"],
+                Content = loc["Dialog_Elevation_Content"],
+                PrimaryButtonText = loc["Dialog_Elevation_Confirm"],
+                SecondaryButtonText = loc["Dialog_Elevation_Cancel"],
+                Checkbox = new DialogCheckboxOption(loc["Dialog_Elevation_DoNotShow"]),
+                PrimaryCountdown = new DialogButtonCountdownOptions { Seconds = 10 }
+            });
+        }
+
+        public Task ShowFailureAsync(string title, string emphasisText, string content, string? details)
+        {
+            var loc = LocalizationManager.Instance;
+            DialogCodeBlockItem? codeBlock = null;
+            if (!string.IsNullOrWhiteSpace(details))
+            {
+                var copyCommand = new RelayCommand(async () =>
+                {
+                    if (Avalonia.Application.Current?.ApplicationLifetime is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop ||
+                        desktop.MainWindow?.Clipboard == null)
+                    {
+                        return;
+                    }
+
+                    await desktop.MainWindow.Clipboard.SetTextAsync(details);
+                    _toastService.Show(loc["Toast_CopySuccess"], new SolidColorBrush(Color.Parse("#EBB762")));
+                });
+
+                codeBlock = new DialogCodeBlockItem(details, new[]
+                {
+                    new DialogContextMenuItem(loc["Dialog_CodeBlock_Copy"], copyCommand)
+                });
+            }
+
+            return ShowAsync(new InterruptDialogOptions
+            {
+                Title = title,
+                EmphasisText = emphasisText,
+                Content = content,
+                PrimaryButtonText = loc["Dialog_Primary_Acknowledge"],
+                CodeBlock = codeBlock
             });
         }
 
@@ -674,11 +840,18 @@ namespace FolderStyleEditorForWindows.Services
 
         private void Complete(InterruptDialogResult result)
         {
+            StopPrimaryCountdown();
             var captured = _pendingCompletion;
             if (captured == null)
             {
                 return;
             }
+
+            var response = new InterruptDialogResponse
+            {
+                Result = result,
+                IsCheckboxChecked = State.Checkbox?.IsChecked == true
+            };
 
             _pendingCompletion = null;
             _dispatcher.Post(() => State.ResetVisualState(false));
@@ -686,8 +859,38 @@ namespace FolderStyleEditorForWindows.Services
             _ = Task.Run(async () =>
             {
                 await Task.Delay(200);
-                captured.TrySetResult(result);
+                captured.TrySetResult(response);
             });
+        }
+
+        private void PrimaryCountdownTimer_Tick(object? sender, EventArgs e)
+        {
+            if (!State.IsActive || !State.HasPrimaryCountdown)
+            {
+                StopPrimaryCountdown();
+                return;
+            }
+
+            State.PrimaryCountdownRemainingSeconds = Math.Max(0, State.PrimaryCountdownRemainingSeconds - 1);
+            State.PrimaryCountdownText = State.PrimaryCountdownRemainingSeconds > 0
+                ? $"({State.PrimaryCountdownRemainingSeconds}s)"
+                : string.Empty;
+
+            if (State.PrimaryCountdownRemainingSeconds > 0)
+            {
+                return;
+            }
+
+            StopPrimaryCountdown();
+            Confirm();
+        }
+
+        private void StopPrimaryCountdown()
+        {
+            _primaryCountdownTimer.Stop();
+            State.HasPrimaryCountdown = false;
+            State.PrimaryCountdownRemainingSeconds = 0;
+            State.PrimaryCountdownText = string.Empty;
         }
     }
 

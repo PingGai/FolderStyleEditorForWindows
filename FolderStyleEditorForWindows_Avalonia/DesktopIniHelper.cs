@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -8,8 +9,8 @@ namespace FolderStyleEditorForWindows
     public static class DesktopIniHelper
     {
         // 使用 P/Invoke 调用 kernel32.dll 中的 API 来读写 .ini 文件
-        [DllImport("kernel32", CharSet = CharSet.Unicode)]
-        private static extern long WritePrivateProfileString(string section, string key, string? val, string filePath);
+        [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool WritePrivateProfileString(string section, string key, string? val, string filePath);
 
         [DllImport("kernel32", CharSet = CharSet.Unicode)]
         private static extern int GetPrivateProfileString(string section, string key, string def, StringBuilder retVal, int size, string filePath);
@@ -38,29 +39,26 @@ namespace FolderStyleEditorForWindows
         /// </summary>
         public static void WriteValue(string folderPath, string key, string? value)
         {
-            try
-            {
-                var iniPath = Path.Combine(folderPath, IniFileName);
+            var iniPath = Path.Combine(folderPath, IniFileName);
 
-                // 确保文件存在且具有正确的编码和属性
-                if (!File.Exists(iniPath))
-                {
-                    // 使用系统默认 ANSI 编码创建文件
-                    File.WriteAllText(iniPath, "", Encoding.Default);
-                    File.SetAttributes(iniPath, FileAttributes.System | FileAttributes.Hidden);
-                }
+            if (!File.Exists(iniPath))
+            {
+                File.WriteAllText(iniPath, "", Encoding.Default);
+                File.SetAttributes(iniPath, FileAttributes.System | FileAttributes.Hidden);
+            }
 
-                WritePrivateProfileString(SectionName, key, value, iniPath);
-            }
-            catch (UnauthorizedAccessException)
+            if (WritePrivateProfileString(SectionName, key, value, iniPath))
             {
-                // Ignore. The user might be trying to edit a folder they don't have access to.
-                // In the future, we can show a toast notification here.
+                return;
             }
-            catch (IOException)
+
+            var error = Marshal.GetLastWin32Error();
+            if (error != 0)
             {
-                // Ignore. Another I/O error occurred.
+                throw new Win32Exception(error);
             }
+
+            throw new IOException($"Failed to write [{SectionName}] {key} in {iniPath}.");
         }
     }
 }

@@ -10,8 +10,13 @@ using FolderStyleEditorForWindows.Services;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Windows.Input;
+using System.Threading.Tasks;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
+using Microsoft.Extensions.DependencyInjection;
 using SvgControl = Avalonia.Svg.Skia.Svg;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace FolderStyleEditorForWindows.Views
 {
@@ -20,14 +25,24 @@ namespace FolderStyleEditorForWindows.Views
         private const double MaxShakeAmplitude = 2.8;
         private const double ShakeDecayDurationMs = 500;
         private readonly DispatcherTimer _dangerShakeTimer;
+        private readonly DispatcherTimer _codeBlockScrollTimer;
         private readonly Random _random = new();
         private Button? _primaryButton;
         private InterruptDialogState? _state;
         private Border? _dialogCard;
+        private Border? _codeBlockHost;
+        private SelectableTextBlock? _codeBlockTextBox;
+        private ScrollViewer? _codeBlockScrollViewer;
         private TranslateTransform? _primaryButtonShakeTransform;
         private double _shakeStrength;
         private bool _isDangerHovered;
+        private DateTime _codeBlockPointerPressedAt = DateTime.MinValue;
+        private bool _codeBlockPointerMoved;
+        private bool _codeBlockClickArmed;
+        private Point _codeBlockPointerPressedPosition;
+        private double _codeBlockScrollTargetY;
         private readonly Dictionary<Control, PropertyChangedEventHandler> _animatedContainerHandlers = new();
+        private int _headerMetaTapCount;
 
         public InterruptDialog()
         {
@@ -38,9 +53,28 @@ namespace FolderStyleEditorForWindows.Views
                 Interval = TimeSpan.FromMilliseconds(45)
             };
             _dangerShakeTimer.Tick += DangerShakeTimer_Tick;
+            _codeBlockScrollTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(16)
+            };
+            _codeBlockScrollTimer.Tick += CodeBlockScrollTimer_Tick;
 
             _primaryButton = this.FindControl<Button>("PrimaryButton");
             _dialogCard = this.FindControl<Border>("DialogCard");
+            _codeBlockHost = this.FindControl<Border>("DialogCodeBlockHost");
+            _codeBlockTextBox = this.FindControl<SelectableTextBlock>("DialogCodeBlockTextBox");
+            _codeBlockScrollViewer = this.FindControl<ScrollViewer>("DialogCodeBlockScrollViewer");
+            if (_codeBlockHost != null)
+            {
+                _codeBlockHost.AddHandler(PointerPressedEvent, CodeBlockHost_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+                _codeBlockHost.AddHandler(PointerMovedEvent, CodeBlockHost_PointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+                _codeBlockHost.AddHandler(PointerReleasedEvent, CodeBlockHost_PointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+                _codeBlockHost.AddHandler(Control.ContextRequestedEvent, CodeBlockHost_ContextRequested, RoutingStrategies.Tunnel, handledEventsToo: true);
+            }
+            if (_codeBlockScrollViewer != null)
+            {
+                _codeBlockScrollViewer.AddHandler(PointerWheelChangedEvent, CodeBlockScrollViewer_PointerWheelChanged, RoutingStrategies.Tunnel, handledEventsToo: true);
+            }
             if (_primaryButton != null)
             {
                 _primaryButton.PointerEntered += PrimaryButton_PointerEntered;
@@ -78,6 +112,7 @@ namespace FolderStyleEditorForWindows.Views
 
             UpdatePrimaryButtonShakeState();
             SyncDialogActiveState();
+            _headerMetaTapCount = 0;
         }
 
         private void PrimaryButton_PointerEntered(object? sender, PointerEventArgs e)
@@ -358,6 +393,198 @@ namespace FolderStyleEditorForWindows.Views
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+        }
+
+        private void CodeBlockHost_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
+            {
+                _codeBlockClickArmed = false;
+                if (_codeBlockScrollViewer?.ContextMenu != null)
+                {
+                    _codeBlockScrollViewer.ContextMenu.Open(_codeBlockScrollViewer);
+                    e.Handled = true;
+                }
+                return;
+            }
+
+            _codeBlockPointerPressedAt = DateTime.UtcNow;
+            _codeBlockPointerMoved = false;
+            _codeBlockClickArmed = true;
+            _codeBlockPointerPressedPosition = e.GetPosition(_codeBlockScrollViewer);
+        }
+
+        private void CodeBlockHost_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (_codeBlockScrollViewer == null)
+            {
+                _codeBlockPointerMoved = true;
+                return;
+            }
+
+            var currentPosition = e.GetPosition(_codeBlockScrollViewer);
+            if (Math.Abs(currentPosition.X - _codeBlockPointerPressedPosition.X) > 4 ||
+                Math.Abs(currentPosition.Y - _codeBlockPointerPressedPosition.Y) > 4)
+            {
+                _codeBlockPointerMoved = true;
+                _codeBlockClickArmed = false;
+            }
+        }
+
+        private void CodeBlockScrollViewer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (_codeBlockScrollViewer == null)
+            {
+                return;
+            }
+
+            var current = _codeBlockScrollViewer.Offset.Y;
+            var maxOffset = Math.Max(0, _codeBlockScrollViewer.Extent.Height - _codeBlockScrollViewer.Viewport.Height);
+            var delta = e.Delta.Y * 56;
+            _codeBlockScrollTargetY = Math.Clamp(current - delta, 0, maxOffset);
+            if (!_codeBlockScrollTimer.IsEnabled)
+            {
+                _codeBlockScrollTimer.Start();
+            }
+
+            e.Handled = true;
+        }
+
+        private void CodeBlockHost_ContextRequested(object? sender, ContextRequestedEventArgs e)
+        {
+            if (_codeBlockHost?.ContextMenu == null)
+            {
+                return;
+            }
+
+            _codeBlockHost.ContextMenu.Open(_codeBlockHost);
+            e.Handled = true;
+        }
+
+        private void CodeBlockScrollTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_codeBlockScrollViewer == null)
+            {
+                _codeBlockScrollTimer.Stop();
+                return;
+            }
+
+            var current = _codeBlockScrollViewer.Offset;
+            var nextY = current.Y + ((_codeBlockScrollTargetY - current.Y) * 0.26);
+            if (Math.Abs(nextY - _codeBlockScrollTargetY) < 0.4)
+            {
+                nextY = _codeBlockScrollTargetY;
+                _codeBlockScrollTimer.Stop();
+            }
+
+            _codeBlockScrollViewer.Offset = new Vector(current.X, nextY);
+        }
+
+        private async void DialogHeaderMetaText_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (_state is not { IsActive: true })
+            {
+                return;
+            }
+
+            var loc = LocalizationManager.Instance;
+            if (!string.Equals(_state.HeaderMeta, loc["Home_AboutDialog_Publisher"], StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _headerMetaTapCount++;
+            if (_headerMetaTapCount < 5)
+            {
+                return;
+            }
+
+            _headerMetaTapCount = 0;
+            _state.CancelCommand.Execute(null);
+
+            var dialogService = App.Services?.GetRequiredService<InterruptDialogService>();
+            if (dialogService == null)
+            {
+                return;
+            }
+
+            await Task.Delay(220);
+            await dialogService.ShowFailureAsync(
+                loc["Dialog_SaveFailed_Title"],
+                loc["Dialog_Elevation_RequiredHeadline"],
+                loc["Dialog_Debug_TestError_Content"],
+                "DEBUG_TEST: Elevated helper diagnostic view\n" +
+                "CodeBlock: left-click copy / right-click copy / text selection\n" +
+                "Status: Simulated exception for manual UX verification.\n\n" +
+                "StackTrace (simulated):\n" +
+                "  at FolderStyleEditorForWindows.Services.ElevatedHelperController.SaveAsync(...)\n" +
+                "  at FolderStyleEditorForWindows.Services.FolderStyleSaveCoordinator.SaveAsync(...)\n" +
+                "  at FolderStyleEditorForWindows.ViewModels.MainViewModel.SaveFolderSettings()\n\n" +
+                "Diagnostic payload:\n" +
+                "  - Folder: C:\\Program Files\\ExampleApp\n" +
+                "  - IconPath: %SystemRoot%\\System32\\shell32.dll,-244\n" +
+                "  - HRESULT: 0x80070005 (Access Denied)\n" +
+                "  - Session: debug-rev4-simulated\n" +
+                "  - Timestamp: 2026-03-08T00:00:00Z\n\n" +
+                "This block is intentionally long so scrolling, copy, and selection behavior can be tested.");
+        }
+
+        private async void CodeBlockHost_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (_state?.CodeBlock is not DialogCodeBlockItem codeBlock)
+            {
+                return;
+            }
+
+            if (e.InitialPressMouseButton != MouseButton.Left)
+            {
+                return;
+            }
+
+            if (!_codeBlockClickArmed)
+            {
+                return;
+            }
+
+            _codeBlockClickArmed = false;
+
+            if (_codeBlockPointerMoved || DateTime.UtcNow - _codeBlockPointerPressedAt > TimeSpan.FromMilliseconds(220))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_codeBlockTextBox?.SelectedText))
+            {
+                return;
+            }
+
+            await CopyCodeBlockContentAsync(codeBlock.Content);
+        }
+
+        private async void CodeBlockCopyMenuItem_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_state?.CodeBlock is DialogCodeBlockItem codeBlock)
+            {
+                await CopyCodeBlockContentAsync(codeBlock.Content);
+            }
+        }
+
+        private void CodeBlockSelectAllMenuItem_Click(object? sender, RoutedEventArgs e)
+        {
+            _codeBlockTextBox?.SelectAll();
+        }
+
+        private static async Task CopyCodeBlockContentAsync(string content)
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop ||
+                desktop.MainWindow?.Clipboard == null)
+            {
+                return;
+            }
+
+            await desktop.MainWindow.Clipboard.SetTextAsync(content);
+            var toastService = App.Services?.GetRequiredService<IToastService>();
+            toastService?.Show(LocalizationManager.Instance["Toast_CopySuccess"], new SolidColorBrush(Color.Parse("#EBB762")));
         }
     }
 }
