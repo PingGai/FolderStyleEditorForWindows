@@ -52,17 +52,18 @@ FolderStyleEditorForWindows is a desktop application developed with the Avalonia
 
 ### Implemented Features
 
-*   **Portable Icon Paths**: Icons are stored with relative paths, ensuring styles remain intact when folders are moved (e.g., to a USB drive). External icons are auto-saved to a hidden `.ICON` folder for self-contained management.
-*   **Comprehensive Drag-and-Drop**:
+*   ✅ **Administrator Permission Mode Editing**: Protected directories are handled through an on-demand elevated helper while the main UI stays at normal privilege and keeps drag-and-drop working.
+*   ✅ **Portable Icon Paths**: Icons are stored with relative paths, ensuring styles remain intact when folders are moved. External icons are auto-saved to a hidden `.ICON` folder for self-contained management.
+*   ✅ **Comprehensive Drag-and-Drop**:
     -   **Target**: Drag a **folder** to specify the editing target.
     -   **Icon**: Drag `.ico`, `.exe`, or `.dll` files to extract and set icons.
     -   **Alias**: Drag **text** to quickly populate the alias.
-*   **Smart Icon Recognition**: One-click scan to display all icons from `.exe` or `.dll` files within a folder. Local icons are referenced by path, not duplicated.
-*   **Quick Alias Editing**: Intuitively modify the folder's display name.
+*   ✅ **Smart Icon Recognition and Auto-Get**: Automatically scans and displays icons from `.exe` or `.dll` files, with progressive loading, smooth switching, and auto-get support.
+*   ✅ **Quick Alias Editing**: Intuitively modify the folder's display name while keeping alias history available for quick reuse and rollback.
+*   ✅ **Recent History and State Feedback**: Includes recent edit history, permission state hints, toast notifications, and a unified dialog system.
 
 ### Roadmap
 
-*   **Advanced Permission Handling**: Support for modifying system folders that require administrator privileges.
 *   **One-Click & Batch Operations**: Instantly apply an app's icon by dragging its executable; support for batch processing multiple folders.
 *   **Automatic Image Conversion**: Convert images like `.png` and `.jpg` to `.ico` format automatically.
 
@@ -135,12 +136,18 @@ If you prefer to build the application yourself, you can use the `build.ps1` scr
 
 ### 3. Edit the folder icon
 - On the editing page, find the "Folder Icon" section.
-- **Drag icon file**: Drag a `.ico` file, or an `.exe` or `.dll` file containing icons, directly to the icon input box area. (This may not be fully implemented yet)
+- **Drag icon file**: Drag a `.ico` file, or an `.exe` or `.dll` file containing icons, directly to the icon input box area.
     - If it is an `.exe` or `.dll` file, the application will automatically extract the icons within it.
     - The application uses relative paths by default. If the icon file is not in the current folder, the application will create a hidden `.ICON` folder within this folder to store external icons.
 - **Click to select icon**: Click the folder icon button to the right of the icon input box to select an icon file through the file explorer.
 - **Auto-get icon**: The application will automatically parse all icons in the selected `.exe` or `.dll` file and display them as thumbnails below. You can select one of them, and the application will automatically fill its path into the input box.
 - **Reset icon**: If you want to clear the current icon setting, you can use the "Reset Icon" button, which will restore the folder to its default icon.
+
+### 4. Handle directories that require administrator privileges
+
+- When the target folder requires elevated permission, the app shows a unified permission dialog.
+- After confirmation, the program starts an elevated helper and reuses that permission for the current session.
+- This allows protected folders to be edited without sacrificing drag-and-drop in the main UI.
 
 ## Images
 
@@ -194,9 +201,15 @@ This is an **experimental project** with two goals:
 - To implement the basic software functions.
 - To explore the feasibility of directly generating small desktop applications from natural language project plans.
 
-## Known Issues / Future Plans
+## Current Status / Future Plans
 
-Editing directories that require administrator privileges is not yet implemented. Running the main process with administrator rights directly causes it to be unable to receive drag-and-drop, which is a serious problem. A feasible solution has not yet been designed.
+Editing directories that require administrator privileges is now supported. A separate elevated helper process is used so the main process can keep drag-and-drop working without running the whole UI as administrator.
+
+The following areas are still planned:
+
+- One-click and batch operations
+- Automatic conversion of images to `.ico`
+- More detailed settings and visual options
 
 ## Contribution Guide
 
