@@ -44,6 +44,10 @@ namespace FolderStyleEditorForWindows.ViewModels
         private bool _suppressAliasAutocomplete = false;
         private int _iconLoadingVersion;
         private CancellationTokenSource? _iconLoadCts;
+        private readonly Dictionary<string, CachedIconPreviewSet> _iconPreviewCache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Task> _iconPreviewWarmTasks = new(StringComparer.OrdinalIgnoreCase);
+        private readonly SemaphoreSlim _iconPreviewWarmGate = new(1, 1);
+        private const int IconPreviewCacheCapacity = 6;
 
         private string _folderPath = "";
         public string FolderPath
@@ -662,13 +666,8 @@ namespace FolderStyleEditorForWindows.ViewModels
         public void ClearIconPreview()
         {
             CancelIconScan();
-            foreach (var icon in Icons)
-            {
-                icon.Dispose();
-            }
-            Icons.Clear();
-            PreviewedIcon = null;
-            SelectedIcon = null;
+            ClearDisplayedIcons();
+            ClearIconPreviewCache();
         }
  
         [SupportedOSPlatform("windows")]
@@ -902,6 +901,7 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
            IconPath = _foundIconPaths[_currentIconIndex] + ",0";
            UpdateIconCounterDisplay();
+           PrefetchAdjacentAutoGetIcons();
        }
 
        public void JumpToIconIndex(int target)
@@ -915,6 +915,7 @@ namespace FolderStyleEditorForWindows.ViewModels
            _currentIconIndex = target;
            IconPath = _foundIconPaths[_currentIconIndex] + ",0";
            UpdateIconCounterDisplay();
+           PrefetchAdjacentAutoGetIcons();
        }
 
        private void StartProgressiveIconScan()
@@ -938,6 +939,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                {
                    _currentIconIndex = 0;
                    IconPath = _foundIconPaths[_currentIconIndex] + ",0";
+                   PrefetchAdjacentAutoGetIcons();
                }
                UpdateIconCounterDisplay();
            });
@@ -993,16 +995,48 @@ namespace FolderStyleEditorForWindows.ViewModels
   
            if (!File.Exists(fileName))
            {
-               Icons.Clear();
+               ClearDisplayedIcons();
                return;
            }
 
            selectedIndex = ResolveSelectedIconIndex(fileName, selectedIndex);
+
+           if (_iconPreviewCache.TryGetValue(fileName, out var cachedSet))
+           {
+               cachedSet.Touch();
+               DisplayCachedIcons(cachedSet, selectedIndex);
+               PrefetchAdjacentAutoGetIcons();
+               return;
+           }
+
+           if (_iconPreviewWarmTasks.TryGetValue(fileName, out var warmTask))
+           {
+               IsLoadingIcons = true;
+               IsLoadingIconsIndicatorVisible = false;
+               try
+               {
+                   await warmTask;
+               }
+               finally
+               {
+                   IsLoadingIcons = false;
+                   IsLoadingIconsIndicatorVisible = false;
+               }
+
+               if (_iconPreviewCache.TryGetValue(fileName, out cachedSet))
+               {
+                   cachedSet.Touch();
+                   DisplayCachedIcons(cachedSet, selectedIndex);
+                   PrefetchAdjacentAutoGetIcons();
+                   return;
+               }
+           }
   
            var loadingVersion = ++_iconLoadingVersion;
            _iconLoadCts?.Cancel();
            _iconLoadCts = new CancellationTokenSource();
            var iconLoadToken = _iconLoadCts.Token;
+           var loadedIcons = new List<IconViewModel>();
            IsLoadingIcons = true;
            IsLoadingIconsIndicatorVisible = false;
            _ = Task.Run(async () =>
@@ -1021,19 +1055,12 @@ namespace FolderStyleEditorForWindows.ViewModels
            {
                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                {
-                   foreach (var icon in Icons)
-                   {
-                       icon.Dispose();
-                   }
-
-                   PreviewedIcon = null;
-                   SelectedIcon = null;
-                   Icons.Clear();
+                   ClearDisplayedIcons();
                });
 
                var progress = new Progress<IconExtractionProgress>(update =>
                {
-                   if (loadingVersion != _iconLoadingVersion)
+                    if (loadingVersion != _iconLoadingVersion)
                    {
                        foreach (var staleIcon in update.Batch)
                        {
@@ -1042,6 +1069,8 @@ namespace FolderStyleEditorForWindows.ViewModels
 
                        return;
                    }
+
+                   loadedIcons.AddRange(update.Batch);
 
                    Dispatcher.UIThread.Post(() =>
                    {
@@ -1069,6 +1098,12 @@ namespace FolderStyleEditorForWindows.ViewModels
                });
 
                await _iconFinderService.ExtractIconsFromFileIncrementalAsync(fileName, progress, iconLoadToken);
+
+               if (loadingVersion == _iconLoadingVersion)
+               {
+                   StoreIconPreviewCache(fileName, loadedIcons);
+                   PrefetchAdjacentAutoGetIcons();
+               }
            }
            catch (OperationCanceledException)
            {
@@ -1084,12 +1119,197 @@ namespace FolderStyleEditorForWindows.ViewModels
                    IsLoadingIcons = false;
                    IsLoadingIconsIndicatorVisible = false;
                }
+               else
+               {
+                   foreach (var icon in loadedIcons)
+                   {
+                       icon.Dispose();
+                   }
+               }
 
                if (_pendingIconPath != null)
                {
                    await StartNextIconLoadAsync();
                }
            }
+       }
+
+       private void ClearDisplayedIcons()
+       {
+           PreviewedIcon = null;
+           SelectedIcon = null;
+           Icons.Clear();
+       }
+
+       private void DisplayCachedIcons(CachedIconPreviewSet cachedSet, int selectedIndex)
+       {
+           ClearDisplayedIcons();
+           foreach (var icon in cachedSet.Icons)
+           {
+               Icons.Add(icon);
+           }
+
+           if (selectedIndex >= 0 && selectedIndex < Icons.Count)
+           {
+               SelectedIcon = Icons[selectedIndex];
+               PreviewedIcon = Icons[selectedIndex];
+           }
+       }
+
+       private void StoreIconPreviewCache(string fileName, List<IconViewModel> icons)
+       {
+           if (_iconPreviewCache.TryGetValue(fileName, out var existing))
+           {
+               existing.Touch();
+               return;
+           }
+
+           _iconPreviewCache[fileName] = new CachedIconPreviewSet(fileName, icons);
+           TrimIconPreviewCache();
+       }
+
+       private void ClearIconPreviewCache()
+       {
+           _iconLoadCts?.Cancel();
+           _iconLoadCts = null;
+
+           foreach (var cacheEntry in _iconPreviewCache.Values)
+           {
+               cacheEntry.Dispose();
+           }
+
+           _iconPreviewCache.Clear();
+           _iconPreviewWarmTasks.Clear();
+       }
+
+       private void PrefetchAdjacentAutoGetIcons()
+       {
+           var previousPath = GetAdjacentAutoGetIconPath(-1);
+           var nextPath = GetAdjacentAutoGetIconPath(1);
+
+           if (!string.IsNullOrWhiteSpace(previousPath))
+           {
+               _ = WarmIconPreviewCacheAsync(previousPath);
+           }
+
+           if (!string.IsNullOrWhiteSpace(nextPath))
+           {
+               _ = WarmIconPreviewCacheAsync(nextPath);
+           }
+       }
+
+       private string? GetAdjacentAutoGetIconPath(int offset)
+       {
+           if (!_foundIconPaths.Any() || _currentIconIndex < 0)
+           {
+               return null;
+           }
+
+           var count = _foundIconPaths.Count;
+           var index = ((_currentIconIndex + offset) % count + count) % count;
+           var path = _foundIconPaths[index];
+           return File.Exists(path) ? path : null;
+       }
+
+       private async Task WarmIconPreviewCacheAsync(string fileName)
+       {
+           if (string.IsNullOrWhiteSpace(fileName) ||
+               !File.Exists(fileName) ||
+               _iconPreviewCache.ContainsKey(fileName))
+           {
+               return;
+           }
+
+           if (_iconPreviewWarmTasks.TryGetValue(fileName, out var existingTask))
+           {
+               await existingTask;
+               return;
+           }
+
+           var warmTask = Task.Run(async () =>
+           {
+               await _iconPreviewWarmGate.WaitAsync();
+               try
+               {
+                   if (_iconPreviewCache.ContainsKey(fileName))
+                   {
+                       return;
+                   }
+
+                   var icons = await _iconFinderService.ExtractIconsFromFileAsync(fileName);
+                   StoreIconPreviewCache(fileName, icons);
+               }
+               finally
+               {
+                   _iconPreviewWarmGate.Release();
+                   _iconPreviewWarmTasks.Remove(fileName);
+               }
+           });
+
+           _iconPreviewWarmTasks[fileName] = warmTask;
+           await warmTask;
+       }
+
+       private void TrimIconPreviewCache()
+       {
+           if (_iconPreviewCache.Count <= IconPreviewCacheCapacity)
+           {
+               return;
+           }
+
+           var protectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+           var currentPath = GetCurrentIconPreviewFilePath();
+           if (!string.IsNullOrWhiteSpace(currentPath))
+           {
+               protectedPaths.Add(currentPath);
+           }
+
+           var previousPath = GetAdjacentAutoGetIconPath(-1);
+           if (!string.IsNullOrWhiteSpace(previousPath))
+           {
+               protectedPaths.Add(previousPath);
+           }
+
+           var nextPath = GetAdjacentAutoGetIconPath(1);
+           if (!string.IsNullOrWhiteSpace(nextPath))
+           {
+               protectedPaths.Add(nextPath);
+           }
+
+           foreach (var evictKey in _iconPreviewCache
+               .Where(pair => !protectedPaths.Contains(pair.Key))
+               .OrderBy(pair => pair.Value.LastAccessUtc)
+               .Select(pair => pair.Key)
+               .ToList())
+           {
+               if (_iconPreviewCache.Count <= IconPreviewCacheCapacity)
+               {
+                   break;
+               }
+
+               if (_iconPreviewCache.Remove(evictKey, out var evictedSet))
+               {
+                   evictedSet.Dispose();
+               }
+           }
+       }
+
+       private string? GetCurrentIconPreviewFilePath()
+       {
+           var parts = IconPath?.Split(',') ?? Array.Empty<string>();
+           var fileName = parts.Length > 0 ? parts[0].Trim() : string.Empty;
+           if (string.IsNullOrWhiteSpace(fileName))
+           {
+               return null;
+           }
+
+           fileName = Environment.ExpandEnvironmentVariables(fileName);
+           if (!Path.IsPathRooted(fileName) && !string.IsNullOrEmpty(FolderPath))
+           {
+               fileName = Path.GetFullPath(Path.Combine(FolderPath, fileName));
+           }
+
+           return fileName;
        }
 
        [SupportedOSPlatform("windows")]
@@ -1411,6 +1631,33 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
 
             public event PropertyChangedEventHandler? PropertyChanged;
+        }
+
+        private sealed class CachedIconPreviewSet : IDisposable
+        {
+            public CachedIconPreviewSet(string filePath, List<IconViewModel> icons)
+            {
+                FilePath = filePath;
+                Icons = icons;
+                Touch();
+            }
+
+            public string FilePath { get; }
+            public List<IconViewModel> Icons { get; }
+            public DateTime LastAccessUtc { get; private set; }
+
+            public void Touch()
+            {
+                LastAccessUtc = DateTime.UtcNow;
+            }
+
+            public void Dispose()
+            {
+                foreach (var icon in Icons)
+                {
+                    icon.Dispose();
+                }
+            }
         }
     }
 }
