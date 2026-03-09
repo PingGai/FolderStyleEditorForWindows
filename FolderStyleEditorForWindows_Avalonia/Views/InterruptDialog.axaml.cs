@@ -87,13 +87,27 @@ namespace FolderStyleEditorForWindows.Views
 
         private void InterruptDialog_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Escape && DataContext is InterruptDialogState { IsActive: true } state)
+            if (e.Key == Key.Escape && DataContext is InterruptDialogState { IsActive: true } state && state.DismissOnEsc)
             {
                 if (state.CancelCommand.CanExecute(null))
                 {
                     state.CancelCommand.Execute(null);
                     e.Handled = true;
                 }
+            }
+        }
+
+        private void OverlayMask_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (DataContext is not InterruptDialogState { IsActive: true, AllowOverlayClickDismiss: true } state)
+            {
+                return;
+            }
+
+            if (state.CancelCommand.CanExecute(null))
+            {
+                state.CancelCommand.Execute(null);
+                e.Handled = true;
             }
         }
 

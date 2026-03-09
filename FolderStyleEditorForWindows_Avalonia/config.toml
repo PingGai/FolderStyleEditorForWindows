@@ -1,7 +1,13 @@
 # FolderStyleEditorForWindows configuration
+ConfigSchemaVersion = 2
+Language = ""
+LanguageConfigured = false
 
 [Features]
 PinDoubleClickThreshold = 500
+
+[Features.PermissionPrompt]
+SuppressElevationPrompt = false
 
 [AppInfo]
   HelpIcon = "avares://FolderStyleEditorForWindows/Resources/SVG/message-circle-question-mark.svg"
@@ -75,3 +81,25 @@ ShowHoverIconClone = true
 ChineseCultures = ["zh-CN", "zh-Hans", "zh-CHS", "zh-Hant", "zh-HK", "zh-TW"]
 EnglishCultures = ["en-US", "en-GB", "en"]
 DefaultCulture = "zh-CN"
+
+[DragOverlay]
+DismissOnEsc = false
+ShowPrimaryButton = false
+ShowSecondaryButton = false
+AllowOverlayClickDismiss = false
+
+[Dialog]
+DefaultDismissOnEsc = true
+DefaultAllowOverlayClickDismiss = false
+
+[Ui]
+DragIndicatorStrokeColor = "#AAB7C3"
+DragIndicatorStrokeOpacity = 0.86
+DragOverlayMainTextColor = "#303034"
+DragOverlayWarningTextColor = "#E07167"
+
+[Paths]
+PreferredDataRoot = ""
+
+[Permissions]
+SuppressElevationPrompt = false

@@ -102,6 +102,7 @@
     </Grid.Transitions>
 
     <Border Background="{Binding OverlayBrush}"
+            PointerPressed="OverlayMask_PointerPressed"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
       <Border.Transitions>
@@ -137,10 +138,11 @@
               </Transitions>
             </ScaleTransform.Transitions>
           </ScaleTransform>
-          <TranslateTransform X="{Binding CardOffsetX}">
+          <TranslateTransform X="{Binding CardOffsetX}" Y="{Binding CardOffsetY}">
             <TranslateTransform.Transitions>
               <Transitions>
                 <DoubleTransition Property="X" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                <DoubleTransition Property="Y" Duration="0:0:0.2" Easing="CubicEaseOut"/>
               </Transitions>
             </TranslateTransform.Transitions>
           </TranslateTransform>
@@ -171,11 +173,11 @@
         </Border.Transitions>
 
         <Grid RowDefinitions="Auto,*,Auto">
-          <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12">
+          <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12" IsVisible="{Binding IsStandardOverlay}">
             <TextBlock Text="{Binding Title}"
                        FontSize="18"
                        FontWeight="Bold"
-                       Foreground="{StaticResource Fg1Brush}"
+                       Foreground="{Binding TitleForeground}"
                        Opacity="0.92"
                        TextAlignment="Center"
                        TextWrapping="Wrap"/>
@@ -208,7 +210,21 @@
               <ia:VerticalScrollViewerAnimatedBehavior/>
             </i:Interaction.Behaviors>
             <StackPanel Spacing="14">
+              <StackPanel Spacing="10" IsVisible="{Binding IsPassiveOverlayVisible}" HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Title}"
+                           FontSize="20"
+                           FontWeight="Bold"
+                           Foreground="{Binding TitleForeground}"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
+                           TextWrapping="Wrap"/>
+              </StackPanel>
               <StackPanel Spacing="8">
+                <svg:Svg Path="{Binding CenterIconPath}"
+                         Width="40"
+                         Height="40"
+                         HorizontalAlignment="Center"
+                         IsVisible="{Binding HasCenterIcon}"/>
                 <TextBlock Text="{Binding SectionTitle}"
                            IsVisible="{Binding HasSectionTitle}"
                            FontSize="15"
@@ -219,10 +235,19 @@
                            HorizontalAlignment="Left"
                            TextWrapping="Wrap"/>
                 <TextBlock Text="{Binding Content}"
+                           IsVisible="{Binding IsStandardOverlay}"
                            FontSize="14"
                            Foreground="{StaticResource Fg2Brush}"
                            TextAlignment="Left"
                            HorizontalAlignment="Left"
+                           TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding SubText}"
+                           IsVisible="{Binding HasSubText}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           Foreground="{Binding SubTextForeground}"
+                           TextAlignment="Center"
+                           HorizontalAlignment="Center"
                            TextWrapping="Wrap"/>
                 <TextBlock Text="{Binding EmphasisText}"
                            IsVisible="{Binding HasEmphasisText}"
@@ -496,7 +521,8 @@
 
           <StackPanel Grid.Row="2"
                       Margin="0,14,0,0"
-                      Spacing="12">
+                      Spacing="12"
+                      IsVisible="{Binding ShowActionButtons}">
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         Spacing="12">
@@ -510,7 +536,8 @@
                       Padding="14,10"
                       MinWidth="110"
                       Opacity="0.75"
-                      Command="{Binding ConfirmCommand}">
+                      Command="{Binding ConfirmCommand}"
+                      IsVisible="{Binding ShowPrimaryButtonEffective}">
                 <Button.Width>
                   <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
                     <Binding ElementName="DialogCard" Path="Bounds.Width"/>
@@ -542,7 +569,7 @@
                       MinWidth="110"
                       Opacity="0.75"
                       Command="{Binding CancelCommand}"
-                      IsVisible="{Binding HasSecondaryButton}">
+                      IsVisible="{Binding ShowSecondaryButtonEffective}">
                 <Button.Width>
                   <MultiBinding Converter="{StaticResource DialogButtonWidthConverter}">
                     <Binding ElementName="DialogCard" Path="Bounds.Width"/>

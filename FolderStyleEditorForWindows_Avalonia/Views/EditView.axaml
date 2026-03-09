@@ -49,10 +49,10 @@
             <Setter Property="Background" Value="{StaticResource PreviewBrush}"/>
         </Style>
         <Style Selector="ListBox#iconListBox ListBoxItem:selected:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight2}"/>
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColorDark1}"/>
         </Style>
         <Style Selector="ListBox#iconListBox ListBoxItem:selected.previewed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight2}"/>
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColorDark1}"/>
         </Style>
         <Style Selector="Button.AliasAutocompleteItem">
             <Setter Property="Background" Value="Transparent"/>

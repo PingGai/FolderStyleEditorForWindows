@@ -223,13 +223,22 @@ namespace FolderStyleEditorForWindows.Services
     public sealed class InterruptDialogOptions
     {
         public string Title { get; init; } = string.Empty;
+        public IBrush? TitleForeground { get; init; }
         public string? HeaderMeta { get; init; }
         public string? SectionTitle { get; init; }
         public string Content { get; init; } = string.Empty;
+        public string? CenterIconPath { get; init; }
+        public string? SubText { get; init; }
+        public IBrush? SubTextForeground { get; init; }
         public string? EmphasisText { get; init; }
         public IBrush? EmphasisForeground { get; init; }
         public string PrimaryButtonText { get; init; } = string.Empty;
         public string? SecondaryButtonText { get; init; }
+        public bool ShowPrimaryButton { get; init; } = true;
+        public bool ShowSecondaryButton { get; init; } = true;
+        public bool DismissOnEsc { get; init; } = true;
+        public bool AllowOverlayClickDismiss { get; init; }
+        public bool HitTestVisible { get; init; } = true;
         public DialogPrimaryButtonKind PrimaryButtonKind { get; init; } = DialogPrimaryButtonKind.Normal;
         public DialogButtonCountdownOptions? PrimaryCountdown { get; init; }
         public bool ShowProgress { get; init; }
@@ -256,9 +265,13 @@ namespace FolderStyleEditorForWindows.Services
         private bool _isActive;
         private bool _isHitTestVisible;
         private string _title = string.Empty;
+        private IBrush _titleForeground = new SolidColorBrush(Color.Parse("#303034"));
         private string _content = string.Empty;
         private string? _headerMeta;
         private string? _sectionTitle;
+        private string? _centerIconPath;
+        private string? _subText;
+        private IBrush _subTextForeground = new SolidColorBrush(Color.Parse("#E07167"));
         private string? _emphasisText;
         private IBrush _emphasisForeground = new SolidColorBrush(Color.Parse("#E07167"));
         private bool _showProgress;
@@ -266,6 +279,10 @@ namespace FolderStyleEditorForWindows.Services
         private double _progressValue;
         private string _primaryButtonText = string.Empty;
         private string? _secondaryButtonText;
+        private bool _showPrimaryButton = true;
+        private bool _showSecondaryButton = true;
+        private bool _dismissOnEsc = true;
+        private bool _allowOverlayClickDismiss;
         private bool _isPrimaryDanger;
         private double _overlayOpacity;
         private double _cardOpacity;
@@ -280,9 +297,11 @@ namespace FolderStyleEditorForWindows.Services
         private IBrush _secondaryBorderBrush = new SolidColorBrush(Color.Parse("#E6E6EB"));
         private double _secondaryBorderThickness = 1;
         private double _cardOffsetX;
+        private double _cardOffsetY;
         private bool _hasPrimaryCountdown;
         private int _primaryCountdownRemainingSeconds;
         private string _primaryCountdownText = string.Empty;
+        private bool _isPassiveOverlay;
         private DialogCheckboxOption? _checkbox;
         private DialogCodeBlockItem? _codeBlock;
         private ObservableCollection<DialogActionLinkItem> _actionLinks = new();
@@ -299,19 +318,72 @@ namespace FolderStyleEditorForWindows.Services
             SecondaryBorderThickness = 1;
         }
 
-        public bool IsActive { get => _isActive; set => SetField(ref _isActive, value); }
+        public bool IsActive
+        {
+            get => _isActive;
+            set
+            {
+                if (SetField(ref _isActive, value))
+                {
+                    OnPropertyChanged(nameof(IsStandardOverlay));
+                    OnPropertyChanged(nameof(IsPassiveOverlayVisible));
+                }
+            }
+        }
         public bool IsHitTestVisible { get => _isHitTestVisible; set => SetField(ref _isHitTestVisible, value); }
         public string Title { get => _title; set => SetField(ref _title, value); }
+        public IBrush TitleForeground { get => _titleForeground; set => SetField(ref _titleForeground, value); }
         public string Content { get => _content; set => SetField(ref _content, value); }
         public string? HeaderMeta { get => _headerMeta; set { if (SetField(ref _headerMeta, value)) OnPropertyChanged(nameof(HasHeaderMeta)); } }
         public string? SectionTitle { get => _sectionTitle; set { if (SetField(ref _sectionTitle, value)) OnPropertyChanged(nameof(HasSectionTitle)); } }
+        public string? CenterIconPath { get => _centerIconPath; set { if (SetField(ref _centerIconPath, value)) OnPropertyChanged(nameof(HasCenterIcon)); } }
+        public string? SubText { get => _subText; set { if (SetField(ref _subText, value)) OnPropertyChanged(nameof(HasSubText)); } }
+        public IBrush SubTextForeground { get => _subTextForeground; set => SetField(ref _subTextForeground, value); }
         public string? EmphasisText { get => _emphasisText; set { if (SetField(ref _emphasisText, value)) OnPropertyChanged(nameof(HasEmphasisText)); } }
         public IBrush EmphasisForeground { get => _emphasisForeground; set => SetField(ref _emphasisForeground, value); }
         public bool ShowProgress { get => _showProgress; set => SetField(ref _showProgress, value); }
         public bool IsProgressIndeterminate { get => _isProgressIndeterminate; set => SetField(ref _isProgressIndeterminate, value); }
         public double ProgressValue { get => _progressValue; set => SetField(ref _progressValue, value); }
         public string PrimaryButtonText { get => _primaryButtonText; set => SetField(ref _primaryButtonText, value); }
-        public string? SecondaryButtonText { get => _secondaryButtonText; set { if (SetField(ref _secondaryButtonText, value)) OnPropertyChanged(nameof(HasSecondaryButton)); } }
+        public string? SecondaryButtonText
+        {
+            get => _secondaryButtonText;
+            set
+            {
+                if (SetField(ref _secondaryButtonText, value))
+                {
+                    OnPropertyChanged(nameof(HasSecondaryButton));
+                    OnPropertyChanged(nameof(ShowSecondaryButtonEffective));
+                    OnPropertyChanged(nameof(ShowActionButtons));
+                }
+            }
+        }
+        public bool ShowPrimaryButton
+        {
+            get => _showPrimaryButton;
+            set
+            {
+                if (SetField(ref _showPrimaryButton, value))
+                {
+                    OnPropertyChanged(nameof(ShowPrimaryButtonEffective));
+                    OnPropertyChanged(nameof(ShowActionButtons));
+                }
+            }
+        }
+        public bool ShowSecondaryButton
+        {
+            get => _showSecondaryButton;
+            set
+            {
+                if (SetField(ref _showSecondaryButton, value))
+                {
+                    OnPropertyChanged(nameof(ShowSecondaryButtonEffective));
+                    OnPropertyChanged(nameof(ShowActionButtons));
+                }
+            }
+        }
+        public bool DismissOnEsc { get => _dismissOnEsc; set => SetField(ref _dismissOnEsc, value); }
+        public bool AllowOverlayClickDismiss { get => _allowOverlayClickDismiss; set => SetField(ref _allowOverlayClickDismiss, value); }
         public bool IsPrimaryDanger { get => _isPrimaryDanger; set => SetField(ref _isPrimaryDanger, value); }
         public double OverlayOpacity { get => _overlayOpacity; set => SetField(ref _overlayOpacity, value); }
         public double CardOpacity { get => _cardOpacity; set => SetField(ref _cardOpacity, value); }
@@ -326,9 +398,22 @@ namespace FolderStyleEditorForWindows.Services
         public IBrush SecondaryBorderBrush { get => _secondaryBorderBrush; set => SetField(ref _secondaryBorderBrush, value); }
         public double SecondaryBorderThickness { get => _secondaryBorderThickness; set => SetField(ref _secondaryBorderThickness, value); }
         public double CardOffsetX { get => _cardOffsetX; set => SetField(ref _cardOffsetX, value); }
+        public double CardOffsetY { get => _cardOffsetY; set => SetField(ref _cardOffsetY, value); }
         public bool HasPrimaryCountdown { get => _hasPrimaryCountdown; set { if (SetField(ref _hasPrimaryCountdown, value)) OnPropertyChanged(nameof(PrimaryCountdownVisible)); } }
         public int PrimaryCountdownRemainingSeconds { get => _primaryCountdownRemainingSeconds; set => SetField(ref _primaryCountdownRemainingSeconds, value); }
         public string PrimaryCountdownText { get => _primaryCountdownText; set { if (SetField(ref _primaryCountdownText, value)) OnPropertyChanged(nameof(PrimaryCountdownVisible)); } }
+        public bool IsPassiveOverlay
+        {
+            get => _isPassiveOverlay;
+            set
+            {
+                if (SetField(ref _isPassiveOverlay, value))
+                {
+                    OnPropertyChanged(nameof(IsStandardOverlay));
+                    OnPropertyChanged(nameof(IsPassiveOverlayVisible));
+                }
+            }
+        }
         public DialogCheckboxOption? Checkbox { get => _checkbox; set { if (SetField(ref _checkbox, value)) OnPropertyChanged(nameof(HasCheckbox)); } }
         public DialogCodeBlockItem? CodeBlock { get => _codeBlock; set { if (SetField(ref _codeBlock, value)) OnPropertyChanged(nameof(HasCodeBlock)); } }
         public ObservableCollection<DialogActionLinkItem> ActionLinks { get => _actionLinks; set { if (SetField(ref _actionLinks, value)) OnPropertyChanged(nameof(HasActionLinks)); } }
@@ -336,8 +421,13 @@ namespace FolderStyleEditorForWindows.Services
 
         public bool HasSectionTitle => !string.IsNullOrWhiteSpace(SectionTitle);
         public bool HasHeaderMeta => !string.IsNullOrWhiteSpace(HeaderMeta);
+        public bool HasCenterIcon => !string.IsNullOrWhiteSpace(CenterIconPath);
+        public bool HasSubText => !string.IsNullOrWhiteSpace(SubText);
         public bool HasEmphasisText => !string.IsNullOrWhiteSpace(EmphasisText);
         public bool HasSecondaryButton => !string.IsNullOrWhiteSpace(SecondaryButtonText);
+        public bool ShowPrimaryButtonEffective => ShowPrimaryButton;
+        public bool ShowSecondaryButtonEffective => ShowSecondaryButton && HasSecondaryButton;
+        public bool ShowActionButtons => ShowPrimaryButtonEffective || ShowSecondaryButtonEffective;
         public bool HasActionLinks => ActionLinks.Count > 0;
         public bool HasPairedActionLinks => ActionLinks.Count == 2;
         public DialogActionLinkItem? FirstActionLink => ActionLinks.Count > 0 ? ActionLinks[0] : null;
@@ -346,6 +436,8 @@ namespace FolderStyleEditorForWindows.Services
         public bool HasCheckbox => Checkbox != null;
         public bool HasCodeBlock => CodeBlock != null && !string.IsNullOrWhiteSpace(CodeBlock.Content);
         public bool PrimaryCountdownVisible => HasPrimaryCountdown && !string.IsNullOrWhiteSpace(PrimaryCountdownText);
+        public bool IsStandardOverlay => IsActive && !IsPassiveOverlay;
+        public bool IsPassiveOverlayVisible => IsActive && IsPassiveOverlay;
 
         public ICommand ConfirmCommand { get; }
         public ICommand CancelCommand { get; }
@@ -377,9 +469,19 @@ namespace FolderStyleEditorForWindows.Services
             CardOpacity = isActive ? 1.0 : 0.0;
             CardScale = isActive ? 1.0 : 0.96;
             CardOffsetX = isActive ? 0 : 6;
+            CardOffsetY = 0;
             OverlayBrush = isActive
                 ? new SolidColorBrush(Color.Parse("#6D8F9999"))
                 : new SolidColorBrush(Colors.Transparent);
+        }
+
+        internal void ApplyClosingVisualState(bool isPassiveOverlay)
+        {
+            OverlayOpacity = 0.0;
+            CardOpacity = 0.0;
+            CardScale = 0.96;
+            CardOffsetX = isPassiveOverlay ? 8 : 6;
+            CardOffsetY = isPassiveOverlay ? -4 : 0;
         }
 
         private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -666,6 +768,7 @@ namespace FolderStyleEditorForWindows.Services
         private readonly IToastService _toastService;
         private readonly DispatcherTimer _primaryCountdownTimer;
         private TaskCompletionSource<InterruptDialogResponse>? _pendingCompletion;
+        private bool _isPassiveOverlayActive;
 
         public InterruptDialogState State { get; }
 
@@ -684,6 +787,7 @@ namespace FolderStyleEditorForWindows.Services
 
         public async Task<InterruptDialogResponse> ShowAsync(InterruptDialogOptions options)
         {
+            _isPassiveOverlayActive = false;
             StopPrimaryCountdown();
             _pendingCompletion?.TrySetResult(new InterruptDialogResponse { Result = InterruptDialogResult.None });
             var tcs = new TaskCompletionSource<InterruptDialogResponse>();
@@ -691,14 +795,23 @@ namespace FolderStyleEditorForWindows.Services
 
             await _dispatcher.InvokeAsync(() =>
             {
+                State.IsPassiveOverlay = false;
                 State.Title = options.Title ?? string.Empty;
+                State.TitleForeground = options.TitleForeground ?? new SolidColorBrush(Color.Parse("#303034"));
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
+                State.CenterIconPath = options.CenterIconPath;
+                State.SubText = options.SubText;
+                State.SubTextForeground = options.SubTextForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
                 State.EmphasisText = options.EmphasisText;
                 State.EmphasisForeground = options.EmphasisForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
                 State.PrimaryButtonText = options.PrimaryButtonText ?? string.Empty;
                 State.SecondaryButtonText = options.SecondaryButtonText;
+                State.ShowPrimaryButton = options.ShowPrimaryButton;
+                State.ShowSecondaryButton = options.ShowSecondaryButton;
+                State.DismissOnEsc = options.DismissOnEsc;
+                State.AllowOverlayClickDismiss = options.AllowOverlayClickDismiss;
                 State.ApplyPrimaryButtonKind(options.PrimaryButtonKind);
                 State.ShowProgress = options.ShowProgress;
                 State.ProgressValue = options.ProgressValue;
@@ -715,7 +828,9 @@ namespace FolderStyleEditorForWindows.Services
                 State.CodeBlock = options.CodeBlock;
                 State.ActionLinks = new ObservableCollection<DialogActionLinkItem>(options.ActionLinks ?? Array.Empty<DialogActionLinkItem>());
                 State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>(options.ExpandableSections ?? Array.Empty<DialogExpandableSectionItem>());
+                State.IsHitTestVisible = options.HitTestVisible;
                 State.ResetVisualState(true);
+                State.IsHitTestVisible = options.HitTestVisible;
 
                 if (options.PrimaryCountdown is { Seconds: > 0 } countdown)
                 {
@@ -733,6 +848,129 @@ namespace FolderStyleEditorForWindows.Services
             });
 
             return await tcs.Task.ConfigureAwait(false);
+        }
+
+        public void ShowPassiveOverlay(InterruptDialogOptions options)
+        {
+            if (_pendingCompletion != null)
+            {
+                return;
+            }
+
+            _isPassiveOverlayActive = true;
+            StopPrimaryCountdown();
+
+            _dispatcher.Post(() =>
+            {
+                State.IsPassiveOverlay = true;
+                State.Title = options.Title ?? string.Empty;
+                State.TitleForeground = options.TitleForeground ?? new SolidColorBrush(Color.Parse("#303034"));
+                State.HeaderMeta = options.HeaderMeta;
+                State.SectionTitle = options.SectionTitle;
+                State.Content = options.Content ?? string.Empty;
+                State.CenterIconPath = options.CenterIconPath;
+                State.SubText = options.SubText;
+                State.SubTextForeground = options.SubTextForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
+                State.EmphasisText = options.EmphasisText;
+                State.EmphasisForeground = options.EmphasisForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
+                State.PrimaryButtonText = options.PrimaryButtonText ?? string.Empty;
+                State.SecondaryButtonText = options.SecondaryButtonText;
+                State.ShowPrimaryButton = options.ShowPrimaryButton;
+                State.ShowSecondaryButton = options.ShowSecondaryButton;
+                State.DismissOnEsc = options.DismissOnEsc;
+                State.AllowOverlayClickDismiss = options.AllowOverlayClickDismiss;
+                State.ShowProgress = false;
+                State.ProgressValue = 0;
+                State.IsProgressIndeterminate = false;
+                State.Checkbox = null;
+                State.CodeBlock = null;
+                State.ActionLinks = new ObservableCollection<DialogActionLinkItem>();
+                State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>();
+                State.IsActive = true;
+                State.IsHitTestVisible = options.HitTestVisible;
+                State.OverlayOpacity = 0.9;
+                State.CardOpacity = 1.0;
+                State.CardScale = 1.0;
+                State.CardOffsetX = 0;
+                State.OverlayBrush = new SolidColorBrush(Color.Parse("#6D8F9999"));
+            });
+        }
+
+        public void HidePassiveOverlay()
+        {
+            if (!_isPassiveOverlayActive || _pendingCompletion != null)
+            {
+                return;
+            }
+
+            _isPassiveOverlayActive = false;
+            _dispatcher.Post(() =>
+            {
+                State.ApplyClosingVisualState(isPassiveOverlay: true);
+            });
+
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(135);
+                await _dispatcher.InvokeAsync(() =>
+                {
+                    if (_isPassiveOverlayActive || _pendingCompletion != null)
+                    {
+                        return;
+                    }
+
+                    State.ResetVisualState(false);
+                    State.IsPassiveOverlay = false;
+                });
+            });
+        }
+
+        public void UpdatePassiveOverlayMotion(double pointerX, double pointerY, double viewportWidth, double viewportHeight)
+        {
+            if (!_isPassiveOverlayActive || viewportWidth <= 0 || viewportHeight <= 0)
+            {
+                return;
+            }
+
+            var ratioX = Math.Clamp(pointerX / viewportWidth, 0.0, 1.0);
+            var ratioY = Math.Clamp(pointerY / viewportHeight, 0.0, 1.0);
+            var offsetX = (ratioX - 0.5) * 12.0;
+            var offsetY = (ratioY - 0.5) * 8.0;
+
+            _dispatcher.Post(() =>
+            {
+                if (_isPassiveOverlayActive)
+                {
+                    State.CardOffsetX = offsetX;
+                    State.CardOffsetY = offsetY;
+                }
+            });
+        }
+
+        public async Task PulsePassiveOverlayAsync()
+        {
+            if (!_isPassiveOverlayActive)
+            {
+                return;
+            }
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                if (_isPassiveOverlayActive)
+                {
+                    State.CardScale = 0.975;
+                }
+            });
+
+            await Task.Delay(85);
+
+            await _dispatcher.InvokeAsync(() =>
+            {
+                if (_isPassiveOverlayActive)
+                {
+                    State.CardScale = 1.0;
+                }
+            });
         }
 
         public async Task ShowSingleActionAsync(string title, string content, string acknowledgeText, string? sectionTitle = null)
@@ -841,6 +1079,7 @@ namespace FolderStyleEditorForWindows.Services
         private void Complete(InterruptDialogResult result)
         {
             StopPrimaryCountdown();
+            _isPassiveOverlayActive = false;
             var captured = _pendingCompletion;
             if (captured == null)
             {
@@ -854,11 +1093,12 @@ namespace FolderStyleEditorForWindows.Services
             };
 
             _pendingCompletion = null;
-            _dispatcher.Post(() => State.ResetVisualState(false));
+            _dispatcher.Post(() => State.ApplyClosingVisualState(isPassiveOverlay: false));
 
             _ = Task.Run(async () =>
             {
                 await Task.Delay(200);
+                await _dispatcher.InvokeAsync(() => State.ResetVisualState(false));
                 captured.TrySetResult(response);
             });
         }

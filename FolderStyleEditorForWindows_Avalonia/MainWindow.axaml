@@ -64,39 +64,17 @@
                    RadiusX="24"
                    RadiusY="24"
                    Margin="8"
-                   IsHitTestVisible="False">
+                   IsHitTestVisible="False"
+                   ZIndex="12500">
             <Rectangle.Stroke>
-                <SolidColorBrush Color="LightGray" Opacity="0.7"/>
+                <SolidColorBrush Color="#AAB7C3" Opacity="0.86"/>
             </Rectangle.Stroke>
         </Rectangle>
-
-        <!-- Release to Apply Tip -->
-        <Border IsVisible="{Binding IsDragOver}"
-                VerticalAlignment="Top"
-                HorizontalAlignment="Center"
-                Margin="0,80,0,0"
-                Background="#A0FFFFFF"
-                CornerRadius="999"
-                Padding="16,8"
-                IsHitTestVisible="False">
-            <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Drag_ReleaseToApply]}" Foreground="{StaticResource Fg2Brush}"/>
-        </Border>
-
-        <!-- Drag Adorner -->
-        <Canvas Name="DragAdornerCanvas" IsHitTestVisible="False">
-            <PathIcon Name="DragIcon"
-                      IsVisible="{Binding IsDragOver}"
-                      Data="{Binding DragIconData}"
-                      Canvas.Left="{Binding DragIconX}"
-                      Canvas.Top="{Binding DragIconY}"
-                      Width="24" Height="24"
-                      Foreground="{StaticResource Fg2Brush}"/>
-        </Canvas>
 
         <views:HoverIconAdorner DataContext="{Binding HoverIcon}" ZIndex="1000"/>
         <ItemsControl ItemsSource="{Binding Toasts}"
                       VerticalAlignment="Top"
-                      Margin="0,20,0,12"
+                      Margin="0,39,0,12"
                       HorizontalAlignment="Center"
                       ClipToBounds="False"
                       ZIndex="13000">

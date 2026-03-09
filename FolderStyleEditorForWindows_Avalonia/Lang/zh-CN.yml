@@ -32,6 +32,16 @@ Edit_IconCounter_ScrollHint: "滚轮滚动以增减（点击编辑）"
 # Shared
 Window_Title: "FolderStyleEditorForWindows"
 Drag_ReleaseToApply: "松开以应用"
+Drag_SingleFolder_Main: "松手以编辑一个文件夹"
+Drag_MultiFolder_Main: "松手以编辑多个文件夹"
+Drag_MultiFolder_Dev: "⚠︎该功能正在开发中⚠︎"
+Drag_Unsupported_Main: "⚠︎不支持的内容⚠︎"
+Drag_Ico_Main: "松手以应用此ICON"
+Drag_Ico_External_Warn: "保存到此文件夹内的.ICON目录内"
+Drag_Exe_Internal_Main: "松手以使用此EXE的图标"
+Drag_Exe_External_Main: "松手以提取此EXE的图标"
+Drag_Exe_External_Sub: "保存到此文件夹内的.ICON目录内"
+Drag_Text_Main: "松手以设置为此文件夹别名"
 
 # C#
 Toast_SaveSuccess: "保存成功"

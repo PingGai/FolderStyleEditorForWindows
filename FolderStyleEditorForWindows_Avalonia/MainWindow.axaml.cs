@@ -10,6 +10,7 @@ using Avalonia.Rendering;
 using Avalonia.Styling;
 using Avalonia.Controls.Metadata;
 using Avalonia.VisualTree;
+using Avalonia.Interactivity;
 using System;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
+using System.Threading;
 using Avalonia.Media;
 using Avalonia.Threading;
 using FolderStyleEditorForWindows.ViewModels;
@@ -34,9 +36,23 @@ namespace FolderStyleEditorForWindows
         private Grid? _cardsLayer;
         private MainViewModel _viewModel;
         private EditSessionManager _sessionManager;
+        private readonly DragIntentAnalyzerService _dragIntentAnalyzerService;
+        private readonly InterruptDialogService _interruptDialogService;
+        private DragIntentResult _lastDragIntent = DragIntentResult.Unsupported;
+        private CancellationTokenSource? _dragIntentCts;
+        private CancellationTokenSource? _dragLeaveCts;
+        private int _dragIntentVersion;
+        private string? _lastOverlaySignature;
+        private bool _isDropHandling;
+        private readonly DispatcherTimer _dragOverlayWatchdogTimer;
+        private DateTime _lastDragHeartbeatUtc;
         private Popup? _languagePopup;
-        private readonly DispatcherTimer _doubleClickTimer;
-        private int _clickCount;
+        private DateTime _lastQualifiedTapReleaseUtc = DateTime.MinValue;
+        private bool _pendingWindowTapCandidate;
+        private bool _dragStartedForCurrentPress;
+        private Point _pressPointInWindow;
+        private DateTime _pressStartedUtc = DateTime.MinValue;
+        private PointerPressedEventArgs? _pressEventForMoveDrag;
         private Avalonia.Svg.Skia.Svg? _pinButtonIcon;
         private Button? _pinButton;
         private Button? _languageButton;
@@ -53,6 +69,9 @@ namespace FolderStyleEditorForWindows
         private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
         private bool _isAnimating = true;
         private bool _closingAnimating;
+        private const double DragStartThresholdPx = 7.0;
+        private const double TapMaxMoveThresholdPx = 10.0;
+        private const int TapMaxDurationMs = 220;
  
         [SupportedOSPlatform("windows")]
         public MainWindow()
@@ -68,20 +87,21 @@ namespace FolderStyleEditorForWindows
  
             _viewModel = App.Services!.GetRequiredService<MainViewModel>();
             _sessionManager = new EditSessionManager(_viewModel);
+            _dragIntentAnalyzerService = App.Services!.GetRequiredService<DragIntentAnalyzerService>();
+            _interruptDialogService = App.Services!.GetRequiredService<InterruptDialogService>();
             _viewModel.NavigateToEditView = (folderPath, iconSourcePath) => GoToEditView(folderPath, iconSourcePath);
             this.DataContext = _viewModel;
-
-            _doubleClickTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(ConfigManager.Config.Features.Features.PinDoubleClickThreshold)
-            };
-            _doubleClickTimer.Tick += DoubleClickTimer_Tick;
 
             _pinGlowTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(33)
             };
             _pinGlowTimer.Tick += PinGlowTimer_Tick;
+            _dragOverlayWatchdogTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(120)
+            };
+            _dragOverlayWatchdogTimer.Tick += DragOverlayWatchdogTimer_Tick;
             
             _homeView = this.FindControl<HomeView>("HomeView");
             _editView = this.FindControl<EditView>("EditView");
@@ -118,13 +138,18 @@ namespace FolderStyleEditorForWindows
             if (dragDropIndicator != null)
             {
                 dragDropIndicator.StrokeDashArray = new Avalonia.Collections.AvaloniaList<double> { 4, 4 };
+                var ui = ConfigManager.Config.Ui;
+                dragDropIndicator.Stroke = new SolidColorBrush(Color.Parse(ui.DragIndicatorStrokeColor))
+                {
+                    Opacity = ui.DragIndicatorStrokeOpacity
+                };
             }
 
             // MainWindow now handles all drag-drop logic globally.
-            this.AddHandler(DragDrop.DragEnterEvent, DragAndDropTarget_DragEnter);
-            this.AddHandler(DragDrop.DragOverEvent, DragAndDropTarget_DragOver);
-            this.AddHandler(DragDrop.DragLeaveEvent, DragAndDropTarget_DragLeave);
-            this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop);
+            this.AddHandler(DragDrop.DragEnterEvent, DragAndDropTarget_DragEnter, RoutingStrategies.Bubble, handledEventsToo: true);
+            this.AddHandler(DragDrop.DragOverEvent, DragAndDropTarget_DragOver, RoutingStrategies.Bubble, handledEventsToo: true);
+            this.AddHandler(DragDrop.DragLeaveEvent, DragAndDropTarget_DragLeave, RoutingStrategies.Bubble, handledEventsToo: true);
+            this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop, RoutingStrategies.Bubble, handledEventsToo: true);
             
             this.Loaded += (s, e) => StartFlowLoop();
             Activated += MainWindow_Activated;
@@ -135,6 +160,11 @@ namespace FolderStyleEditorForWindows
 
         private void MainWindow_Deactivated(object? sender, EventArgs e)
         {
+            if (_viewModel.IsDragOver || _interruptDialogService.State.IsPassiveOverlayVisible)
+            {
+                ResetDragOverlayState();
+            }
+
             if (_editView != null && _editView.IsVisible)
             {
                 _lastEditScrollOffsetY = _editView.GetEditScrollOffsetY();
@@ -230,33 +260,112 @@ namespace FolderStyleEditorForWindows
                 // FocusManager.Instance is obsolete. Get it from the TopLevel.
                 var topLevel = TopLevel.GetTopLevel(this);
                 topLevel?.FocusManager?.ClearFocus();
-                
-                // Handle double-click to pin
-                _clickCount++;
+            }
 
-                if (_clickCount == 1)
-                {
-                    _doubleClickTimer.Start();
-                }
-                else if (_clickCount == 2)
-                {
-                    _doubleClickTimer.Stop();
-                    _clickCount = 0;
-                    
-                    ToggleTopmost();
-                }
-            }
-            
-            // Check if the window should be dragged.
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            // New gesture pipeline:
+            // press -> move threshold starts drag, release decides click.
+            if (!isInteractiveControl && e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
-                // Only start dragging if the click was not on an interactive control.
-                // This prevents dragging when clicking buttons, etc.
-                if (!isInteractiveControl)
-                {
-                    BeginMoveDrag(e);
-                }
+                _pendingWindowTapCandidate = true;
+                _dragStartedForCurrentPress = false;
+                _pressPointInWindow = e.GetPosition(this);
+                _pressStartedUtc = DateTime.UtcNow;
+                _pressEventForMoveDrag = e;
+                return;
             }
+
+            _pendingWindowTapCandidate = false;
+            _dragStartedForCurrentPress = false;
+            _pressEventForMoveDrag = null;
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+
+            if (!_pendingWindowTapCandidate || _dragStartedForCurrentPress)
+            {
+                return;
+            }
+
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            var current = e.GetPosition(this);
+            var dx = current.X - _pressPointInWindow.X;
+            var dy = current.Y - _pressPointInWindow.Y;
+            var movedDistanceSq = dx * dx + dy * dy;
+            if (movedDistanceSq < DragStartThresholdPx * DragStartThresholdPx)
+            {
+                return;
+            }
+
+            _dragStartedForCurrentPress = true;
+            _pendingWindowTapCandidate = false;
+            _lastQualifiedTapReleaseUtc = DateTime.MinValue;
+
+            var dragArgs = _pressEventForMoveDrag;
+            _pressEventForMoveDrag = null;
+            if (dragArgs != null)
+            {
+                BeginMoveDrag(dragArgs);
+            }
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            base.OnPointerReleased(e);
+
+            if (!_pendingWindowTapCandidate)
+            {
+                _pressEventForMoveDrag = null;
+                return;
+            }
+
+            var source = e.Source as Control;
+            var isInteractiveControl = source?.FindAncestorOfType<TextBox>() != null ||
+                                       source?.FindAncestorOfType<Button>() != null ||
+                                       source?.FindAncestorOfType<Popup>() != null;
+            if (isInteractiveControl)
+            {
+                _pendingWindowTapCandidate = false;
+                _dragStartedForCurrentPress = false;
+                _pressEventForMoveDrag = null;
+                return;
+            }
+
+            var releasePoint = e.GetPosition(this);
+            var dx = releasePoint.X - _pressPointInWindow.X;
+            var dy = releasePoint.Y - _pressPointInWindow.Y;
+            var movedDistanceSq = dx * dx + dy * dy;
+            var pressDuration = DateTime.UtcNow - _pressStartedUtc;
+
+            _pendingWindowTapCandidate = false;
+            _dragStartedForCurrentPress = false;
+            _pressEventForMoveDrag = null;
+
+            var isQuickTap =
+                pressDuration <= TimeSpan.FromMilliseconds(TapMaxDurationMs) &&
+                movedDistanceSq < TapMaxMoveThresholdPx * TapMaxMoveThresholdPx;
+            if (!isQuickTap)
+            {
+                _lastQualifiedTapReleaseUtc = DateTime.MinValue;
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            var threshold = TimeSpan.FromMilliseconds(ConfigManager.Config.Features.Features.PinDoubleClickThreshold);
+            if (_lastQualifiedTapReleaseUtc != DateTime.MinValue &&
+                now - _lastQualifiedTapReleaseUtc <= threshold)
+            {
+                _lastQualifiedTapReleaseUtc = DateTime.MinValue;
+                ToggleTopmost();
+                return;
+            }
+
+            _lastQualifiedTapReleaseUtc = now;
         }
 
         protected override void OnOpened(EventArgs e)
@@ -341,6 +450,11 @@ namespace FolderStyleEditorForWindows
         {
             base.OnKeyDown(e);
 
+            if (_interruptDialogService.State.IsActive)
+            {
+                return;
+            }
+
             if (e.Key == Key.Escape && _editView?.IsVisible == true)
             {
                 GoToHomeView();
@@ -360,140 +474,294 @@ namespace FolderStyleEditorForWindows
             }
         }
 
-        protected override void OnPointerMoved(PointerEventArgs e)
-        {
-            base.OnPointerMoved(e);
-            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            // if (!_viewModel.IsDragOver)
-            // {
-            //     hoverIconService.ShowPinIcon();
-            //     hoverIconService.UpdatePosition(e.GetPosition(this));
-            // }
-        }
-
         private void MainWindow_PointerExited(object? sender, PointerEventArgs e)
         {
             // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
             // hoverIconService.Hide();
         }
 
-        private void DoubleClickTimer_Tick(object? sender, EventArgs e)
-        {
-            _doubleClickTimer.Stop();
-            _clickCount = 0;
-            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            // hoverIconService.ShowPinIcon("Ready");
-        }
-
         private void DragAndDropTarget_DragEnter(object? sender, DragEventArgs e)
         {
-            if (e.Data.Contains(DataFormats.Files))
+            try
             {
+                _dragLeaveCts?.Cancel();
+                TouchDragHeartbeat();
                 _viewModel.IsDragOver = true;
+                var intent = _dragIntentAnalyzerService.AnalyzeImmediate(e.Data, ResolveDragContext(), _viewModel.FolderPath);
+                _lastDragIntent = intent;
                 e.DragEffects = DragDropEffects.Link;
-                // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-                // hoverIconService.ShowFileIcon(e.Data, _viewModel.FolderPath);
+                ShowDragOverlay(intent);
+                UpdatePassiveOverlayMotion(e);
+                _ = RefreshDragIntentAsync(e);
+                e.Handled = true;
             }
-            else
+            catch (Exception ex)
             {
+                Debug.WriteLine($"DragEnter failed: {ex}");
+                ResetDragOverlayState();
                 e.DragEffects = DragDropEffects.None;
+                e.Handled = true;
             }
-            e.Handled = true;
         }
 
         private void DragAndDropTarget_DragOver(object? sender, DragEventArgs e)
         {
-            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            // hoverIconService.UpdatePosition(e.GetPosition(this));
-
-            var file = e.Data.GetFiles()?.FirstOrDefault();
-            string iconKey;
-
-            if (file is IStorageFolder)
+            try
             {
-                iconKey = "FolderIcon";
+                _dragLeaveCts?.Cancel();
+                TouchDragHeartbeat();
+                _viewModel.IsDragOver = true;
+                var intent = _dragIntentAnalyzerService.AnalyzeImmediate(e.Data, ResolveDragContext(), _viewModel.FolderPath);
+                _lastDragIntent = intent;
                 e.DragEffects = DragDropEffects.Link;
+                ShowDragOverlay(intent);
+                UpdatePassiveOverlayMotion(e);
+                _ = RefreshDragIntentAsync(e);
+                e.Handled = true;
             }
-            else if (file is IStorageFile storageFile)
+            catch (Exception ex)
             {
-                var ext = System.IO.Path.GetExtension(storageFile.Name).ToLower();
-                switch (ext)
+                Debug.WriteLine($"DragOver failed: {ex}");
+                ResetDragOverlayState();
+                e.DragEffects = DragDropEffects.None;
+                e.Handled = true;
+            }
+        }
+
+        private async void DragAndDropTarget_DragLeave(object? sender, DragEventArgs e)
+        {
+            if (_isDropHandling)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            _dragLeaveCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _dragLeaveCts = cts;
+
+            try
+            {
+                await Task.Delay(90, cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (cts.IsCancellationRequested)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (IsDragStillInsideWindow(e))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            ResetDragOverlayState();
+            e.Handled = true;
+        }
+
+        private async void DragAndDropTarget_Drop(object? sender, DragEventArgs e)
+        {
+            if (_isDropHandling)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            try
+            {
+                _isDropHandling = true;
+                _dragLeaveCts?.Cancel();
+                _dragIntentCts?.Cancel();
+
+                var dropIntent = await _dragIntentAnalyzerService.AnalyzeAsync(
+                    e.Data,
+                    ResolveDragContext(),
+                    _viewModel.FolderPath,
+                    CancellationToken.None);
+                _viewModel.IsDragOver = false;
+                ResetDragOverlayState();
+                e.Handled = true;
+
+                var context = ResolveDragContext();
+                var files = e.Data.GetFiles()?.ToList() ?? new System.Collections.Generic.List<IStorageItem>();
+                var firstPath = files.FirstOrDefault()?.Path.LocalPath ?? string.Empty;
+
+                switch (dropIntent.Type)
                 {
-                    case ".ico":
-                    case ".png":
-                    case ".jpg":
-                    case ".jpeg":
-                    case ".bmp":
-                        iconKey = "ImageIcon";
-                        e.DragEffects = DragDropEffects.Link;
+                    case DragIntentType.SingleFolder:
+                        if (!string.IsNullOrWhiteSpace(firstPath) && Directory.Exists(firstPath))
+                        {
+                            await _viewModel.StartEditSessionAsync(firstPath);
+                        }
                         break;
-                    case ".exe":
-                    case ".dll":
-                        iconKey = "ExecutableIcon";
-                        e.DragEffects = DragDropEffects.Link;
+                    case DragIntentType.Ico:
+                    case DragIntentType.ExeInternal:
+                    case DragIntentType.ExeExternal:
+                        if (context == DragContext.Edit && !string.IsNullOrWhiteSpace(firstPath) && File.Exists(firstPath))
+                        {
+                            _viewModel.IconPath = firstPath;
+                        }
                         break;
-                    default:
-                        iconKey = "UnsupportedIcon";
-                        e.DragEffects = DragDropEffects.None;
+                    case DragIntentType.Text:
+                        if (context == DragContext.Edit && e.Data.Contains(DataFormats.Text))
+                        {
+                            var text = e.Data.GetText()?.Trim().Trim('"', '\'');
+                            if (!string.IsNullOrWhiteSpace(text))
+                            {
+                                _viewModel.Alias = text;
+                            }
+                        }
                         break;
                 }
             }
-            else
+            catch (Exception ex)
             {
-                iconKey = "UnsupportedIcon";
+                Debug.WriteLine($"Drop failed: {ex}");
+                ResetDragOverlayState();
                 e.DragEffects = DragDropEffects.None;
+                e.Handled = true;
             }
-
-            if (Application.Current?.TryFindResource(iconKey, out var resource) == true && resource is Avalonia.Media.Geometry geometry)
+            finally
             {
-                _viewModel.DragIconData = geometry;
+                _isDropHandling = false;
             }
-
-            e.Handled = true;
         }
 
-        private void DragAndDropTarget_DragLeave(object? sender, DragEventArgs e)
+        private DragContext ResolveDragContext()
         {
-            _viewModel.IsDragOver = false;
-            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            // hoverIconService.Hide();
-            e.Handled = true;
+            return _editView?.IsVisible == true ? DragContext.Edit : DragContext.Home;
         }
 
-        private void DragAndDropTarget_Drop(object? sender, DragEventArgs e)
+        private async Task RefreshDragIntentAsync(DragEventArgs e)
         {
-            _viewModel.IsDragOver = false;
-            // var hoverIconService = App.Services!.GetRequiredService<HoverIconService>();
-            // hoverIconService.Hide();
-            e.Handled = true;
+            var currentVersion = Interlocked.Increment(ref _dragIntentVersion);
+            _dragIntentCts?.Cancel();
+            _dragIntentCts = new CancellationTokenSource();
+            var token = _dragIntentCts.Token;
 
-            if (e.Data.GetFiles()?.FirstOrDefault() is not { } firstItem) return;
-
-            var path = firstItem.Path.LocalPath;
-            if (string.IsNullOrEmpty(path)) return;
-
-            string folderPath;
-            string? iconSourcePath = null;
-
-            if (Directory.Exists(path))
+            DragIntentResult result;
+            try
             {
-                folderPath = path;
+                result = await _dragIntentAnalyzerService.AnalyzeAsync(
+                    e.Data,
+                    ResolveDragContext(),
+                    _viewModel.FolderPath,
+                    token);
             }
-            else if (File.Exists(path))
+            catch (OperationCanceledException)
             {
-                // If a file is dropped, just update the icon path of the current session
-                _viewModel.IconPath = path;
-                return; // End the operation here
+                return;
             }
-            else
+            catch (Exception ex)
+            {
+                Console.WriteLine($"RefreshDragIntentAsync failed: {ex.Message}");
+                result = DragIntentResult.Unsupported;
+            }
+
+            if (currentVersion != _dragIntentVersion)
             {
                 return;
             }
 
-            if (!string.IsNullOrEmpty(folderPath))
+            _lastDragIntent = result;
+            e.DragEffects = DragDropEffects.Link;
+            ShowDragOverlay(result);
+        }
+
+        private void ShowDragOverlay(DragIntentResult intent)
+        {
+            var loc = LocalizationManager.Instance;
+            var mainText = loc[intent.MainTextKey];
+            var subText = string.IsNullOrWhiteSpace(intent.SubTextKey) ? null : loc[intent.SubTextKey];
+            var signature = $"{intent.Type}|{mainText}|{subText}|{intent.IconPath}|{intent.SubTextBrush}";
+            if (string.Equals(_lastOverlaySignature, signature, StringComparison.Ordinal))
             {
-                _ = _viewModel.StartEditSessionAsync(folderPath, iconSourcePath);
+                return;
             }
+
+            var ui = ConfigManager.Config.Ui;
+            var isWarningMain = intent.Type == DragIntentType.Unsupported;
+            var mainBrush = new SolidColorBrush(Color.Parse(isWarningMain ? ui.DragOverlayWarningTextColor : ui.DragOverlayMainTextColor));
+            var subBrush = new SolidColorBrush(Color.Parse(string.IsNullOrWhiteSpace(intent.SubTextBrush) ? ui.DragOverlayWarningTextColor : intent.SubTextBrush));
+
+            _interruptDialogService.ShowPassiveOverlay(new InterruptDialogOptions
+            {
+                Title = mainText,
+                TitleForeground = mainBrush,
+                CenterIconPath = intent.IconPath,
+                SubText = subText,
+                SubTextForeground = subBrush,
+                ShowPrimaryButton = ConfigManager.Config.DragOverlay.ShowPrimaryButton,
+                ShowSecondaryButton = ConfigManager.Config.DragOverlay.ShowSecondaryButton,
+                DismissOnEsc = ConfigManager.Config.DragOverlay.DismissOnEsc,
+                AllowOverlayClickDismiss = ConfigManager.Config.DragOverlay.AllowOverlayClickDismiss,
+                HitTestVisible = false
+            });
+
+            _lastOverlaySignature = signature;
+        }
+
+        private void ResetDragOverlayState()
+        {
+            _viewModel.IsDragOver = false;
+            _lastDragIntent = DragIntentResult.Unsupported;
+            _lastOverlaySignature = null;
+            Interlocked.Increment(ref _dragIntentVersion);
+            _dragIntentCts?.Cancel();
+            _dragOverlayWatchdogTimer.Stop();
+            _interruptDialogService.HidePassiveOverlay();
+        }
+
+        private void UpdatePassiveOverlayMotion(DragEventArgs e)
+        {
+            if (!_viewModel.IsDragOver)
+            {
+                return;
+            }
+
+            var position = e.GetPosition(this);
+            _interruptDialogService.UpdatePassiveOverlayMotion(position.X, position.Y, Bounds.Width, Bounds.Height);
+        }
+
+        private void TouchDragHeartbeat()
+        {
+            _lastDragHeartbeatUtc = DateTime.UtcNow;
+            if (!_dragOverlayWatchdogTimer.IsEnabled)
+            {
+                _dragOverlayWatchdogTimer.Start();
+            }
+        }
+
+        private void DragOverlayWatchdogTimer_Tick(object? sender, EventArgs e)
+        {
+            if (!_viewModel.IsDragOver && !_interruptDialogService.State.IsPassiveOverlayVisible)
+            {
+                _dragOverlayWatchdogTimer.Stop();
+                return;
+            }
+
+            if (DateTime.UtcNow - _lastDragHeartbeatUtc < TimeSpan.FromMilliseconds(220))
+            {
+                return;
+            }
+
+            ResetDragOverlayState();
+        }
+
+        private bool IsDragStillInsideWindow(DragEventArgs e)
+        {
+            var position = e.GetPosition(this);
+            return position.X >= 0 &&
+                   position.Y >= 0 &&
+                   position.X <= Bounds.Width &&
+                   position.Y <= Bounds.Height;
         }
 
         [SupportedOSPlatform("windows")]
@@ -699,11 +967,51 @@ namespace FolderStyleEditorForWindows
         {
             if (_languagePopup == null) return;
 
-            _languagePopup.IsOpen = !_languagePopup.IsOpen;
+            if (_languagePopup.IsOpen)
+            {
+                if (_languagePopup.Child is { } closingContent)
+                {
+                    closingContent.RenderTransform = new Avalonia.Media.TranslateTransform();
+                    var closeAnimation = new Animation
+                    {
+                        Duration = TimeSpan.FromMilliseconds(180),
+                        Easing = new CubicEaseOut(),
+                        FillMode = FillMode.Forward,
+                        Children =
+                        {
+                            new KeyFrame
+                            {
+                                Cue = new Cue(0),
+                                Setters =
+                                {
+                                    new Setter(OpacityProperty, 1.0),
+                                    new Setter(Avalonia.Media.TranslateTransform.YProperty, 0.0)
+                                }
+                            },
+                            new KeyFrame
+                            {
+                                Cue = new Cue(1),
+                                Setters =
+                                {
+                                    new Setter(OpacityProperty, 0.0),
+                                    new Setter(Avalonia.Media.TranslateTransform.YProperty, -8.0)
+                                }
+                            }
+                        }
+                    };
+                    await closeAnimation.RunAsync(closingContent, System.Threading.CancellationToken.None);
+                }
 
-            if (_languagePopup.IsOpen && _languagePopup.Child is { } popupContent)
+                _languagePopup.IsOpen = false;
+                return;
+            }
+
+            _languagePopup.IsOpen = true;
+
+            if (_languagePopup.Child is { } popupContent)
             {
                 popupContent.RenderTransform = new Avalonia.Media.TranslateTransform();
+                popupContent.Opacity = 0;
                 var animation = new Animation
                 {
                     Duration = TimeSpan.FromMilliseconds(300),

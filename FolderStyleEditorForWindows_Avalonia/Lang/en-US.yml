@@ -32,6 +32,16 @@ Edit_IconCounter_ScrollHint: "Scroll to change (click to edit)"
 # Shared
 Window_Title: "FolderStyleEditorForWindows"
 Drag_ReleaseToApply: "Release to apply"
+Drag_SingleFolder_Main: "Release to edit one folder"
+Drag_MultiFolder_Main: "Release to edit multiple folders"
+Drag_MultiFolder_Dev: "⚠︎This feature is in development⚠︎"
+Drag_Unsupported_Main: "⚠︎Unsupported content⚠︎"
+Drag_Ico_Main: "Release to apply this ICON"
+Drag_Ico_External_Warn: "Save to this folder's .ICON directory"
+Drag_Exe_Internal_Main: "Release to use this EXE icon"
+Drag_Exe_External_Main: "Release to extract this EXE icon"
+Drag_Exe_External_Sub: "Save to this folder's .ICON directory"
+Drag_Text_Main: "Release to set this folder alias"
 
 # C#
 Toast_SaveSuccess: "Saved successfully"

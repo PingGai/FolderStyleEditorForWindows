@@ -1,10 +1,8 @@
 param(
     [ValidateSet("all","win-x64","win-x86")]
     [string]$Runtime = "all",
-
     [ValidateSet("Release","Debug")]
     [string]$Configuration = "Release",
-
     [string]$BaseName = "FolderStyleEditorForWindows"
 )
 
@@ -14,11 +12,15 @@ try {
     if ($PSVersionTable.PSVersion.Major -lt 6 -and $env:OS -like "*Windows*") {
         chcp 65001 > $null 2>&1
     }
-} catch {}
+}
+catch {
+}
 
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-} catch {}
+}
+catch {
+}
 
 $ScriptRealPath = (Get-Item -LiteralPath $PSCommandPath).FullName
 $ScriptDir      = Split-Path -Parent $ScriptRealPath
@@ -88,7 +90,7 @@ foreach ($rid in $rids) {
             Remove-Item -LiteralPath $targetPath -Force
         }
         Rename-Item -LiteralPath $srcExePath -NewName $targetName
-        Write-Host "输出：$targetPath" -ForegroundColor Green
+        Write-Host "Output: $targetPath" -ForegroundColor Green
     }
     else {
         $exe = Get-ChildItem -LiteralPath $OutDir -File -Filter *.exe |
@@ -96,15 +98,20 @@ foreach ($rid in $rids) {
                Select-Object -First 1
 
         if ($exe) {
+            if ($exe.Name -ieq $targetName) {
+                Write-Host "Output (already named): $targetPath" -ForegroundColor Green
+                continue
+            }
+
             if (Test-Path -LiteralPath $targetPath) {
                 Remove-Item -LiteralPath $targetPath -Force
             }
 
             Rename-Item -LiteralPath $exe.FullName -NewName $targetName
-            Write-Host "输出（使用候选 exe）：$targetPath" -ForegroundColor Green
+            Write-Host "Output (fallback exe): $targetPath" -ForegroundColor Green
         }
         else {
-            Write-Host "未找到 $BaseName.exe 或任何 *.exe 于 $OutDir，跳过重命名" -ForegroundColor Yellow
+            Write-Host "No exe found in $OutDir, skip rename" -ForegroundColor Yellow
         }
     }
 }

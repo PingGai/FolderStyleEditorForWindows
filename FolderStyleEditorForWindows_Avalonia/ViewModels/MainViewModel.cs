@@ -38,7 +38,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly Dictionary<string, List<string>> _savedAliasHistory = new();
         private readonly Dictionary<string, int> _savedAliasHistoryCursor = new();
         private readonly ObservableCollection<AliasAutocompleteItemViewModel> _aliasAutocompleteCandidates = new();
-        private static readonly string AliasHistoryFilePath = Path.Combine(AppContext.BaseDirectory, "alias-history.json");
+        private static readonly string AliasHistoryFilePath = Path.Combine(ConfigManager.AppDataDirectory, "alias-history.json");
         private string _aliasAutocompleteSeed = string.Empty;
         private bool _suppressUndo = false;
         private bool _suppressAliasAutocomplete = false;
@@ -47,6 +47,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly Dictionary<string, CachedIconPreviewSet> _iconPreviewCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Task> _iconPreviewWarmTasks = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _iconPreviewWarmGate = new(1, 1);
+        private readonly SemaphoreSlim _historyIoGate = new(1, 1);
         private const int IconPreviewCacheCapacity = 6;
 
         private string _folderPath = "";
@@ -439,7 +440,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         public ObservableCollection<string> History { get; } = new();
         // Note: This path logic might need to be revisited if we want it to be truly portable.
         // For now, we assume it's in the same directory as the executable.
-        private static readonly string HistoryFilePath = Path.Combine(AppContext.BaseDirectory, "history.json");
+        private static readonly string HistoryFilePath = Path.Combine(ConfigManager.AppDataDirectory, "history.json");
 
         private void EnsureUndoStackExists(string folderPath)
         {
@@ -697,8 +698,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             GoHomeCommand = new RelayCommand(() => NavigateToHomeView?.Invoke());
             ResetIconCommand = new RelayCommand(ResetIcon);
             ClearAllStylesCommand = new RelayCommand(ClearAllStyles);
-            LoadHistory();
-            LoadAliasHistory();
+            _ = LoadPersistedDataAsync();
         }
 
         private async Task OpenFromHistoryAsync(string? path)
@@ -707,48 +707,130 @@ namespace FolderStyleEditorForWindows.ViewModels
             await StartEditSessionAsync(path);
         }
 
-        private void LoadHistory()
+        private async Task LoadPersistedDataAsync()
         {
-            if (!File.Exists(HistoryFilePath)) return;
-            var json = File.ReadAllText(HistoryFilePath);
-            var history = JsonConvert.DeserializeObject<ObservableCollection<string>>(json);
-            if (history == null) return;
-            History.Clear();
-            foreach (var item in history)
+            await LoadHistoryAsync();
+            await LoadAliasHistoryAsync();
+        }
+
+        private async Task LoadHistoryAsync()
+        {
+            var readPath = ResolveReadablePath(
+                HistoryFilePath,
+                Path.Combine(Path.GetTempPath(), "WindowsFolderStyleEditor", "history.json"),
+                Path.Combine(AppContext.BaseDirectory, "history.json"));
+            if (readPath == null || !File.Exists(readPath))
             {
-                History.Add(item);
+                return;
+            }
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(readPath);
+                var history = JsonConvert.DeserializeObject<ObservableCollection<string>>(json);
+                if (history == null)
+                {
+                    return;
+                }
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    History.Clear();
+                    foreach (var item in history)
+                    {
+                        History.Add(item);
+                    }
+                });
+
+                if (!string.Equals(readPath, HistoryFilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    await SaveHistoryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"LoadHistoryAsync failed: {ex.Message}");
             }
         }
 
-        private void SaveHistory()
+        private async Task SaveHistoryAsync()
         {
-            var json = JsonConvert.SerializeObject(History, Formatting.Indented);
-            File.WriteAllText(HistoryFilePath, json);
-        }
-
-        private void LoadAliasHistory()
-        {
-            if (!File.Exists(AliasHistoryFilePath)) return;
-            var json = File.ReadAllText(AliasHistoryFilePath);
-            var history = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(json);
-            if (history == null) return;
-
-            _savedAliasHistory.Clear();
-            _savedAliasHistoryCursor.Clear();
-            foreach (var item in history)
+            await _historyIoGate.WaitAsync();
+            try
             {
-                _savedAliasHistory[item.Key] = item.Value
-                    .Where(alias => !string.IsNullOrWhiteSpace(alias))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                _savedAliasHistoryCursor[item.Key] = 0;
+                Directory.CreateDirectory(Path.GetDirectoryName(HistoryFilePath) ?? ConfigManager.AppDataDirectory);
+                var json = JsonConvert.SerializeObject(History, Formatting.Indented);
+                await File.WriteAllTextAsync(HistoryFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SaveHistoryAsync failed: {ex.Message}");
+            }
+            finally
+            {
+                _historyIoGate.Release();
             }
         }
 
-        private void SaveAliasHistory()
+        private async Task LoadAliasHistoryAsync()
         {
-            var json = JsonConvert.SerializeObject(_savedAliasHistory, Formatting.Indented);
-            File.WriteAllText(AliasHistoryFilePath, json);
+            var readPath = ResolveReadablePath(
+                AliasHistoryFilePath,
+                Path.Combine(Path.GetTempPath(), "WindowsFolderStyleEditor", "alias-history.json"),
+                Path.Combine(AppContext.BaseDirectory, "alias-history.json"));
+            if (readPath == null || !File.Exists(readPath))
+            {
+                return;
+            }
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(readPath);
+                var history = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(json);
+                if (history == null)
+                {
+                    return;
+                }
+
+                _savedAliasHistory.Clear();
+                _savedAliasHistoryCursor.Clear();
+                foreach (var item in history)
+                {
+                    _savedAliasHistory[item.Key] = item.Value
+                        .Where(alias => !string.IsNullOrWhiteSpace(alias))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                    _savedAliasHistoryCursor[item.Key] = 0;
+                }
+
+                if (!string.Equals(readPath, AliasHistoryFilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    await SaveAliasHistoryAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"LoadAliasHistoryAsync failed: {ex.Message}");
+            }
+        }
+
+        private async Task SaveAliasHistoryAsync()
+        {
+            await _historyIoGate.WaitAsync();
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(AliasHistoryFilePath) ?? ConfigManager.AppDataDirectory);
+                var json = JsonConvert.SerializeObject(_savedAliasHistory, Formatting.Indented);
+                await File.WriteAllTextAsync(AliasHistoryFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SaveAliasHistoryAsync failed: {ex.Message}");
+            }
+            finally
+            {
+                _historyIoGate.Release();
+            }
         }
 
         private void AddToHistory(string path)
@@ -767,7 +849,20 @@ namespace FolderStyleEditorForWindows.ViewModels
                 History.RemoveAt(20);
             }
             
-            SaveHistory();
+            _ = SaveHistoryAsync();
+        }
+
+        private static string? ResolveReadablePath(string preferredPath, params string[] legacyPaths)
+        {
+            if (File.Exists(preferredPath))
+            {
+                return preferredPath;
+            }
+
+            return legacyPaths
+                .Where(File.Exists)
+                .OrderByDescending(path => new FileInfo(path).LastWriteTimeUtc)
+                .FirstOrDefault();
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -1391,7 +1486,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
 
             _savedAliasHistoryCursor[folderPath] = 0;
-            SaveAliasHistory();
+            _ = SaveAliasHistoryAsync();
             UpdateAliasAutocomplete();
         }
 

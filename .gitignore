@@ -8,11 +8,15 @@
 .vscode/
 .vs/
 .kilocode/
+/TEMP/
+/old_publish/
+old_publish/
 TEMP/
 开发记录/
 desktop.ini
 《WindowsFolderStyleEditor》.txt
 history.json
+/openspec/
 openspec/
 /gpt-prompt.md
 /AGENTS.md
