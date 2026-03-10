@@ -10,6 +10,8 @@ using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Runtime;
+using System.Runtime.InteropServices;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Newtonsoft.Json;
@@ -48,7 +50,13 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly Dictionary<string, Task> _iconPreviewWarmTasks = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _iconPreviewWarmGate = new(1, 1);
         private readonly SemaphoreSlim _historyIoGate = new(1, 1);
-        private const int IconPreviewCacheCapacity = 6;
+        private CancellationTokenSource? _memoryTrimCts;
+        private long _lastMemoryTrimTicksUtc;
+        private DebugOverlayViewModel? _debugOverlay;
+        private const int IconPreviewCacheCapacity = 2;
+
+        [DllImport("psapi.dll", SetLastError = true)]
+        private static extern bool EmptyWorkingSet(IntPtr hProcess);
 
         private string _folderPath = "";
         public string FolderPath
@@ -595,7 +603,22 @@ namespace FolderStyleEditorForWindows.ViewModels
         
         public ObservableCollection<ToastViewModel> Toasts => ((ToastService)_toastService).Toasts;
         public HoverIconViewModel HoverIcon => _hoverIconService.ViewModel;
-        public DebugOverlayViewModel DebugOverlay { get; }
+        public DebugOverlayViewModel? DebugOverlay
+        {
+            get => _debugOverlay;
+            private set
+            {
+                if (ReferenceEquals(_debugOverlay, value))
+                {
+                    return;
+                }
+
+                _debugOverlay = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasDebugOverlay));
+            }
+        }
+        public bool HasDebugOverlay => DebugOverlay?.IsEnabled == true;
         public InterruptDialogState InterruptDialog => _interruptDialogService.State;
         
         public async Task StartEditSessionAsync(string folderPath, string? iconSourcePath = null)
@@ -688,7 +711,10 @@ namespace FolderStyleEditorForWindows.ViewModels
                     IsElevationSessionActive = _elevationSessionState.IsElevatedSessionActive;
                 }
             };
-            DebugOverlay = new DebugOverlayViewModel(ConfigManager.Config, HoverIcon);
+            if (ConfigManager.Config.Debug.EnableOverlay)
+            {
+                DebugOverlay = new DebugOverlayViewModel(ConfigManager.Config, HoverIcon);
+            }
             
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(async path => await OpenFromHistoryAsync(path));
@@ -1267,6 +1293,7 @@ namespace FolderStyleEditorForWindows.ViewModels
        {
            _iconLoadCts?.Cancel();
            _iconLoadCts = null;
+           var hadCacheEntries = _iconPreviewCache.Count > 0;
 
            foreach (var cacheEntry in _iconPreviewCache.Values)
            {
@@ -1275,17 +1302,16 @@ namespace FolderStyleEditorForWindows.ViewModels
 
            _iconPreviewCache.Clear();
            _iconPreviewWarmTasks.Clear();
+
+           if (hadCacheEntries)
+           {
+               ScheduleMemoryTrim();
+           }
        }
 
        private void PrefetchAdjacentAutoGetIcons()
        {
-           var previousPath = GetAdjacentAutoGetIconPath(-1);
            var nextPath = GetAdjacentAutoGetIconPath(1);
-
-           if (!string.IsNullOrWhiteSpace(previousPath))
-           {
-               _ = WarmIconPreviewCacheAsync(previousPath);
-           }
 
            if (!string.IsNullOrWhiteSpace(nextPath))
            {
@@ -1352,6 +1378,8 @@ namespace FolderStyleEditorForWindows.ViewModels
                return;
            }
 
+           var evictedAny = false;
+
            var protectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
            var currentPath = GetCurrentIconPreviewFilePath();
            if (!string.IsNullOrWhiteSpace(currentPath))
@@ -1385,8 +1413,74 @@ namespace FolderStyleEditorForWindows.ViewModels
                if (_iconPreviewCache.Remove(evictKey, out var evictedSet))
                {
                    evictedSet.Dispose();
+                   evictedAny = true;
                }
            }
+
+           if (evictedAny)
+           {
+               ScheduleMemoryTrim(TimeSpan.FromSeconds(3));
+           }
+       }
+
+       public void RequestIdleMemoryTrim()
+       {
+           ScheduleMemoryTrim(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));
+       }
+
+       private void ScheduleMemoryTrim(TimeSpan? delay = null, TimeSpan? minInterval = null)
+       {
+           _memoryTrimCts?.Cancel();
+           var cts = new CancellationTokenSource();
+           _memoryTrimCts = cts;
+           var trimDelay = delay ?? TimeSpan.FromSeconds(2.5);
+
+           _ = Task.Run(async () =>
+           {
+               try
+               {
+                   await Task.Delay(trimDelay, cts.Token);
+               }
+               catch (OperationCanceledException)
+               {
+                   return;
+               }
+
+               if (cts.IsCancellationRequested || IsLoadingIcons)
+               {
+                   return;
+               }
+
+               try
+               {
+                   if (minInterval.HasValue)
+                   {
+                       var nowTicksUtc = DateTime.UtcNow.Ticks;
+                       var lastTrimTicksUtc = Interlocked.Read(ref _lastMemoryTrimTicksUtc);
+                       if (lastTrimTicksUtc > 0 && nowTicksUtc - lastTrimTicksUtc < minInterval.Value.Ticks)
+                       {
+                           return;
+                       }
+
+                       Interlocked.Exchange(ref _lastMemoryTrimTicksUtc, nowTicksUtc);
+                   }
+
+                   GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+                   GC.Collect(2, GCCollectionMode.Optimized, blocking: true, compacting: true);
+                   GC.WaitForPendingFinalizers();
+                   GC.Collect(2, GCCollectionMode.Optimized, blocking: true, compacting: true);
+
+                   if (OperatingSystem.IsWindows())
+                   {
+                       using var process = System.Diagnostics.Process.GetCurrentProcess();
+                       EmptyWorkingSet(process.Handle);
+                   }
+               }
+               catch
+               {
+                   // Ignore best-effort memory trimming failures.
+               }
+           });
        }
 
        private string? GetCurrentIconPreviewFilePath()

@@ -5,6 +5,7 @@
             xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
             xmlns:services="using:FolderStyleEditorForWindows.Services"
             xmlns:controls="using:FolderStyleEditorForWindows.Controls"
+            xmlns:views="using:FolderStyleEditorForWindows.Views"
             xmlns:i="using:Avalonia.Xaml.Interactivity"
             xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
             xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
@@ -141,6 +142,16 @@
                               FontSize="16"
                               FontWeight="SemiBold"/>
                </Button>
+               <views:PerformanceBadge x:Name="AdminTitlePerformanceBadge"
+                                       x:DataType="services:ComponentFpsBadgeSource"
+                                       Grid.Column="0"
+                                       Grid.ColumnSpan="3"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,14,0"
+                                       Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_AdminTitle]}"
+                                       ValueText="{Binding AdminTitleDisplay}"
+                                       IsVisible="{Binding IsEnabled}"/>
             </Grid>
         </DockPanel>
 
@@ -221,7 +232,8 @@
                                             Padding="8"
                                             BoxShadow="{StaticResource Shadow1}"
                                             MinWidth="{Binding #aliasInput.Bounds.Width}">
-                                        <ScrollViewer MaxHeight="150"
+                                        <ScrollViewer Name="aliasAutocompleteScrollViewer"
+                                                      MaxHeight="150"
                                                       HorizontalScrollBarVisibility="Disabled"
                                                       VerticalScrollBarVisibility="Auto"
                                                       PointerWheelChanged="AliasAutocompleteScrollViewer_PointerWheelChanged">
@@ -284,7 +296,7 @@
                                 </ScrollViewer>
 
                                 <!-- 加载指示器 -->
-                                <ProgressBar IsIndeterminate="True"
+                                <ProgressBar IsIndeterminate="{Binding IsLoadingIconsIndicatorVisible}"
                                              IsVisible="{Binding IsLoadingIconsIndicatorVisible}"
                                              VerticalAlignment="Center"
                                              HorizontalAlignment="Stretch"

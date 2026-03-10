@@ -7,6 +7,8 @@ using Avalonia.Threading;
 using Avalonia;
 using Avalonia.Controls.Primitives;
 using Avalonia.VisualTree;
+using Avalonia.Xaml.Interactivity;
+using Avalonia.Xaml.Interactions.Animated;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -25,14 +27,23 @@ namespace FolderStyleEditorForWindows.Views
         private const int TitleGradientCycles = 3;
         private bool _suppressAliasAutocompleteDismissOnce;
         private readonly DispatcherTimer _iconListScrollTimer;
-        private readonly DispatcherTimer _titleGradientTimer;
+        private readonly AmbientAnimationScheduler? _ambientScheduler;
+        private readonly FrameRateSettings? _frameRateSettings;
+        private IAmbientAnimationHandle? _adminTitleAmbientHandle;
         private ScrollViewer? _editScrollViewer;
         private ScrollViewer? _iconListScrollViewer;
+        private ScrollViewer? _aliasAutocompleteScrollViewer;
+        private VerticalScrollViewerAnimatedBehavior? _editScrollAnimatedBehavior;
+        private VerticalScrollViewerAnimatedBehavior? _iconListScrollAnimatedBehavior;
+        private VerticalScrollViewerAnimatedBehavior? _aliasAutocompleteScrollAnimatedBehavior;
         private double _iconListTargetOffsetY;
         private bool _pendingInitialScrollReset;
         private LinearGradientBrush? _titleGoldBrush;
         private TextBlock? _editTitleText;
         private double _titleGradientPhase;
+        private double _lastTitleAmbientTickSeconds;
+        private bool _isAdminTitleAmbientEnabled;
+        private bool _isAmbientSuspended;
         private ElevationSessionState? _elevationSessionState;
         private readonly Color[] _titleGradientColors =
         {
@@ -52,16 +63,35 @@ namespace FolderStyleEditorForWindows.Views
                 Interval = TimeSpan.FromMilliseconds(16)
             };
             _iconListScrollTimer.Tick += IconListScrollTimer_Tick;
-            _titleGradientTimer = new DispatcherTimer
+            _ambientScheduler = App.Services?.GetService<AmbientAnimationScheduler>();
+            _frameRateSettings = App.Services?.GetService<FrameRateSettings>();
+            if (_ambientScheduler != null)
             {
-                Interval = TimeSpan.FromMilliseconds(33)
-            };
-            _titleGradientTimer.Tick += TitleGradientTimer_Tick;
+                _adminTitleAmbientHandle = _ambientScheduler.Register(
+                    "edit-admin-title-gradient",
+                    () => _frameRateSettings?.AdminTitleAmbientFps ?? 15,
+                    OnAdminTitleAmbientTick);
+                    _adminTitleAmbientHandle.SetEnabled(false);
+            }
+
+            DebugRuntimeAnalysis.PauseAnimationsChanged += DebugRuntimeAnalysis_PauseAnimationsChanged;
+
+            if (_frameRateSettings != null)
+            {
+                _frameRateSettings.PropertyChanged += FrameRateSettings_PropertyChanged;
+            }
         }
 
         public void Dispose()
         {
             UnsubscribeFromViewModel();
+            _adminTitleAmbientHandle?.Dispose();
+            _adminTitleAmbientHandle = null;
+            DebugRuntimeAnalysis.PauseAnimationsChanged -= DebugRuntimeAnalysis_PauseAnimationsChanged;
+            if (_frameRateSettings != null)
+            {
+                _frameRateSettings.PropertyChanged -= FrameRateSettings_PropertyChanged;
+            }
 
             if (DataContext is ViewModels.MainViewModel vm)
             {
@@ -106,6 +136,12 @@ namespace FolderStyleEditorForWindows.Views
             base.OnAttachedToVisualTree(e);
             _pendingInitialScrollReset = true;
             SubscribeToViewModel();
+
+            var adminTitleBadge = this.FindControl<Control>("AdminTitlePerformanceBadge");
+            if (adminTitleBadge != null)
+            {
+                adminTitleBadge.DataContext = App.Services?.GetService<ComponentFpsBadgeSource>();
+            }
 
             var btnPickDir = this.FindControl<Button>("btnPickDir");
             if (btnPickDir != null)
@@ -206,6 +242,7 @@ namespace FolderStyleEditorForWindows.Views
 
             var iconListBox = this.FindControl<ListBox>("iconListBox");
             _iconListScrollViewer = this.FindControl<ScrollViewer>("iconListScrollViewer");
+            _aliasAutocompleteScrollViewer = this.FindControl<ScrollViewer>("aliasAutocompleteScrollViewer");
             if (iconListBox != null)
             {
                 iconListBox.SelectionChanged -= IconListBox_SelectionChanged;
@@ -214,13 +251,13 @@ namespace FolderStyleEditorForWindows.Views
                 iconListBox.AddHandler(InputElement.KeyDownEvent, IconListBox_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
                 iconListBox.PointerPressed -= IconListBox_PointerPressed;
                 iconListBox.PointerPressed += IconListBox_PointerPressed;
-                iconListBox.LayoutUpdated -= IconListBox_LayoutUpdated;
-                iconListBox.LayoutUpdated += IconListBox_LayoutUpdated;
                 Dispatcher.UIThread.Post(UpdateIconPreviewVisuals, DispatcherPriority.Loaded);
             }
 
             ResetEditScrollToTop();
             Dispatcher.UIThread.Post(ResetEditScrollToTop, DispatcherPriority.Loaded);
+            ApplyScrollAnimationDebugState();
+            UpdateAdminAmbientState();
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -230,8 +267,79 @@ namespace FolderStyleEditorForWindows.Views
             {
                 _elevationSessionState.PropertyChanged -= ElevationSessionState_PropertyChanged;
             }
-            _titleGradientTimer.Stop();
+            _adminTitleAmbientHandle?.SetEnabled(false);
             base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property == IsVisibleProperty)
+            {
+                UpdateAdminAmbientState();
+            }
+        }
+
+        public void SetAmbientSuspended(bool suspended)
+        {
+            if (_isAmbientSuspended == suspended)
+            {
+                return;
+            }
+
+            _isAmbientSuspended = suspended;
+            UpdateAdminAmbientState();
+        }
+
+        private void FrameRateSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(FrameRateSettings.DisableEditScrollAnimations))
+            {
+                Dispatcher.UIThread.Post(ApplyScrollAnimationDebugState, DispatcherPriority.Background);
+            }
+        }
+
+        private void ApplyScrollAnimationDebugState()
+        {
+            var enableAnimatedScroll = !(_frameRateSettings?.DisableEditScrollAnimations ?? false);
+            SetAnimatedScrollBehavior(_editScrollViewer, ref _editScrollAnimatedBehavior, enableAnimatedScroll);
+            SetAnimatedScrollBehavior(_iconListScrollViewer, ref _iconListScrollAnimatedBehavior, enableAnimatedScroll);
+            SetAnimatedScrollBehavior(_aliasAutocompleteScrollViewer, ref _aliasAutocompleteScrollAnimatedBehavior, enableAnimatedScroll);
+        }
+
+        private static void SetAnimatedScrollBehavior(
+            ScrollViewer? scrollViewer,
+            ref VerticalScrollViewerAnimatedBehavior? cachedBehavior,
+            bool enabled)
+        {
+            if (scrollViewer == null)
+            {
+                return;
+            }
+
+            var behaviors = Interaction.GetBehaviors(scrollViewer);
+            var existingBehaviors = behaviors.OfType<VerticalScrollViewerAnimatedBehavior>().ToList();
+
+            if (!enabled)
+            {
+                foreach (var existing in existingBehaviors)
+                {
+                    behaviors.Remove(existing);
+                }
+
+                if (cachedBehavior == null && existingBehaviors.Count > 0)
+                {
+                    cachedBehavior = existingBehaviors[0];
+                }
+
+                return;
+            }
+
+            cachedBehavior ??= existingBehaviors.FirstOrDefault() ?? new VerticalScrollViewerAnimatedBehavior();
+            if (!behaviors.Contains(cachedBehavior))
+            {
+                behaviors.Add(cachedBehavior);
+            }
         }
 
         private void AliasInput_GotFocus(object? sender, RoutedEventArgs e)
@@ -536,27 +644,34 @@ namespace FolderStyleEditorForWindows.Views
                 EnsureTitleGradientPattern();
                 UpdateTitleGradientOffsets();
                 _editTitleText.Foreground = _titleGoldBrush;
-                if (!_titleGradientTimer.IsEnabled)
-                {
-                    _titleGradientTimer.Start();
-                }
+                _isAdminTitleAmbientEnabled = true;
+                UpdateAdminAmbientState();
                 return;
             }
 
-            _titleGradientTimer.Stop();
+            _isAdminTitleAmbientEnabled = false;
+            UpdateAdminAmbientState();
             _editTitleText.Foreground = Avalonia.Application.Current?.TryGetResource("Fg2Brush", null, out var brush) == true && brush is IBrush fgBrush
                 ? fgBrush
                 : new SolidColorBrush(Color.Parse("#606064"));
         }
 
-        private void TitleGradientTimer_Tick(object? sender, EventArgs e)
+        private void OnAdminTitleAmbientTick(double nowSeconds)
         {
-            if (_titleGoldBrush == null)
+            if (_titleGoldBrush == null || !_isAdminTitleAmbientEnabled || !IsVisible || this.GetVisualRoot() == null)
             {
                 return;
             }
 
-            _titleGradientPhase += 0.01;
+            if (_lastTitleAmbientTickSeconds <= 0)
+            {
+                _lastTitleAmbientTickSeconds = nowSeconds;
+                return;
+            }
+
+            var deltaSeconds = Math.Clamp(nowSeconds - _lastTitleAmbientTickSeconds, 0, 0.2);
+            _lastTitleAmbientTickSeconds = nowSeconds;
+            _titleGradientPhase += deltaSeconds / 6.0;
             if (_titleGradientPhase >= 1)
             {
                 _titleGradientPhase -= 1;
@@ -613,6 +728,27 @@ namespace FolderStyleEditorForWindows.Views
 
             _titleGoldBrush.GradientStops[stopIndex].Color = _titleGradientColors[0];
             _titleGoldBrush.GradientStops[stopIndex].Offset = TitleGradientCycles - _titleGradientPhase;
+        }
+
+        private void UpdateAdminAmbientState()
+        {
+            if (_adminTitleAmbientHandle == null)
+            {
+                return;
+            }
+
+            var enabled = !_isAmbientSuspended && !DebugRuntimeAnalysis.PauseAnimations && _isAdminTitleAmbientEnabled && IsVisible && VisualRoot != null;
+            if (!enabled)
+            {
+                _lastTitleAmbientTickSeconds = 0;
+            }
+
+            _adminTitleAmbientHandle.SetEnabled(enabled);
+        }
+
+        private void DebugRuntimeAnalysis_PauseAnimationsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(UpdateAdminAmbientState, DispatcherPriority.Background);
         }
 
         private async void BtnPickDir_Click(object? sender, RoutedEventArgs e)
@@ -813,8 +949,18 @@ namespace FolderStyleEditorForWindows.Views
 
         private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
+            if (sender is not ViewModels.MainViewModel vm)
+            {
+                return;
+            }
+
+            if (e.PropertyName == nameof(ViewModels.MainViewModel.SelectedIcon) ||
+                e.PropertyName == nameof(ViewModels.MainViewModel.PreviewedIcon))
+            {
+                Dispatcher.UIThread.Post(UpdateIconPreviewVisuals, DispatcherPriority.Background);
+            }
+
             if (!_pendingInitialScrollReset ||
-                sender is not ViewModels.MainViewModel vm ||
                 e.PropertyName != nameof(ViewModels.MainViewModel.IsLoadingIcons))
             {
                 return;

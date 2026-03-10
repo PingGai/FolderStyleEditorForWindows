@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FolderStyleEditorForWindows.Services;
 
 namespace FolderStyleEditorForWindows.Behaviors
 {
@@ -34,6 +35,9 @@ namespace FolderStyleEditorForWindows.Behaviors
             AvaloniaProperty.RegisterAttached<Control, Control, double>("LerpFactor", 0.22);
 
         private static readonly Dictionary<Control, HoverFloatState> States = new();
+
+        private static AnimationStateSource? AnimationStateSource =>
+            App.Services?.GetService(typeof(AnimationStateSource)) as AnimationStateSource;
 
         static HoverFloatBehavior()
         {
@@ -115,6 +119,7 @@ namespace FolderStyleEditorForWindows.Behaviors
                 return;
             }
 
+            AnimationStateSource?.MarkHoverActivity();
             state.SetHovered(true);
             state.UpdatePointer(e.GetPosition(control));
         }
@@ -126,6 +131,7 @@ namespace FolderStyleEditorForWindows.Behaviors
                 return;
             }
 
+            AnimationStateSource?.MarkHoverActivity();
             state.UpdatePointer(e.GetPosition(control));
         }
 
@@ -136,6 +142,7 @@ namespace FolderStyleEditorForWindows.Behaviors
                 return;
             }
 
+            AnimationStateSource?.MarkHoverActivity();
             state.SetHovered(false);
         }
 
@@ -151,6 +158,7 @@ namespace FolderStyleEditorForWindows.Behaviors
                 return;
             }
 
+            AnimationStateSource?.MarkHoverActivity();
             state.SetPressed(true);
         }
 
@@ -161,6 +169,7 @@ namespace FolderStyleEditorForWindows.Behaviors
                 return;
             }
 
+            AnimationStateSource?.MarkHoverActivity();
             state.SetPressed(false);
         }
 
@@ -168,6 +177,7 @@ namespace FolderStyleEditorForWindows.Behaviors
         {
             if (sender is Control control && States.TryGetValue(control, out var state))
             {
+                AnimationStateSource?.MarkHoverActivity();
                 state.SetPressed(false);
             }
         }
@@ -419,6 +429,15 @@ namespace FolderStyleEditorForWindows.Behaviors
 
             private void Timer_Tick(object? sender, EventArgs e)
             {
+                if (_control.GetVisualRoot() == null || !_control.IsEffectivelyVisible)
+                {
+                    ResetToIdentity();
+                    _timer.Stop();
+                    return;
+                }
+
+                AnimationStateSource?.MarkHoverActivity();
+
                 if (_releasePending && DateTime.UtcNow >= _pendingReleaseAt)
                 {
                     _releasePending = false;
@@ -461,11 +480,29 @@ namespace FolderStyleEditorForWindows.Behaviors
                               Math.Abs(_currentX - _targetX) < 0.01 &&
                               Math.Abs(_currentY - _targetY) < 0.01;
 
-                if (_isHovered || _releasePending || !settled)
+                if (_releasePending || !settled)
                 {
                     return;
                 }
 
+                _isScaleAnimating = false;
+
+                if (!_isHovered && !_isPressed)
+                {
+                    ResetToIdentity();
+                }
+
+                _timer.Stop();
+            }
+
+            private void ResetToIdentity()
+            {
+                _releasePending = false;
+                _isPressed = false;
+                _isHovered = false;
+                _targetScale = 1;
+                _targetX = 0;
+                _targetY = 0;
                 _scaleTransform.ScaleX = 1;
                 _scaleTransform.ScaleY = 1;
                 _translateTransform.X = 0;
@@ -473,8 +510,6 @@ namespace FolderStyleEditorForWindows.Behaviors
                 _currentScale = 1;
                 _currentX = 0;
                 _currentY = 0;
-                _isScaleAnimating = false;
-                _timer.Stop();
             }
 
             public void Dispose()

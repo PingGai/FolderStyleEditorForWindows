@@ -22,6 +22,22 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         var services = new ServiceCollection();
+        services.AddSingleton<FrameRateSettings>(sp =>
+        {
+            var settings = new FrameRateSettings();
+            settings.LoadFromConfig(ConfigManager.Config);
+            return settings;
+        });
+        services.AddSingleton<DisplayInfoService>();
+        services.AddSingleton<AnimationStateSource>();
+        services.AddSingleton<FrameRateGovernor>();
+        services.AddSingleton<PerformanceTelemetryService>();
+        services.AddSingleton<PerformanceMonitorSessionState>();
+        services.AddSingleton<PerformanceMonitorViewModel>();
+        services.AddSingleton<ComponentFpsBadgeSource>();
+        services.AddSingleton<AmbientAnimationScheduler>();
+        services.AddSingleton<RenderScheduler>();
+        services.AddSingleton<LayerInvalidationController>();
         services.AddSingleton<IToastService, ToastService>();
         services.AddSingleton<HoverIconViewModel>();
         services.AddSingleton<HoverIconService>();

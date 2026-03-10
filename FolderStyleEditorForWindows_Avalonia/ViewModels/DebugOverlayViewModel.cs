@@ -47,7 +47,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             PngTestPath = string.IsNullOrWhiteSpace(config.Debug.PngTestPath)
                 ? DefaultPngTestPath
                 : config.Debug.PngTestPath;
-            PngTestImage = LoadBitmap(PngTestPath);
+            PngTestImage = _isEnabled && _showPngTest ? LoadBitmap(PngTestPath) : null;
             OverlayBackgroundBrush = BuildOverlayBrush(config.Debug);
         }
 

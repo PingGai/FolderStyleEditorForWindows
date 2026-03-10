@@ -13,10 +13,19 @@ namespace FolderStyleEditorForWindows.Behaviors
 {
     public class AutoHideScrollBehavior : Behavior<ScrollViewer>
     {
+        public static readonly StyledProperty<double> VisibleOpacityProperty =
+            AvaloniaProperty.Register<AutoHideScrollBehavior, double>(nameof(VisibleOpacity), 1.0);
+
         private DispatcherTimer? _hideTimer;
         private DispatcherTimer? _showTimer;
         private List<ScrollBar> _scrollBars = new();
         private bool _isVisible = false; // Tracks whether scrollbars are currently intended to be visible
+
+        public double VisibleOpacity
+        {
+            get => GetValue(VisibleOpacityProperty);
+            set => SetValue(VisibleOpacityProperty, value);
+        }
 
         protected override void OnAttachedToVisualTree()
         {
@@ -147,7 +156,7 @@ namespace FolderStyleEditorForWindows.Behaviors
             _isVisible = true;
             foreach (var sb in _scrollBars)
             {
-                sb.Opacity = 1;
+                sb.Opacity = Math.Clamp(VisibleOpacity, 0, 1);
             }
         }
 

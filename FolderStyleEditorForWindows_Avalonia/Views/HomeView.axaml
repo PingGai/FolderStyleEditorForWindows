@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:FolderStyleEditorForWindows.ViewModels"
              xmlns:services="using:FolderStyleEditorForWindows.Services"
+             xmlns:views="using:FolderStyleEditorForWindows.Views"
              xmlns:vc="using:FolderStyleEditorForWindows.ValueConverters"
              xmlns:controls="using:FolderStyleEditorForWindows.Controls"
              xmlns:c="using:Avalonia.Controls"
@@ -87,6 +88,21 @@
                    </Border>
                </ControlTemplate>
            </Setter>
+       </Style>
+       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar">
+           <Setter Property="CornerRadius" Value="999"/>
+       </Style>
+       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar /template/ Thumb">
+           <Setter Property="Background" Value="#F0AEB9C7"/>
+           <Setter Property="BorderBrush" Value="#00FFFFFF"/>
+           <Setter Property="BorderThickness" Value="0"/>
+           <Setter Property="CornerRadius" Value="999"/>
+       </Style>
+       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pointerover /template/ Thumb">
+           <Setter Property="Background" Value="#F4BBC6D2"/>
+       </Style>
+       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pressed /template/ Thumb">
+           <Setter Property="Background" Value="#F8C5D0DB"/>
        </Style>
    </UserControl.Styles>
    <UserControl.Resources>
@@ -185,6 +201,14 @@
                                      Css="{DynamicResource SvgCss}"/>
                         </Border>
                     </Button>
+                    <views:PerformanceBadge x:Name="HomeTitlePerformanceBadge"
+                                            x:DataType="services:ComponentFpsBadgeSource"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Margin="-10,-20,0,0"
+                                            Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_HomeTitle]}"
+                                            ValueText="{Binding HomeTitleDisplay}"
+                                            IsVisible="{Binding IsEnabled}"/>
                 </Grid>
                 <TextBlock Name="ClickHintText"
                            Classes="HoverFloat"
@@ -221,12 +245,14 @@
                             Command="{Binding ClearHistoryCommand}" IsVisible="{Binding History.Count}" Grid.Column="1" Background="Transparent"
                             Margin="0,-2,0,0"/>
                   </Grid>
-                   <ScrollViewer MaxHeight="188.4" IsVisible="{Binding History.Count}"
+                   <ScrollViewer MaxHeight="188.4"
+                                 Classes="HomeHistoryScrollHost"
+                                 IsVisible="{Binding History.Count}"
                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               ClipToBounds="False">
                        <i:Interaction.Behaviors>
                            <ia:VerticalScrollViewerAnimatedBehavior/>
-                           <behaviors:AutoHideScrollBehavior/>
+                           <behaviors:AutoHideScrollBehavior VisibleOpacity="0.62"/>
                        </i:Interaction.Behaviors>
                        <ListBox Name="historyList" ItemsSource="{Binding History}" Background="Transparent" BorderThickness="0">
                            <ListBox.ItemContainerTheme>

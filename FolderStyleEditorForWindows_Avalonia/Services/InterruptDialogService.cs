@@ -256,6 +256,11 @@ namespace FolderStyleEditorForWindows.Services
         public DialogCodeBlockItem? CodeBlock { get; init; }
         public IReadOnlyList<DialogActionLinkItem>? ActionLinks { get; init; }
         public IReadOnlyList<DialogExpandableSectionItem>? ExpandableSections { get; init; }
+        public IReadOnlyList<DialogFormSectionItem>? FormSections { get; init; }
+        public IReadOnlyList<DialogTabItem>? Tabs { get; init; }
+        public double WidthRatio { get; init; } = 1.0;
+        public ICommand? PrimaryButtonCommand { get; init; }
+        public ICommand? SecondaryButtonCommand { get; init; }
     }
 
     public sealed class InterruptDialogState : INotifyPropertyChanged
@@ -287,6 +292,7 @@ namespace FolderStyleEditorForWindows.Services
         private double _overlayOpacity;
         private double _cardOpacity;
         private double _cardScale = 0.96;
+        private double _dialogWidthRatio = 1.0;
         private IBrush _overlayBrush = new SolidColorBrush(Colors.Transparent);
         private IBrush _primaryBackground = new SolidColorBrush(Color.Parse("#FFEFD7"));
         private IBrush _primaryForeground = new SolidColorBrush(Color.Parse("#303034"));
@@ -306,11 +312,17 @@ namespace FolderStyleEditorForWindows.Services
         private DialogCodeBlockItem? _codeBlock;
         private ObservableCollection<DialogActionLinkItem> _actionLinks = new();
         private ObservableCollection<DialogExpandableSectionItem> _expandableSections = new();
+        private ObservableCollection<DialogFormSectionItem> _formSections = new();
+        private ObservableCollection<DialogTabItem> _tabs = new();
+        private ICommand _primaryActionCommand;
+        private ICommand _secondaryActionCommand;
 
         public InterruptDialogState(Action onConfirm, Action onCancel)
         {
             ConfirmCommand = new RelayCommand(() => onConfirm());
             CancelCommand = new RelayCommand(() => onCancel());
+            _primaryActionCommand = ConfirmCommand;
+            _secondaryActionCommand = CancelCommand;
             ApplyPrimaryButtonKind(DialogPrimaryButtonKind.Normal);
             SecondaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
             SecondaryForeground = new SolidColorBrush(Color.Parse("#303034"));
@@ -388,6 +400,7 @@ namespace FolderStyleEditorForWindows.Services
         public double OverlayOpacity { get => _overlayOpacity; set => SetField(ref _overlayOpacity, value); }
         public double CardOpacity { get => _cardOpacity; set => SetField(ref _cardOpacity, value); }
         public double CardScale { get => _cardScale; set => SetField(ref _cardScale, value); }
+        public double DialogWidthRatio { get => _dialogWidthRatio; set => SetField(ref _dialogWidthRatio, value); }
         public IBrush OverlayBrush { get => _overlayBrush; set => SetField(ref _overlayBrush, value); }
         public IBrush PrimaryBackground { get => _primaryBackground; set => SetField(ref _primaryBackground, value); }
         public IBrush PrimaryForeground { get => _primaryForeground; set => SetField(ref _primaryForeground, value); }
@@ -418,6 +431,10 @@ namespace FolderStyleEditorForWindows.Services
         public DialogCodeBlockItem? CodeBlock { get => _codeBlock; set { if (SetField(ref _codeBlock, value)) OnPropertyChanged(nameof(HasCodeBlock)); } }
         public ObservableCollection<DialogActionLinkItem> ActionLinks { get => _actionLinks; set { if (SetField(ref _actionLinks, value)) OnPropertyChanged(nameof(HasActionLinks)); } }
         public ObservableCollection<DialogExpandableSectionItem> ExpandableSections { get => _expandableSections; set { if (SetField(ref _expandableSections, value)) OnPropertyChanged(nameof(HasExpandableSections)); } }
+        public ObservableCollection<DialogFormSectionItem> FormSections { get => _formSections; set { if (SetField(ref _formSections, value)) OnPropertyChanged(nameof(HasFormSections)); } }
+        public ObservableCollection<DialogTabItem> Tabs { get => _tabs; set { if (SetField(ref _tabs, value)) OnPropertyChanged(nameof(HasTabs)); } }
+        public ICommand PrimaryActionCommand { get => _primaryActionCommand; set => SetField(ref _primaryActionCommand, value); }
+        public ICommand SecondaryActionCommand { get => _secondaryActionCommand; set => SetField(ref _secondaryActionCommand, value); }
 
         public bool HasSectionTitle => !string.IsNullOrWhiteSpace(SectionTitle);
         public bool HasHeaderMeta => !string.IsNullOrWhiteSpace(HeaderMeta);
@@ -433,6 +450,8 @@ namespace FolderStyleEditorForWindows.Services
         public DialogActionLinkItem? FirstActionLink => ActionLinks.Count > 0 ? ActionLinks[0] : null;
         public DialogActionLinkItem? SecondActionLink => ActionLinks.Count > 1 ? ActionLinks[1] : null;
         public bool HasExpandableSections => ExpandableSections.Count > 0;
+        public bool HasFormSections => FormSections.Count > 0;
+        public bool HasTabs => Tabs.Count > 0;
         public bool HasCheckbox => Checkbox != null;
         public bool HasCodeBlock => CodeBlock != null && !string.IsNullOrWhiteSpace(CodeBlock.Content);
         public bool PrimaryCountdownVisible => HasPrimaryCountdown && !string.IsNullOrWhiteSpace(PrimaryCountdownText);
@@ -766,16 +785,27 @@ namespace FolderStyleEditorForWindows.Services
         private readonly Dispatcher _dispatcher = Dispatcher.UIThread;
         private readonly LicenseCatalogService _licenseCatalogService;
         private readonly IToastService _toastService;
+        private readonly AnimationStateSource _animationStateSource;
+        private readonly FrameRateSettings _frameRateSettings;
+        private readonly PerformanceTelemetryService _performanceTelemetryService;
         private readonly DispatcherTimer _primaryCountdownTimer;
         private TaskCompletionSource<InterruptDialogResponse>? _pendingCompletion;
         private bool _isPassiveOverlayActive;
 
         public InterruptDialogState State { get; }
 
-        public InterruptDialogService(LicenseCatalogService licenseCatalogService, IToastService toastService)
+        public InterruptDialogService(
+            LicenseCatalogService licenseCatalogService,
+            IToastService toastService,
+            AnimationStateSource animationStateSource,
+            FrameRateSettings frameRateSettings,
+            PerformanceTelemetryService performanceTelemetryService)
         {
             _licenseCatalogService = licenseCatalogService;
             _toastService = toastService;
+            _animationStateSource = animationStateSource;
+            _frameRateSettings = frameRateSettings;
+            _performanceTelemetryService = performanceTelemetryService;
             State = new InterruptDialogState(Confirm, Cancel);
             State.ResetVisualState(false);
             _primaryCountdownTimer = new DispatcherTimer
@@ -788,6 +818,7 @@ namespace FolderStyleEditorForWindows.Services
         public async Task<InterruptDialogResponse> ShowAsync(InterruptDialogOptions options)
         {
             _isPassiveOverlayActive = false;
+            _animationStateSource.MarkTransitionActivity(220);
             StopPrimaryCountdown();
             _pendingCompletion?.TrySetResult(new InterruptDialogResponse { Result = InterruptDialogResult.None });
             var tcs = new TaskCompletionSource<InterruptDialogResponse>();
@@ -828,6 +859,11 @@ namespace FolderStyleEditorForWindows.Services
                 State.CodeBlock = options.CodeBlock;
                 State.ActionLinks = new ObservableCollection<DialogActionLinkItem>(options.ActionLinks ?? Array.Empty<DialogActionLinkItem>());
                 State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>(options.ExpandableSections ?? Array.Empty<DialogExpandableSectionItem>());
+                State.FormSections = new ObservableCollection<DialogFormSectionItem>(options.FormSections ?? Array.Empty<DialogFormSectionItem>());
+                State.Tabs = new ObservableCollection<DialogTabItem>(options.Tabs ?? Array.Empty<DialogTabItem>());
+                State.DialogWidthRatio = options.WidthRatio > 0 ? options.WidthRatio : 1.0;
+                State.PrimaryActionCommand = options.PrimaryButtonCommand ?? State.ConfirmCommand;
+                State.SecondaryActionCommand = options.SecondaryButtonCommand ?? State.CancelCommand;
                 State.IsHitTestVisible = options.HitTestVisible;
                 State.ResetVisualState(true);
                 State.IsHitTestVisible = options.HitTestVisible;
@@ -858,6 +894,7 @@ namespace FolderStyleEditorForWindows.Services
             }
 
             _isPassiveOverlayActive = true;
+            _animationStateSource.MarkTransitionActivity(160);
             StopPrimaryCountdown();
 
             _dispatcher.Post(() =>
@@ -886,6 +923,11 @@ namespace FolderStyleEditorForWindows.Services
                 State.CodeBlock = null;
                 State.ActionLinks = new ObservableCollection<DialogActionLinkItem>();
                 State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>();
+                State.FormSections = new ObservableCollection<DialogFormSectionItem>();
+                State.Tabs = new ObservableCollection<DialogTabItem>();
+                State.DialogWidthRatio = options.WidthRatio > 0 ? options.WidthRatio : 1.0;
+                State.PrimaryActionCommand = State.ConfirmCommand;
+                State.SecondaryActionCommand = State.CancelCommand;
                 State.IsActive = true;
                 State.IsHitTestVisible = options.HitTestVisible;
                 State.OverlayOpacity = 0.9;
@@ -904,6 +946,7 @@ namespace FolderStyleEditorForWindows.Services
             }
 
             _isPassiveOverlayActive = false;
+            _animationStateSource.MarkTransitionActivity(180);
             _dispatcher.Post(() =>
             {
                 State.ApplyClosingVisualState(isPassiveOverlay: true);
@@ -982,6 +1025,17 @@ namespace FolderStyleEditorForWindows.Services
                 Content = content,
                 PrimaryButtonText = acknowledgeText
             });
+        }
+
+        public async Task ShowDebugDialogAsync()
+        {
+            using var controller = new FrameRateDebugDialogController(_frameRateSettings, _performanceTelemetryService, _toastService, State);
+            await ShowAsync(controller.BuildOptions());
+        }
+
+        public Task ShowFrameRateDebugDialogAsync()
+        {
+            return ShowDebugDialogAsync();
         }
 
         public async Task ShowAboutDialogAsync()
@@ -1093,6 +1147,7 @@ namespace FolderStyleEditorForWindows.Services
             };
 
             _pendingCompletion = null;
+            _animationStateSource.MarkTransitionActivity(220);
             _dispatcher.Post(() => State.ApplyClosingVisualState(isPassiveOverlay: false));
 
             _ = Task.Run(async () =>

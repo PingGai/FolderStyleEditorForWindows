@@ -192,6 +192,24 @@ namespace FolderStyleEditorForWindows.Services
             text = UpsertSectionValue(text, "Paths", "PreferredDataRoot", QuoteString(cfg.Paths.PreferredDataRoot ?? AppDataDirectory));
 
             text = UpsertSectionValue(text, "Permissions", "SuppressElevationPrompt", cfg.Permissions.SuppressElevationPrompt ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "StaticContentRefreshFps", cfg.FrameRate.StaticContentRefreshFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "BackgroundAmbientFps", cfg.FrameRate.BackgroundAmbientFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "HomeTitleAmbientFps", cfg.FrameRate.HomeTitleAmbientFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "AdminTitleAmbientFps", cfg.FrameRate.AdminTitleAmbientFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "ActiveInteractionFps", cfg.FrameRate.ActiveInteractionFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "UseDisplayRefreshRateAsMaxFps", cfg.FrameRate.UseDisplayRefreshRateAsMaxFps ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "ManualMaxFps", cfg.FrameRate.ManualMaxFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "HoverCooldownMs", cfg.FrameRate.HoverCooldownMs.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "ScrollCooldownMs", cfg.FrameRate.ScrollCooldownMs.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "DragCooldownMs", cfg.FrameRate.DragCooldownMs.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "ShowPerformanceMonitor", cfg.FrameRate.ShowPerformanceMonitor ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "ShowDetailedPerformanceMonitor", cfg.FrameRate.ShowDetailedPerformanceMonitor ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "ShowComponentFpsBadges", cfg.FrameRate.ShowComponentFpsBadges ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "EnableComponentExcludeMode", cfg.FrameRate.EnableComponentExcludeMode ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "ExcludePinGlow", cfg.FrameRate.ExcludePinGlow ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "ExcludeBottomActionButtons", cfg.FrameRate.ExcludeBottomActionButtons ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "ExcludeActualTopmost", cfg.FrameRate.ExcludeActualTopmost ? "true" : "false");
+            text = UpsertSectionValue(text, "FrameRate", "DisableEditScrollAnimations", cfg.FrameRate.DisableEditScrollAnimations ? "true" : "false");
 
             text = UpsertSectionValue(text, "Appearance", "SvgDefaultColor", QuoteString(cfg.Appearance.SvgDefaultColor ?? "#ff606064"));
 
@@ -284,6 +302,26 @@ PreferredDataRoot = """"
 
 [Permissions]
 SuppressElevationPrompt = false
+
+[FrameRate]
+StaticContentRefreshFps = 0
+BackgroundAmbientFps = 8
+HomeTitleAmbientFps = 15
+AdminTitleAmbientFps = 15
+ActiveInteractionFps = 60
+UseDisplayRefreshRateAsMaxFps = true
+ManualMaxFps = 120
+HoverCooldownMs = 120
+ScrollCooldownMs = 240
+DragCooldownMs = 280
+ShowPerformanceMonitor = false
+ShowDetailedPerformanceMonitor = false
+ShowComponentFpsBadges = false
+EnableComponentExcludeMode = false
+ExcludePinGlow = false
+ExcludeBottomActionButtons = false
+ExcludeActualTopmost = false
+DisableEditScrollAnimations = false
 ";
 
         private static void NormalizeAndPatch(AppConfig cfg)
@@ -353,6 +391,36 @@ SuppressElevationPrompt = false
             cfg.Features.PermissionPrompt.SuppressElevationPrompt =
                 cfg.Features.PermissionPrompt.SuppressElevationPrompt || cfg.Permissions.SuppressElevationPrompt;
             cfg.Permissions.SuppressElevationPrompt = cfg.Features.PermissionPrompt.SuppressElevationPrompt;
+            cfg.FrameRate ??= new FrameRateBehaviorConfig();
+            cfg.FrameRate.StaticContentRefreshFps = Math.Clamp(cfg.FrameRate.StaticContentRefreshFps, 0, 240);
+            if (cfg.FrameRate.BackgroundAmbientFps == 15)
+            {
+                cfg.FrameRate.BackgroundAmbientFps = 8;
+            }
+
+            cfg.FrameRate.BackgroundAmbientFps = Math.Clamp(cfg.FrameRate.BackgroundAmbientFps, 1, 120);
+            cfg.FrameRate.HomeTitleAmbientFps = Math.Clamp(cfg.FrameRate.HomeTitleAmbientFps, 1, 120);
+            cfg.FrameRate.AdminTitleAmbientFps = Math.Clamp(cfg.FrameRate.AdminTitleAmbientFps, 1, 120);
+            cfg.FrameRate.ActiveInteractionFps = Math.Clamp(cfg.FrameRate.ActiveInteractionFps, 1, 240);
+            cfg.FrameRate.ManualMaxFps = Math.Clamp(cfg.FrameRate.ManualMaxFps, 1, 500);
+            cfg.FrameRate.HoverCooldownMs = Math.Clamp(cfg.FrameRate.HoverCooldownMs, 0, 5000);
+            cfg.FrameRate.ScrollCooldownMs = Math.Clamp(cfg.FrameRate.ScrollCooldownMs, 0, 5000);
+            cfg.FrameRate.DragCooldownMs = Math.Clamp(cfg.FrameRate.DragCooldownMs, 0, 5000);
+            if (cfg.FrameRate.ShowFrameRateOverlay)
+            {
+                cfg.FrameRate.ShowPerformanceMonitor = true;
+            }
+
+            if (cfg.FrameRate.ShowDetailedFrameRateOverlay)
+            {
+                cfg.FrameRate.ShowDetailedPerformanceMonitor = true;
+            }
+
+            cfg.FrameRate.EnableComponentExcludeMode = cfg.FrameRate.EnableComponentExcludeMode;
+            cfg.FrameRate.ExcludePinGlow = cfg.FrameRate.ExcludePinGlow;
+            cfg.FrameRate.ExcludeBottomActionButtons = cfg.FrameRate.ExcludeBottomActionButtons;
+            cfg.FrameRate.ExcludeActualTopmost = cfg.FrameRate.ExcludeActualTopmost;
+            cfg.FrameRate.DisableEditScrollAnimations = cfg.FrameRate.DisableEditScrollAnimations;
         }
     }
 }

@@ -13,6 +13,7 @@ using Avalonia.VisualTree;
 using Avalonia.Interactivity;
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Linq;
@@ -21,9 +22,11 @@ using System.Threading.Tasks;
 using System.Threading;
 using Avalonia.Media;
 using Avalonia.Threading;
+using System.Collections.Specialized;
 using FolderStyleEditorForWindows.ViewModels;
 using FolderStyleEditorForWindows.Views;
 using FolderStyleEditorForWindows.Services;
+using Avalonia.Media.Immutable;
 
 namespace FolderStyleEditorForWindows
 {
@@ -38,6 +41,16 @@ namespace FolderStyleEditorForWindows
         private EditSessionManager _sessionManager;
         private readonly DragIntentAnalyzerService _dragIntentAnalyzerService;
         private readonly InterruptDialogService _interruptDialogService;
+        private readonly DisplayInfoService _displayInfoService;
+        private readonly AnimationStateSource _animationStateSource;
+        private readonly FrameRateGovernor _frameRateGovernor;
+        private readonly AmbientAnimationScheduler _ambientAnimationScheduler;
+        private readonly RenderScheduler _renderScheduler;
+        private readonly LayerInvalidationController _layerInvalidationController;
+        private readonly FrameRateSettings _frameRateSettings;
+        private readonly PerformanceTelemetryService _performanceTelemetryService;
+        private readonly ComponentFpsBadgeSource _componentFpsBadgeSource;
+        private readonly PerformanceMonitorViewModel _performanceMonitorViewModel;
         private DragIntentResult _lastDragIntent = DragIntentResult.Unsupported;
         private CancellationTokenSource? _dragIntentCts;
         private CancellationTokenSource? _dragLeaveCts;
@@ -47,6 +60,8 @@ namespace FolderStyleEditorForWindows
         private readonly DispatcherTimer _dragOverlayWatchdogTimer;
         private DateTime _lastDragHeartbeatUtc;
         private Popup? _languagePopup;
+        private CancellationTokenSource? _languagePopupAnimationCts;
+        private bool _languagePopupDesiredOpen;
         private DateTime _lastQualifiedTapReleaseUtc = DateTime.MinValue;
         private bool _pendingWindowTapCandidate;
         private bool _dragStartedForCurrentPress;
@@ -56,22 +71,48 @@ namespace FolderStyleEditorForWindows
         private Avalonia.Svg.Skia.Svg? _pinButtonIcon;
         private Button? _pinButton;
         private Button? _languageButton;
+        private StackPanel? _actionButtonsPanel;
         private Popup? _pinToolTipPopup;
         private Popup? _langToolTipPopup;
         private TextBlock? _pinToolTipTextBlock;
         private TextBlock? _langToolTipTextBlock;
         private Border? _pinIconGlow;
-        private readonly DispatcherTimer _pinGlowTimer;
+        private ScaleTransform? _pinGlowScaleTransform;
+        private PerformanceMonitor? _performanceMonitor;
         private double _pinGlowPhase;
         private double _lastEditScrollOffsetY;
-        
-        private readonly FrameLimiter _limiter = new(60);
-        private readonly Stopwatch _stopwatch = Stopwatch.StartNew();
-        private bool _isAnimating = true;
+        private IAmbientAnimationHandle? _backgroundAmbientHandle;
+        private IAmbientAnimationHandle? _pinGlowAmbientHandle;
+        private LinearGradientBrush? _backgroundFlowBrush;
+        private GradientStop? _backgroundFlowStartStop;
+        private GradientStop? _backgroundFlowEndStop;
+        private double _backgroundFlowPhase;
+        private bool _isLowCostTransparencyActive;
+        private bool _isWindowRuntimeSuspended;
+        private bool _debugPinnedVisualState;
+        private bool _isRenderLoopActive;
+        private bool _isRenderFramePending;
+        private readonly Dictionary<Control, DebugExcludedComponentState> _debugExcludedComponents = new();
+        private readonly Dictionary<Control, DebugExcludedComponentState> _debugExcludedPlaceholders = new();
+        private readonly DispatcherTimer _renderWakeTimer;
+        private readonly DispatcherTimer _idleMemoryTrimTimer;
         private bool _closingAnimating;
         private const double DragStartThresholdPx = 7.0;
         private const double TapMaxMoveThresholdPx = 10.0;
         private const int TapMaxDurationMs = 220;
+        private const int ViewTransitionDurationMs = 380;
+        private const int WindowTransitionDurationMs = 240;
+        private const int PopupTransitionDurationMs = 320;
+        private static readonly IBrush ActiveWindowBackground = Brushes.Transparent;
+        private static readonly IBrush LowCostWindowBackground = new ImmutableSolidColorBrush(Colors.White);
+
+        private sealed class DebugExcludedComponentState
+        {
+            public required Control OriginalControl { get; init; }
+            public required Border PlaceholderControl { get; init; }
+            public required Panel ParentPanel { get; init; }
+            public required int ChildIndex { get; init; }
+        }
  
         [SupportedOSPlatform("windows")]
         public MainWindow()
@@ -89,19 +130,34 @@ namespace FolderStyleEditorForWindows
             _sessionManager = new EditSessionManager(_viewModel);
             _dragIntentAnalyzerService = App.Services!.GetRequiredService<DragIntentAnalyzerService>();
             _interruptDialogService = App.Services!.GetRequiredService<InterruptDialogService>();
+            _displayInfoService = App.Services!.GetRequiredService<DisplayInfoService>();
+            _animationStateSource = App.Services!.GetRequiredService<AnimationStateSource>();
+            _frameRateGovernor = App.Services!.GetRequiredService<FrameRateGovernor>();
+            _ambientAnimationScheduler = App.Services!.GetRequiredService<AmbientAnimationScheduler>();
+            _renderScheduler = App.Services!.GetRequiredService<RenderScheduler>();
+            _layerInvalidationController = App.Services!.GetRequiredService<LayerInvalidationController>();
+            _frameRateSettings = App.Services!.GetRequiredService<FrameRateSettings>();
+            _performanceTelemetryService = App.Services!.GetRequiredService<PerformanceTelemetryService>();
+            _componentFpsBadgeSource = App.Services!.GetRequiredService<ComponentFpsBadgeSource>();
+            _performanceMonitorViewModel = App.Services!.GetRequiredService<PerformanceMonitorViewModel>();
+            _frameRateSettings.PropertyChanged += FrameRateSettings_PropertyChanged;
+            _animationStateSource.StateChanged += AnimationStateSource_StateChanged;
+            DebugRuntimeAnalysis.PauseAnimationsChanged += DebugRuntimeAnalysis_PauseAnimationsChanged;
             _viewModel.NavigateToEditView = (folderPath, iconSourcePath) => GoToEditView(folderPath, iconSourcePath);
             this.DataContext = _viewModel;
 
-            _pinGlowTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(33)
-            };
-            _pinGlowTimer.Tick += PinGlowTimer_Tick;
             _dragOverlayWatchdogTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(120)
             };
             _dragOverlayWatchdogTimer.Tick += DragOverlayWatchdogTimer_Tick;
+            _renderWakeTimer = new DispatcherTimer();
+            _renderWakeTimer.Tick += RenderWakeTimer_Tick;
+            _idleMemoryTrimTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(18)
+            };
+            _idleMemoryTrimTimer.Tick += IdleMemoryTrimTimer_Tick;
             
             _homeView = this.FindControl<HomeView>("HomeView");
             _editView = this.FindControl<EditView>("EditView");
@@ -109,6 +165,7 @@ namespace FolderStyleEditorForWindows
             _pinButtonIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("PinButtonIcon");
             _pinButton = this.FindControl<Button>("PinButton");
             _languageButton = this.FindControl<Button>("LanguageButton");
+            _actionButtonsPanel = this.FindControl<StackPanel>("ActionButtonsPanel");
             if (_pinButton != null)
             {
                 _pinButton.TemplateApplied += PinButton_TemplateApplied;
@@ -133,6 +190,12 @@ namespace FolderStyleEditorForWindows
             _baseLayer = this.FindControl<Border>("BaseLayer");
             _flowLayer = this.FindControl<Border>("FlowLayer");
             _cardsLayer = this.FindControl<Grid>("CardsLayer");
+            EnsureBackgroundFlowBrush();
+            _layerInvalidationController.Bind(RenderLayer.Background, () => _baseLayer?.InvalidateVisual());
+            _layerInvalidationController.Bind(RenderLayer.Ambient, () => _flowLayer?.InvalidateVisual());
+            _layerInvalidationController.Bind(RenderLayer.Content, () => _cardsLayer?.InvalidateVisual());
+            _layerInvalidationController.Bind(RenderLayer.Overlay, () => this.InvalidateVisual());
+            _layerInvalidationController.Bind(RenderLayer.Static, () => _baseLayer?.InvalidateVisual());
 
             var dragDropIndicator = this.FindControl<Rectangle>("DragDropIndicator");
             if (dragDropIndicator != null)
@@ -145,21 +208,78 @@ namespace FolderStyleEditorForWindows
                 };
             }
 
+            var performanceMonitorControl = this.FindControl<Control>("PerformanceMonitorControl");
+            var performanceMonitorPopup = this.FindControl<Popup>("PerformanceMonitorPopup");
+            if (performanceMonitorPopup != null)
+            {
+                performanceMonitorPopup.DataContext = _performanceMonitorViewModel;
+            }
+
+            if (performanceMonitorControl != null)
+            {
+                performanceMonitorControl.DataContext = _performanceMonitorViewModel;
+                if (performanceMonitorControl is PerformanceMonitor performanceMonitor)
+                {
+                    _performanceMonitor = performanceMonitor;
+                    performanceMonitor.SetDragHost(this);
+                }
+            }
+
+            var performanceBadgeLayer = this.FindControl<Control>("PerformanceBadgeLayer");
+            if (performanceBadgeLayer != null)
+            {
+                performanceBadgeLayer.DataContext = _componentFpsBadgeSource;
+            }
+
             // MainWindow now handles all drag-drop logic globally.
             this.AddHandler(DragDrop.DragEnterEvent, DragAndDropTarget_DragEnter, RoutingStrategies.Bubble, handledEventsToo: true);
             this.AddHandler(DragDrop.DragOverEvent, DragAndDropTarget_DragOver, RoutingStrategies.Bubble, handledEventsToo: true);
             this.AddHandler(DragDrop.DragLeaveEvent, DragAndDropTarget_DragLeave, RoutingStrategies.Bubble, handledEventsToo: true);
             this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop, RoutingStrategies.Bubble, handledEventsToo: true);
-            
-            this.Loaded += (s, e) => StartFlowLoop();
+            this.AddHandler(InputElement.PointerWheelChangedEvent, MainWindow_PointerWheelChanged, RoutingStrategies.Tunnel, handledEventsToo: true);
+            this.AddHandler(InputElement.PointerPressedEvent, MainWindow_TunnelPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+            if (_viewModel.Toasts is INotifyCollectionChanged notifyCollection)
+            {
+                notifyCollection.CollectionChanged += Toasts_CollectionChanged;
+                _animationStateSource.SetToastAnimating(_viewModel.Toasts.Count > 0);
+                _componentFpsBadgeSource.SetToastVisible(_viewModel.Toasts.Count > 0);
+            }
+
+            _backgroundAmbientHandle = _ambientAnimationScheduler.Register(
+                "main-background-flow",
+                () => _frameRateSettings.BackgroundAmbientFps,
+                TickBackgroundAmbientFlow);
+            _pinGlowAmbientHandle = _ambientAnimationScheduler.Register(
+                "window-pin-glow",
+                () => _frameRateSettings.HomeTitleAmbientFps,
+                TickPinGlowAmbient);
+            _pinGlowAmbientHandle.SetEnabled(false);
+
+            this.Loaded += (_, _) =>
+            {
+                _displayInfoService.Refresh();
+                StartRenderLoop();
+                _idleMemoryTrimTimer.Start();
+                _animationStateSource.MarkStaticDirty();
+            };
             Activated += MainWindow_Activated;
             Deactivated += MainWindow_Deactivated;
+            PropertyChanged += MainWindow_PropertyChanged;
             
+            ApplyDebugExclusions();
             UpdatePinButtonIcon();
         }
 
+        private bool IsPinnedVisualActive => _frameRateSettings.ExcludeActualTopmost ? _debugPinnedVisualState : this.Topmost;
+
         private void MainWindow_Deactivated(object? sender, EventArgs e)
         {
+            SetWindowRuntimeSuspended(WindowState == WindowState.Minimized);
+            _performanceMonitorViewModel.SetHostActive(false);
+            _performanceMonitor?.DismissContextMenu();
+            _animationStateSource.SetDragging(false);
+            _animationStateSource.SetTransitionAnimating(false);
             if (_viewModel.IsDragOver || _interruptDialogService.State.IsPassiveOverlayVisible)
             {
                 ResetDragOverlayState();
@@ -169,10 +289,20 @@ namespace FolderStyleEditorForWindows
             {
                 _lastEditScrollOffsetY = _editView.GetEditScrollOffsetY();
             }
+
+            _animationStateSource.MarkStaticDirty();
         }
 
         private void MainWindow_Activated(object? sender, EventArgs e)
         {
+            SetWindowRuntimeSuspended(WindowState == WindowState.Minimized);
+            _performanceMonitorViewModel.SetHostActive(true);
+            _displayInfoService.Refresh();
+            if (_languagePopupDesiredOpen && _languagePopup is { IsOpen: true })
+            {
+                _ = SetLanguagePopupOpenAsync(false);
+            }
+            _animationStateSource.MarkStaticDirty();
             if (_editView == null || !_editView.IsVisible)
             {
                 return;
@@ -189,20 +319,78 @@ namespace FolderStyleEditorForWindows
             }, DispatcherPriority.Input);
         }
 
+        private void MainWindow_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == BoundsProperty || e.Property == WindowStateProperty)
+            {
+                _animationStateSource.MarkStaticDirty();
+            }
+        }
+
+        private void FrameRateSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(FrameRateSettings.ExcludePinGlow):
+                case nameof(FrameRateSettings.EnableComponentExcludeMode):
+                case nameof(FrameRateSettings.ExcludeBottomActionButtons):
+                case nameof(FrameRateSettings.ExcludeActualTopmost):
+                    ApplyDebugExclusions();
+                    break;
+            }
+        }
+
+        private void ApplyDebugExclusions()
+        {
+            if (_actionButtonsPanel != null)
+            {
+                _actionButtonsPanel.IsVisible = !_frameRateSettings.ExcludeBottomActionButtons;
+            }
+
+            if (_frameRateSettings.ExcludeActualTopmost)
+            {
+                _debugPinnedVisualState = _debugPinnedVisualState || this.Topmost;
+                if (this.Topmost)
+                {
+                    this.Topmost = false;
+                }
+            }
+            else
+            {
+                _debugPinnedVisualState = false;
+            }
+
+            if (!_frameRateSettings.EnableComponentExcludeMode)
+            {
+                RestoreAllDebugExcludedComponents();
+            }
+
+            UpdatePinButtonIcon();
+            _animationStateSource.MarkStaticDirty();
+        }
+
+        private void MainWindow_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            _animationStateSource.MarkScrollActivity();
+        }
+
+        private void Toasts_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            _animationStateSource.SetToastAnimating(_viewModel.Toasts.Count > 0);
+            _componentFpsBadgeSource.SetToastVisible(_viewModel.Toasts.Count > 0);
+            _animationStateSource.MarkStaticDirty();
+        }
+
         private void PinButton_TemplateApplied(object? sender, TemplateAppliedEventArgs e)
         {
             _pinIconGlow = e.NameScope.Find<Border>("PinIconGlow");
-            if (_pinIconGlow != null && _pinIconGlow.RenderTransform is not ScaleTransform)
-            {
-                _pinIconGlow.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
-                _pinIconGlow.RenderTransform = new ScaleTransform(1, 1);
-            }
-
+            _pinGlowScaleTransform = _pinIconGlow?.RenderTransform as ScaleTransform;
             UpdatePinGlowVisual();
         }
 
         private async void PinButton_PointerEntered(object? sender, PointerEventArgs e)
         {
+            _animationStateSource.MarkHoverActivity();
             if (_pinToolTipPopup != null)
             {
                 _pinToolTipPopup.PlacementTarget = _pinButton;
@@ -214,6 +402,7 @@ namespace FolderStyleEditorForWindows
 
         private async void PinButton_PointerExited(object? sender, PointerEventArgs e)
         {
+            _animationStateSource.MarkHoverActivity();
             if (_pinToolTipPopup != null)
             {
                 _pinToolTipPopup.Opacity = 0;
@@ -224,6 +413,7 @@ namespace FolderStyleEditorForWindows
 
         private async void LanguageButton_PointerEntered(object? sender, PointerEventArgs e)
         {
+            _animationStateSource.MarkHoverActivity();
             if (_langToolTipPopup != null)
             {
                 _langToolTipPopup.PlacementTarget = _languageButton;
@@ -235,6 +425,7 @@ namespace FolderStyleEditorForWindows
 
         private async void LanguageButton_PointerExited(object? sender, PointerEventArgs e)
         {
+            _animationStateSource.MarkHoverActivity();
             if (_langToolTipPopup != null)
             {
                 _langToolTipPopup.Opacity = 0;
@@ -246,13 +437,26 @@ namespace FolderStyleEditorForWindows
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
+            if (e.Handled)
+            {
+                return;
+            }
 
             var source = e.Source as Control;
+            if (_languagePopup is { IsOpen: true } &&
+                source?.FindAncestorOfType<Button>() != _languageButton)
+            {
+                _ = SetLanguagePopupOpenAsync(false);
+            }
+
+            var clickedInsidePerformanceMonitor = source?.FindAncestorOfType<PerformanceMonitor>() != null;
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !clickedInsidePerformanceMonitor)
+            {
+                _performanceMonitor?.DismissContextMenu();
+            }
 
             // Check if the click is on an interactive control that should retain focus.
-            var isInteractiveControl = source?.FindAncestorOfType<TextBox>() != null ||
-                                       source?.FindAncestorOfType<Button>() != null ||
-                                       source?.FindAncestorOfType<Popup>() != null;
+            var isInteractiveControl = IsWindowTapInteractiveSource(source);
 
             if (!isInteractiveControl)
             {
@@ -282,6 +486,7 @@ namespace FolderStyleEditorForWindows
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);
+            _animationStateSource.MarkHoverActivity();
 
             if (!_pendingWindowTapCandidate || _dragStartedForCurrentPress)
             {
@@ -325,9 +530,7 @@ namespace FolderStyleEditorForWindows
             }
 
             var source = e.Source as Control;
-            var isInteractiveControl = source?.FindAncestorOfType<TextBox>() != null ||
-                                       source?.FindAncestorOfType<Button>() != null ||
-                                       source?.FindAncestorOfType<Popup>() != null;
+            var isInteractiveControl = IsWindowTapInteractiveSource(source);
             if (isInteractiveControl)
             {
                 _pendingWindowTapCandidate = false;
@@ -390,6 +593,7 @@ namespace FolderStyleEditorForWindows
                 // 澶勭悊浠庝换鍔℃爮鐐瑰嚮鎭㈠ (Normal/Maximized)
                 if ((newState == WindowState.Normal || newState == WindowState.Maximized) && Opacity < 1.0)
                 {
+                    SetWindowRuntimeSuspended(false);
                     _ = Dispatcher.UIThread.InvokeAsync(async () =>
                     {
                         await Task.Delay(50); // 绛夊緟绯荤粺鍔ㄧ敾
@@ -399,16 +603,23 @@ namespace FolderStyleEditorForWindows
                 // 澶勭悊閫氳繃浠诲姟鏍忕偣鍑绘渶灏忓寲
                 else if (newState == WindowState.Minimized && Opacity > 0)
                 {
+                    SetWindowRuntimeSuspended(true);
                     // 最小化时不再播放淡出动画，否则会从当前状态直接切到最小化
                     // 恢复时若没有合适的初始值，窗口会从 0 透明度突兀出现
                     // 这里直接将透明度归零，避免淡出动画干扰窗口状态切换
                     Opacity = 0;
+                    _animationStateSource.MarkStaticDirty();
                 }
             }
         }
 
         protected override void OnClosing(WindowClosingEventArgs e)
         {
+            _isRenderLoopActive = false;
+            _idleMemoryTrimTimer.Stop();
+            DebugRuntimeAnalysis.PauseAnimationsChanged -= DebugRuntimeAnalysis_PauseAnimationsChanged;
+            _backgroundAmbientHandle?.SetEnabled(false);
+            _pinGlowAmbientHandle?.SetEnabled(false);
             // 已经处于关闭流程中时，避免重复触发关闭逻辑
             if (_closingAnimating)
             {
@@ -484,6 +695,7 @@ namespace FolderStyleEditorForWindows
         {
             try
             {
+                _animationStateSource.SetDragging(true);
                 _dragLeaveCts?.Cancel();
                 TouchDragHeartbeat();
                 _viewModel.IsDragOver = true;
@@ -508,6 +720,7 @@ namespace FolderStyleEditorForWindows
         {
             try
             {
+                _animationStateSource.SetDragging(true);
                 _dragLeaveCts?.Cancel();
                 TouchDragHeartbeat();
                 _viewModel.IsDragOver = true;
@@ -562,6 +775,7 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
+            _animationStateSource.SetDragging(false);
             ResetDragOverlayState();
             e.Handled = true;
         }
@@ -577,6 +791,7 @@ namespace FolderStyleEditorForWindows
             try
             {
                 _isDropHandling = true;
+                _animationStateSource.SetDragging(false);
                 _dragLeaveCts?.Cancel();
                 _dragIntentCts?.Cancel();
 
@@ -624,6 +839,7 @@ namespace FolderStyleEditorForWindows
             catch (Exception ex)
             {
                 Debug.WriteLine($"Drop failed: {ex}");
+                _animationStateSource.SetDragging(false);
                 ResetDragOverlayState();
                 e.DragEffects = DragDropEffects.None;
                 e.Handled = true;
@@ -705,17 +921,21 @@ namespace FolderStyleEditorForWindows
                 HitTestVisible = false
             });
 
+            _componentFpsBadgeSource.SetDragOverlayVisible(true);
             _lastOverlaySignature = signature;
         }
 
         private void ResetDragOverlayState()
         {
             _viewModel.IsDragOver = false;
+            _animationStateSource.SetDragging(false);
+            _animationStateSource.MarkStaticDirty();
             _lastDragIntent = DragIntentResult.Unsupported;
             _lastOverlaySignature = null;
             Interlocked.Increment(ref _dragIntentVersion);
             _dragIntentCts?.Cancel();
             _dragOverlayWatchdogTimer.Stop();
+            _componentFpsBadgeSource.SetDragOverlayVisible(false);
             _interruptDialogService.HidePassiveOverlay();
         }
 
@@ -774,14 +994,15 @@ namespace FolderStyleEditorForWindows
                 _editView = new EditView();
                 _cardsLayer?.Children.Add(_editView);
             }
-            
-            _isAnimating = false;
+
+            _editView.SetAmbientSuspended(_isWindowRuntimeSuspended || DebugRuntimeAnalysis.PauseAnimations);
             
             _homeView.ZIndex = 0;
             _editView.ZIndex = 1;
 
             _homeView.IsVisible = false;
             _ = AnimateIn(_editView);
+            _animationStateSource.MarkStaticDirty();
            
             var languageButton = this.FindControl<Button>("LanguageButton");
             if (languageButton != null) languageButton.IsVisible = false;
@@ -791,8 +1012,6 @@ namespace FolderStyleEditorForWindows
         {
             if (_homeView == null || _editView == null) return;
 
-            _isAnimating = true;
-            
             _editView.ZIndex = 0;
             _homeView.ZIndex = 1;
 
@@ -808,6 +1027,7 @@ namespace FolderStyleEditorForWindows
             // ---
 
             _ = AnimateIn(_homeView);
+            _animationStateSource.MarkStaticDirty();
            
             var languageButton = this.FindControl<Button>("LanguageButton");
             if (languageButton != null) languageButton.IsVisible = true;
@@ -815,6 +1035,7 @@ namespace FolderStyleEditorForWindows
 
         private async Task AnimateIn(Control view)
         {
+            _animationStateSource.MarkTransitionActivity(ViewTransitionDurationMs);
             view.IsVisible = true;
             view.RenderTransform = new Avalonia.Media.TranslateTransform();
             var animation = new Animation
@@ -844,10 +1065,12 @@ namespace FolderStyleEditorForWindows
                 }
             };
             await animation.RunAsync(view, System.Threading.CancellationToken.None);
+            _animationStateSource.MarkStaticDirty();
         }
 
         public async Task AnimateFadeIn()
         {
+            _animationStateSource.MarkTransitionActivity(WindowTransitionDurationMs);
             // Ensure RenderTransform exists for scaling
             if (this.RenderTransform is not ScaleTransform)
             {
@@ -886,10 +1109,12 @@ namespace FolderStyleEditorForWindows
             };
 
             await animation.RunAsync(this);
+            _animationStateSource.MarkStaticDirty();
         }
 
         public async Task AnimateFadeOut()
         {
+            _animationStateSource.MarkTransitionActivity(WindowTransitionDurationMs);
             // Ensure RenderTransform exists for scaling
             if (this.RenderTransform is not ScaleTransform)
             {
@@ -928,10 +1153,12 @@ namespace FolderStyleEditorForWindows
             };
 
             await animation.RunAsync(this);
+            _animationStateSource.MarkStaticDirty();
         }
 
         private async Task AnimateOut(Control view)
         {
+            _animationStateSource.MarkTransitionActivity(ViewTransitionDurationMs);
             view.RenderTransform = new Avalonia.Media.TranslateTransform();
             var animation = new Animation
             {
@@ -961,61 +1188,87 @@ namespace FolderStyleEditorForWindows
             };
             await animation.RunAsync(view, System.Threading.CancellationToken.None);
             view.IsVisible = false;
+            _animationStateSource.MarkStaticDirty();
         }
         
         private async void LanguageButton_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
             if (_languagePopup == null) return;
-
-            if (_languagePopup.IsOpen)
+            e.Handled = true;
+            var nextOpen = !_languagePopupDesiredOpen;
+            if (!_languagePopup.IsOpen && _languagePopupAnimationCts == null)
             {
-                if (_languagePopup.Child is { } closingContent)
-                {
-                    closingContent.RenderTransform = new Avalonia.Media.TranslateTransform();
-                    var closeAnimation = new Animation
-                    {
-                        Duration = TimeSpan.FromMilliseconds(180),
-                        Easing = new CubicEaseOut(),
-                        FillMode = FillMode.Forward,
-                        Children =
-                        {
-                            new KeyFrame
-                            {
-                                Cue = new Cue(0),
-                                Setters =
-                                {
-                                    new Setter(OpacityProperty, 1.0),
-                                    new Setter(Avalonia.Media.TranslateTransform.YProperty, 0.0)
-                                }
-                            },
-                            new KeyFrame
-                            {
-                                Cue = new Cue(1),
-                                Setters =
-                                {
-                                    new Setter(OpacityProperty, 0.0),
-                                    new Setter(Avalonia.Media.TranslateTransform.YProperty, -8.0)
-                                }
-                            }
-                        }
-                    };
-                    await closeAnimation.RunAsync(closingContent, System.Threading.CancellationToken.None);
-                }
+                nextOpen = true;
+            }
 
-                _languagePopup.IsOpen = false;
+            await SetLanguagePopupOpenAsync(nextOpen);
+        }
+
+        private async Task SetLanguagePopupOpenAsync(bool shouldOpen)
+        {
+            if (_languagePopup == null)
+            {
                 return;
             }
 
+            _languagePopupDesiredOpen = shouldOpen;
+            _languagePopupAnimationCts?.Cancel();
+            _languagePopupAnimationCts?.Dispose();
+            var cts = new CancellationTokenSource();
+            _languagePopupAnimationCts = cts;
+            var token = cts.Token;
+
+            try
+            {
+                if (shouldOpen)
+                {
+                    await ShowLanguagePopupCoreAsync(token);
+                }
+                else
+                {
+                    await HideLanguagePopupCoreAsync(token);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(_languagePopupAnimationCts, cts))
+                {
+                    _languagePopupAnimationCts = null;
+                }
+
+                cts.Dispose();
+            }
+        }
+
+        private async Task ShowLanguagePopupCoreAsync(CancellationToken token)
+        {
+            if (_languagePopup == null)
+            {
+                return;
+            }
+
+            _languagePopup.IsLightDismissEnabled = false;
+            _animationStateSource.MarkTransitionActivity(PopupTransitionDurationMs);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            token.ThrowIfCancellationRequested();
+
             _languagePopup.IsOpen = true;
+            token.ThrowIfCancellationRequested();
 
             if (_languagePopup.Child is { } popupContent)
             {
-                popupContent.RenderTransform = new Avalonia.Media.TranslateTransform();
+                var translate = popupContent.RenderTransform as Avalonia.Media.TranslateTransform ?? new Avalonia.Media.TranslateTransform();
+                popupContent.RenderTransform = translate;
                 popupContent.Opacity = 0;
+                translate.Y = 10;
                 var animation = new Animation
                 {
                     Duration = TimeSpan.FromMilliseconds(300),
                     Easing = new CubicEaseOut(),
+                    FillMode = FillMode.Forward,
                     Children =
                     {
                         new KeyFrame
@@ -1038,8 +1291,81 @@ namespace FolderStyleEditorForWindows
                         }
                     }
                 };
-                await animation.RunAsync(popupContent, System.Threading.CancellationToken.None);
+                await animation.RunAsync(popupContent, token);
+                popupContent.Opacity = 1;
+                translate.Y = 0;
             }
+
+            token.ThrowIfCancellationRequested();
+            if (!IsActive)
+            {
+                _languagePopupDesiredOpen = false;
+                _languagePopup.IsOpen = false;
+                _languagePopup.IsLightDismissEnabled = true;
+                _animationStateSource.MarkStaticDirty();
+                return;
+            }
+
+            if (_languagePopupDesiredOpen)
+            {
+                _languagePopup.IsLightDismissEnabled = true;
+            }
+
+            _animationStateSource.MarkStaticDirty();
+        }
+
+        private async Task HideLanguagePopupCoreAsync(CancellationToken token)
+        {
+            if (_languagePopup == null)
+            {
+                return;
+            }
+
+            _languagePopup.IsLightDismissEnabled = false;
+            _animationStateSource.MarkTransitionActivity(PopupTransitionDurationMs);
+            if (_languagePopup.IsOpen && _languagePopup.Child is { } closingContent)
+            {
+                var translate = closingContent.RenderTransform as Avalonia.Media.TranslateTransform ?? new Avalonia.Media.TranslateTransform();
+                closingContent.RenderTransform = translate;
+                closingContent.Opacity = 1;
+                translate.Y = 0;
+                var closeAnimation = new Animation
+                {
+                    Duration = TimeSpan.FromMilliseconds(180),
+                    Easing = new CubicEaseOut(),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame
+                        {
+                            Cue = new Cue(0),
+                            Setters =
+                            {
+                                new Setter(OpacityProperty, 1.0),
+                                new Setter(Avalonia.Media.TranslateTransform.YProperty, 0.0)
+                            }
+                        },
+                        new KeyFrame
+                        {
+                            Cue = new Cue(1),
+                            Setters =
+                            {
+                                new Setter(OpacityProperty, 0.0),
+                                new Setter(Avalonia.Media.TranslateTransform.YProperty, -8.0)
+                            }
+                        }
+                    }
+                };
+                await closeAnimation.RunAsync(closingContent, token);
+            }
+
+            token.ThrowIfCancellationRequested();
+            if (!_languagePopupDesiredOpen)
+            {
+                _languagePopup.IsOpen = false;
+            }
+
+            _animationStateSource.MarkStaticDirty();
         }
         
         private void PinButton_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -1096,49 +1422,256 @@ namespace FolderStyleEditorForWindows
             }
         }
         
-        void StartFlowLoop()
+        private void StartRenderLoop()
         {
-            TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnFrame);
+            if (_isRenderLoopActive)
+            {
+                return;
+            }
+
+            _isRenderLoopActive = true;
+            RequestRenderFrame();
         }
 
-        void OnFrame(TimeSpan time)
+        private void RequestRenderFrame()
         {
-            if (_isAnimating && _limiter.Tick() && _flowLayer != null)
+            if (!_isRenderLoopActive || _isRenderFramePending)
             {
-                // This is a simplified C# version of the original XAML animation.
-                // It cycles through colors and gradient points over 16 seconds.
-                var totalSeconds = _stopwatch.Elapsed.TotalSeconds;
-                var progress = (totalSeconds % 16) / 16.0; // Loop every 16 seconds
-
-                // Alternate direction
-                if (progress > 0.5)
-                {
-                    progress = 1.0 - progress;
-                }
-                progress *= 2.0;
-
-                var startColor1 = Color.FromArgb(0x24, 0xFF, 0x74, 0x74);
-                var endColor1 = Color.FromArgb(0x1F, 0x74, 0xA1, 0xFF);
-                
-                var startColor2 = Color.FromArgb(0x2E, 0x74, 0xFF, 0xC7);
-                var endColor2 = Color.FromArgb(0x2E, 0xFF, 0xCB, 0x74);
-
-                var newBrush = new LinearGradientBrush
-                {
-                    StartPoint = new RelativePoint(progress, 0, RelativeUnit.Relative),
-                    EndPoint = new RelativePoint(1 - progress, 1, RelativeUnit.Relative),
-                    GradientStops = new GradientStops
-                    {
-                        new GradientStop(LerpColor(startColor1, startColor2, progress), 0),
-                        new GradientStop(LerpColor(endColor1, endColor2, progress), 1)
-                    }
-                };
-
-                _flowLayer.Background = newBrush;
+                return;
             }
-    
-            // Request the next frame
-            TopLevel.GetTopLevel(this)?.RequestAnimationFrame(OnFrame);
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null)
+            {
+                return;
+            }
+
+            _isRenderFramePending = true;
+            topLevel.RequestAnimationFrame(OnRenderFrame);
+        }
+
+        private void AnimationStateSource_StateChanged(object? sender, EventArgs e)
+        {
+            _renderWakeTimer.Stop();
+            RequestRenderFrame();
+        }
+
+        private void RenderWakeTimer_Tick(object? sender, EventArgs e)
+        {
+            _renderWakeTimer.Stop();
+            RequestRenderFrame();
+        }
+
+        private void IdleMemoryTrimTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_isWindowRuntimeSuspended ||
+                WindowState == WindowState.Minimized ||
+                _frameRateSettings.CurrentForegroundTargetFps > 0 ||
+                _viewModel.IsLoadingIcons ||
+                _viewModel.IsLoadingIconsIndicatorVisible)
+            {
+                return;
+            }
+
+            _viewModel.RequestIdleMemoryTrim();
+        }
+
+        private void OnRenderFrame(TimeSpan time)
+        {
+            _isRenderFramePending = false;
+            if (!_isRenderLoopActive)
+            {
+                return;
+            }
+
+            var snapshot = _animationStateSource.Snapshot();
+            _frameRateGovernor.Update(snapshot, _displayInfoService.CurrentRefreshRateHz);
+            UpdateTransparencyModeForCurrentFrame();
+            var decision = _renderScheduler.Evaluate(
+                _frameRateGovernor.ForegroundTargetFps,
+                snapshot.HasStaticDirtyRegion,
+                _frameRateSettings.StaticContentRefreshFps);
+
+            if (decision.ShouldRenderForeground)
+            {
+                _performanceTelemetryService.RecordForegroundFrame();
+                _layerInvalidationController.Invalidate(RenderLayer.Content);
+                _layerInvalidationController.Invalidate(RenderLayer.Overlay);
+            }
+
+            if (decision.ShouldRenderStatic)
+            {
+                _performanceTelemetryService.RecordStaticFrame();
+                _layerInvalidationController.Invalidate(RenderLayer.Static);
+                _animationStateSource.ClearStaticDirty();
+            }
+
+            if (_frameRateGovernor.ForegroundTargetFps > 0)
+            {
+                RequestRenderFrame();
+                return;
+            }
+
+            if (snapshot.HasStaticDirtyRegion && decision.NextWakeDelay is { } wakeDelay)
+            {
+                ScheduleRenderWake(wakeDelay);
+            }
+        }
+
+        private void ScheduleRenderWake(TimeSpan delay)
+        {
+            var clampedDelay = delay <= TimeSpan.Zero ? TimeSpan.FromMilliseconds(8) : delay;
+            if (_renderWakeTimer.IsEnabled && _renderWakeTimer.Interval <= clampedDelay)
+            {
+                return;
+            }
+
+            _renderWakeTimer.Stop();
+            _renderWakeTimer.Interval = clampedDelay;
+            _renderWakeTimer.Start();
+        }
+
+        private void UpdateTransparencyModeForCurrentFrame()
+        {
+            var shouldUseLowCostTransparency = _frameRateGovernor.ForegroundTargetFps <= 0 || _isWindowRuntimeSuspended;
+            if (_isLowCostTransparencyActive == shouldUseLowCostTransparency)
+            {
+                return;
+            }
+
+            _isLowCostTransparencyActive = shouldUseLowCostTransparency;
+            Background = shouldUseLowCostTransparency ? LowCostWindowBackground : ActiveWindowBackground;
+            this.TransparencyLevelHint = shouldUseLowCostTransparency
+                ? new[] { WindowTransparencyLevel.None }
+                : new[] { WindowTransparencyLevel.AcrylicBlur };
+        }
+
+        private void SetWindowRuntimeSuspended(bool suspended)
+        {
+            if (_isWindowRuntimeSuspended == suspended)
+            {
+                return;
+            }
+
+            _isWindowRuntimeSuspended = suspended;
+            _performanceTelemetryService.SetSuspended(suspended);
+            _performanceMonitorViewModel.SetHostSuspended(suspended);
+            var ambientSuspended = suspended || DebugRuntimeAnalysis.PauseAnimations;
+            _backgroundAmbientHandle?.SetEnabled(!ambientSuspended);
+            _pinGlowAmbientHandle?.SetEnabled(!ambientSuspended && IsPinnedVisualActive && !_frameRateSettings.ExcludePinGlow);
+            _homeView?.SetAmbientSuspended(ambientSuspended);
+            _editView?.SetAmbientSuspended(ambientSuspended);
+
+            if (suspended)
+            {
+                _renderWakeTimer.Stop();
+                _idleMemoryTrimTimer.Stop();
+                _isRenderLoopActive = false;
+                _isRenderFramePending = false;
+                _viewModel.RequestIdleMemoryTrim();
+                Background = LowCostWindowBackground;
+                TransparencyLevelHint = new[] { WindowTransparencyLevel.None };
+                return;
+            }
+
+            _idleMemoryTrimTimer.Start();
+            StartRenderLoop();
+            _animationStateSource.MarkStaticDirty();
+            RequestRenderFrame();
+        }
+
+        private void DebugRuntimeAnalysis_PauseAnimationsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                var ambientSuspended = _isWindowRuntimeSuspended || DebugRuntimeAnalysis.PauseAnimations;
+                _backgroundAmbientHandle?.SetEnabled(!ambientSuspended);
+                _pinGlowAmbientHandle?.SetEnabled(!ambientSuspended && IsPinnedVisualActive && !_frameRateSettings.ExcludePinGlow);
+                _homeView?.SetAmbientSuspended(ambientSuspended);
+                _editView?.SetAmbientSuspended(ambientSuspended);
+                _animationStateSource.MarkStaticDirty();
+                RequestRenderFrame();
+            }, DispatcherPriority.Background);
+        }
+
+        private void TickBackgroundAmbientFlow(double nowSeconds)
+        {
+            if (_flowLayer == null || !IsVisible)
+            {
+                return;
+            }
+
+            if (!EnsureBackgroundFlowBrush())
+            {
+                return;
+            }
+
+            var progress = nowSeconds % 16.0 / 16.0;
+            if (progress > 0.5)
+            {
+                progress = 1.0 - progress;
+            }
+
+            progress *= 2.0;
+            _backgroundFlowPhase = progress;
+
+            var startColor1 = Color.FromArgb(0x24, 0xFF, 0x74, 0x74);
+            var endColor1 = Color.FromArgb(0x1F, 0x74, 0xA1, 0xFF);
+            var startColor2 = Color.FromArgb(0x2E, 0x74, 0xFF, 0xC7);
+            var endColor2 = Color.FromArgb(0x2E, 0xFF, 0xCB, 0x74);
+
+            _backgroundFlowBrush!.StartPoint = new RelativePoint(_backgroundFlowPhase, 0, RelativeUnit.Relative);
+            _backgroundFlowBrush.EndPoint = new RelativePoint(1 - _backgroundFlowPhase, 1, RelativeUnit.Relative);
+            _backgroundFlowStartStop!.Color = LerpColor(startColor1, startColor2, _backgroundFlowPhase);
+            _backgroundFlowEndStop!.Color = LerpColor(endColor1, endColor2, _backgroundFlowPhase);
+            _layerInvalidationController.Invalidate(RenderLayer.Ambient);
+        }
+
+        private void TickPinGlowAmbient(double nowSeconds)
+        {
+            if (!IsPinnedVisualActive || _pinIconGlow == null || _isWindowRuntimeSuspended || !IsVisible || _frameRateSettings.ExcludePinGlow)
+            {
+                return;
+            }
+
+            _pinGlowPhase = nowSeconds * 2.05;
+            ApplyPinGlowFrame();
+        }
+
+        private bool EnsureBackgroundFlowBrush()
+        {
+            if (_flowLayer == null)
+            {
+                return false;
+            }
+
+            if (_backgroundFlowBrush != null && _backgroundFlowStartStop != null && _backgroundFlowEndStop != null)
+            {
+                return true;
+            }
+
+            if (_flowLayer.Background is LinearGradientBrush existingBrush && existingBrush.GradientStops.Count >= 2)
+            {
+                _backgroundFlowBrush = existingBrush;
+                _backgroundFlowStartStop = existingBrush.GradientStops[0];
+                _backgroundFlowEndStop = existingBrush.GradientStops[1];
+                return true;
+            }
+
+            _backgroundFlowStartStop = new GradientStop(Color.FromArgb(0x24, 0xFF, 0x74, 0x74), 0);
+            _backgroundFlowEndStop = new GradientStop(Color.FromArgb(0x1F, 0x74, 0xA1, 0xFF), 1);
+            _backgroundFlowBrush = new LinearGradientBrush
+            {
+                StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+                EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
+                GradientStops = new GradientStops
+                {
+                    _backgroundFlowStartStop,
+                    _backgroundFlowEndStop
+                }
+            };
+            _flowLayer.Background = _backgroundFlowBrush;
+            return true;
         }
 
         private Color LerpColor(Color from, Color to, double progress)
@@ -1156,12 +1689,13 @@ namespace FolderStyleEditorForWindows
             if (_pinButtonIcon == null) return;
     
             _pinButtonIcon.Path = ConfigManager.Config.PinIcon.PinnedIcon;
+            var isPinned = IsPinnedVisualActive;
 
             if (_pinButton != null)
             {
-                var pinnedBackground = this.Topmost ? "#7CDDDDDD" : "#50FFFFFF";
+                var pinnedBackground = isPinned ? "#7CDDDDDD" : "#50FFFFFF";
                 _pinButton.Background = new SolidColorBrush(Color.Parse(pinnedBackground));
-                _pinButton.Classes.Set("pinned", this.Topmost);
+                _pinButton.Classes.Set("pinned", isPinned);
             }
 
             if (_languageButton != null)
@@ -1169,17 +1703,25 @@ namespace FolderStyleEditorForWindows
                 _languageButton.Background = new SolidColorBrush(Color.Parse("#50FFFFFF"));
             }
 
-            _pinButtonIcon.Opacity = this.Topmost ? 0.82 : 0.4;
+            _pinButtonIcon.Opacity = isPinned ? 0.82 : 0.4;
             UpdatePinGlowVisual();
         }
 
         private void ToggleTopmost()
         {
-            this.Topmost = !this.Topmost;
+            if (_frameRateSettings.ExcludeActualTopmost)
+            {
+                _debugPinnedVisualState = !_debugPinnedVisualState;
+            }
+            else
+            {
+                this.Topmost = !this.Topmost;
+            }
+
             UpdatePinButtonIcon();
 
             var toastService = App.Services!.GetRequiredService<IToastService>();
-            var message = this.Topmost
+            var message = IsPinnedVisualActive
                 ? LocalizationManager.Instance["Toast_WindowPinned"]
                 : LocalizationManager.Instance["Toast_WindowUnpinned"];
             toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
@@ -1192,38 +1734,17 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
-            if (this.Topmost)
+            if (IsPinnedVisualActive && !_frameRateSettings.ExcludePinGlow)
             {
-                if (!_pinGlowTimer.IsEnabled)
-                {
-                    _pinGlowPhase = 0;
-                    _pinGlowTimer.Start();
-                }
-
+                _pinGlowAmbientHandle?.SetEnabled(!_isWindowRuntimeSuspended);
+                _pinGlowPhase = 0;
                 ApplyPinGlowFrame();
                 return;
             }
 
-            _pinGlowTimer.Stop();
+            _pinGlowAmbientHandle?.SetEnabled(false);
             _pinGlowPhase = 0;
             _pinIconGlow.Opacity = 0;
-            if (_pinIconGlow.RenderTransform is ScaleTransform scale)
-            {
-                scale.ScaleX = 1;
-                scale.ScaleY = 1;
-            }
-        }
-
-        private void PinGlowTimer_Tick(object? sender, EventArgs e)
-        {
-            if (!this.Topmost || _pinIconGlow == null)
-            {
-                UpdatePinGlowVisual();
-                return;
-            }
-
-            _pinGlowPhase += 0.08;
-            ApplyPinGlowFrame();
         }
 
         private void ApplyPinGlowFrame()
@@ -1234,28 +1755,263 @@ namespace FolderStyleEditorForWindows
             }
 
             var pulse = (Math.Sin(_pinGlowPhase) + 1) * 0.5;
-            _pinIconGlow.Opacity = 0.52 + pulse * 0.34;
-
-            if (_pinIconGlow.RenderTransform is ScaleTransform scale)
+            _pinIconGlow.Opacity = 0.2 + pulse * 0.24;
+            if (_pinGlowScaleTransform != null)
             {
-                var glowScale = 1.02 + pulse * 0.28;
-                scale.ScaleX = glowScale;
-                scale.ScaleY = glowScale;
+                var scale = 0.9 + pulse * 0.2;
+                _pinGlowScaleTransform.ScaleX = scale;
+                _pinGlowScaleTransform.ScaleY = scale;
             }
         }
-    }
-    
-    public sealed class FrameLimiter
-    {
-        private readonly double _targetMs;
-        private long _last;
-        public FrameLimiter(int fps = 60) => _targetMs = 1000.0 / fps;
-        public bool Tick()
+
+        private void MainWindow_TunnelPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            var now = Stopwatch.GetTimestamp();
-            var ms = (now - _last) * 1000.0 / Stopwatch.Frequency;
-            if (ms >= _targetMs) { _last = now; return true; }
-            return false;
+            if (TryHandleDebugComponentExcludeGesture(e))
+            {
+                _pendingWindowTapCandidate = false;
+                _dragStartedForCurrentPress = false;
+                _pressEventForMoveDrag = null;
+            }
+        }
+
+        private bool IsWindowTapInteractiveSource(Control? source)
+        {
+            if (source == null)
+            {
+                return false;
+            }
+
+            return source.FindAncestorOfType<TextBox>() != null ||
+                   source.FindAncestorOfType<ScrollViewer>() != null ||
+                   source.FindAncestorOfType<ToggleButton>() != null ||
+                   source.FindAncestorOfType<CheckBox>() != null ||
+                   source.FindAncestorOfType<Button>() != null ||
+                   source.FindAncestorOfType<Popup>() != null ||
+                   source.FindAncestorOfType<PerformanceMonitor>() != null ||
+                   FindDebugExcludedPlaceholder(source) != null;
+        }
+
+        private bool TryHandleDebugComponentExcludeGesture(PointerPressedEventArgs e)
+        {
+            if (!_frameRateSettings.EnableComponentExcludeMode ||
+                !e.KeyModifiers.HasFlag(KeyModifiers.Control) ||
+                !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return false;
+            }
+
+            if (e.Source is not Control source)
+            {
+                return false;
+            }
+
+            if (source.FindAncestorOfType<InterruptDialog>() != null ||
+                source.FindAncestorOfType<PerformanceMonitor>() != null ||
+                source.FindAncestorOfType<Popup>() != null)
+            {
+                return false;
+            }
+
+            if (FindDebugExcludedPlaceholder(source) is { } placeholder)
+            {
+                RestoreDebugExcludedComponent(placeholder);
+                e.Handled = true;
+                return true;
+            }
+
+            var target = FindExcludableControl(source);
+            if (target == null)
+            {
+                return false;
+            }
+
+            if (_debugExcludedComponents.ContainsKey(target))
+            {
+                RestoreDebugExcludedComponent(target);
+                e.Handled = true;
+                return true;
+            }
+
+            ExcludeDebugComponent(target);
+            e.Handled = true;
+            return true;
+        }
+
+        private Control? FindExcludableControl(Control source)
+        {
+            Control? current = source;
+            while (current != null)
+            {
+                if (current is HomeView ||
+                    current is EditView ||
+                    current is InterruptDialog ||
+                    current is PerformanceMonitor)
+                {
+                    current = current.GetVisualParent() as Control;
+                    continue;
+                }
+
+                if (current.Parent is Panel && current is not TextBlock)
+                {
+                    return current;
+                }
+
+                current = current.GetVisualParent() as Control;
+            }
+
+            return null;
+        }
+
+        private Border? FindDebugExcludedPlaceholder(Control source)
+        {
+            Control? current = source;
+            while (current != null)
+            {
+                if (current is Border border && border.Classes.Contains("DebugExcludedPlaceholder"))
+                {
+                    return border;
+                }
+
+                current = current.GetVisualParent() as Control;
+            }
+
+            return null;
+        }
+
+        private void ExcludeDebugComponent(Control target)
+        {
+            if (target.Parent is not Panel parentPanel)
+            {
+                return;
+            }
+
+            var childIndex = parentPanel.Children.IndexOf(target);
+            if (childIndex < 0)
+            {
+                return;
+            }
+
+            var placeholder = CreateDebugExcludedPlaceholder(target);
+            CopyLayoutProperties(target, placeholder);
+
+            var state = new DebugExcludedComponentState
+            {
+                OriginalControl = target,
+                PlaceholderControl = placeholder,
+                ParentPanel = parentPanel,
+                ChildIndex = childIndex
+            };
+
+            parentPanel.Children.RemoveAt(childIndex);
+            parentPanel.Children.Insert(childIndex, placeholder);
+            _debugExcludedComponents[target] = state;
+            _debugExcludedPlaceholders[placeholder] = state;
+            _animationStateSource.MarkStaticDirty();
+        }
+
+        private Border CreateDebugExcludedPlaceholder(Control target)
+        {
+            var placeholder = new Border
+            {
+                Classes = { "DebugExcludedPlaceholder" },
+                Background = new SolidColorBrush(Color.Parse("#14D56A61")),
+                BorderBrush = new SolidColorBrush(Color.Parse("#E07167")),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(12, 10),
+                MinHeight = Math.Max(40, target.Bounds.Height > 0 ? target.Bounds.Height : 40),
+                Child = new TextBlock
+                {
+                    Text = LocalizationManager.Instance["Dialog_FrameRate_ComponentExcluded"],
+                    Foreground = new SolidColorBrush(Color.Parse("#C45E56")),
+                    FontWeight = FontWeight.SemiBold,
+                    TextAlignment = TextAlignment.Center,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                }
+            };
+            placeholder.PointerPressed += DebugExcludedPlaceholder_PointerPressed;
+            return placeholder;
+        }
+
+        private void DebugExcludedPlaceholder_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!e.KeyModifiers.HasFlag(KeyModifiers.Control) ||
+                !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            {
+                return;
+            }
+
+            if (sender is Border placeholder)
+            {
+                RestoreDebugExcludedComponent(placeholder);
+                e.Handled = true;
+            }
+        }
+
+        private void RestoreDebugExcludedComponent(Control targetOrPlaceholder)
+        {
+            DebugExcludedComponentState? state = null;
+            if (_debugExcludedComponents.TryGetValue(targetOrPlaceholder, out var byComponent))
+            {
+                state = byComponent;
+            }
+            else if (_debugExcludedPlaceholders.TryGetValue(targetOrPlaceholder, out var byPlaceholder))
+            {
+                state = byPlaceholder;
+            }
+
+            if (state == null)
+            {
+                return;
+            }
+
+            state.PlaceholderControl.PointerPressed -= DebugExcludedPlaceholder_PointerPressed;
+            var currentIndex = state.ParentPanel.Children.IndexOf(state.PlaceholderControl);
+            if (currentIndex >= 0)
+            {
+                state.ParentPanel.Children.RemoveAt(currentIndex);
+                state.ParentPanel.Children.Insert(currentIndex, state.OriginalControl);
+            }
+            else
+            {
+                state.ParentPanel.Children.Insert(Math.Min(state.ChildIndex, state.ParentPanel.Children.Count), state.OriginalControl);
+            }
+
+            _debugExcludedComponents.Remove(state.OriginalControl);
+            _debugExcludedPlaceholders.Remove(state.PlaceholderControl);
+            _animationStateSource.MarkStaticDirty();
+        }
+
+        private void RestoreAllDebugExcludedComponents()
+        {
+            foreach (var state in new List<DebugExcludedComponentState>(_debugExcludedComponents.Values))
+            {
+                RestoreDebugExcludedComponent(state.OriginalControl);
+            }
+        }
+
+        private static void CopyLayoutProperties(Control source, Control target)
+        {
+            target.Margin = source.Margin;
+            target.Width = source.Width;
+            target.Height = source.Height;
+            target.MinWidth = source.MinWidth;
+            target.MinHeight = source.MinHeight;
+            target.MaxWidth = source.MaxWidth;
+            target.MaxHeight = source.MaxHeight;
+            target.HorizontalAlignment = source.HorizontalAlignment;
+            target.VerticalAlignment = source.VerticalAlignment;
+
+            Grid.SetRow(target, Grid.GetRow(source));
+            Grid.SetColumn(target, Grid.GetColumn(source));
+            Grid.SetRowSpan(target, Grid.GetRowSpan(source));
+            Grid.SetColumnSpan(target, Grid.GetColumnSpan(source));
+            DockPanel.SetDock(target, DockPanel.GetDock(source));
+            Canvas.SetLeft(target, Canvas.GetLeft(source));
+            Canvas.SetTop(target, Canvas.GetTop(source));
+            Canvas.SetRight(target, Canvas.GetRight(source));
+            Canvas.SetBottom(target, Canvas.GetBottom(source));
         }
     }
 }

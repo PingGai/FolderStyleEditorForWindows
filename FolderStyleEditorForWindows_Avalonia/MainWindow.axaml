@@ -54,7 +54,6 @@
         <!-- Main Content Grid -->
         <Grid x:Name="CardsLayer">
             <views:HomeView Name="HomeView" ZIndex="1" />
-            <views:EditView Name="EditView" IsVisible="False" ZIndex="0" />
         </Grid>
         
         <!-- Drag and Drop Indicator -->
@@ -124,18 +123,20 @@
                             <Grid>
                                 <Border Name="PinIconGlow"
                                         IsHitTestVisible="False"
-                                        Width="22"
-                                        Height="22"
+                                        Width="32"
+                                        Height="32"
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         CornerRadius="999"
-                                        Background="Transparent"
-                                        BoxShadow="0 0 14 2 #D9FFFFFF">
-                                    <Border.Transitions>
-                                        <Transitions>
-                                            <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut"/>
-                                        </Transitions>
-                                    </Border.Transitions>
+                                        Background="#00FFFFFF"
+                                        BorderBrush="#E3FFFFFF"
+                                        BorderThickness="1.8"
+                                        Opacity="0">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform ScaleX="0.96"
+                                                        ScaleY="0.96"/>
+                                    </Border.RenderTransform>
+                                    <Border.RenderTransformOrigin>50%,50%</Border.RenderTransformOrigin>
                                 </Border>
                                 <Border Name="PinInsetShadow"
                                         IsHitTestVisible="False"
@@ -223,25 +224,85 @@
 
          <!-- Language Popup Menu -->
          <Popup x:Name="LanguagePopup"
-                PlacementTarget="{Binding #LanguageButton}"
-                IsLightDismissEnabled="True"
-                Placement="TopEdgeAlignedRight"
-                HorizontalOffset="8"
-                VerticalOffset="-8">
-             <views:LanguageMenuView/>
+                 PlacementTarget="{Binding #LanguageButton}"
+                 IsLightDismissEnabled="True"
+                 Placement="TopEdgeAlignedRight"
+                 HorizontalOffset="8"
+                 VerticalOffset="-8">
+              <views:LanguageMenuView/>
          </Popup>
 
-        <!-- Debug Overlay -->
-        <Border HorizontalAlignment="Left"
-                VerticalAlignment="Bottom"
-                Margin="12"
-                ZIndex="9000"
-                IsHitTestVisible="False"
-                MinWidth="32"
-                MinHeight="32"
-                IsVisible="{Binding DebugOverlay.IsEnabled}">
-            <views:DebugOverlay DataContext="{Binding DebugOverlay}"/>
-        </Border>
+        <Popup x:Name="PerformanceMonitorPopup"
+               x:DataType="services:PerformanceMonitorViewModel"
+               ZIndex="9050"
+               IsOpen="{Binding IsOpenInHost}"
+               PlacementTarget="{Binding #BaseLayer}"
+               Placement="AnchorAndGravity"
+               PlacementAnchor="TopLeft"
+               PlacementGravity="BottomRight"
+               HorizontalOffset="{Binding Left}"
+               VerticalOffset="{Binding Top}">
+            <views:PerformanceMonitor x:Name="PerformanceMonitorControl"
+                                      x:DataType="services:PerformanceMonitorViewModel"/>
+        </Popup>
+
+        <Grid x:Name="PerformanceBadgeLayer"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              ZIndex="9040"
+              IsHitTestVisible="True">
+            <views:PerformanceBadge HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    x:DataType="services:ComponentFpsBadgeSource"
+                                    Margin="14,68,0,0"
+                                    Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_Static]}"
+                                    ValueText="{Binding StaticDisplay}"
+                                    IsVisible="{Binding IsEnabled}"/>
+            <views:PerformanceBadge HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    x:DataType="services:ComponentFpsBadgeSource"
+                                    Margin="0,68,14,0"
+                                    Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_Foreground]}"
+                                    ValueText="{Binding ForegroundDisplay}"
+                                    IsVisible="{Binding IsEnabled}"/>
+            <views:PerformanceBadge HorizontalAlignment="Left"
+                                    VerticalAlignment="Bottom"
+                                    x:DataType="services:ComponentFpsBadgeSource"
+                                    Margin="14,0,0,72"
+                                    Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_Background]}"
+                                    ValueText="{Binding BackgroundDisplay}"
+                                    IsVisible="{Binding IsEnabled}"/>
+            <views:PerformanceBadge HorizontalAlignment="Center"
+                                    VerticalAlignment="Top"
+                                    x:DataType="services:ComponentFpsBadgeSource"
+                                    Margin="0,78,0,0"
+                                    Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_Toast]}"
+                                    ValueText="{Binding ToastDisplay}"
+                                    IsVisible="{Binding IsToastBadgeVisible}"/>
+            <views:PerformanceBadge HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    x:DataType="services:ComponentFpsBadgeSource"
+                                    Margin="0,-126,0,0"
+                                    Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_DragOverlay]}"
+                                    ValueText="{Binding DragOverlayDisplay}"
+                                    IsVisible="{Binding IsDragOverlayBadgeVisible}"/>
+        </Grid>
+
+        <ContentControl HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
+                        Margin="12"
+                        ZIndex="9000"
+                        IsHitTestVisible="False"
+                        MinWidth="32"
+                        MinHeight="32"
+                        Content="{Binding DebugOverlay}"
+                        IsVisible="{Binding HasDebugOverlay}">
+            <ContentControl.DataTemplates>
+                <DataTemplate DataType="vm:DebugOverlayViewModel">
+                    <views:DebugOverlay/>
+                </DataTemplate>
+            </ContentControl.DataTemplates>
+        </ContentControl>
 
         <views:InterruptDialog DataContext="{Binding InterruptDialog}" ZIndex="12000"/>
    </Grid>

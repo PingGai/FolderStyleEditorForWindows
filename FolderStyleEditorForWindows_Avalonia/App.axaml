@@ -18,6 +18,7 @@
             <vc:FolderNameConverter x:Key="FolderNameConverter"/>
             <vc:HistoryPathFadeWidthConverter x:Key="HistoryPathFadeWidthConverter"/>
             <vc:DialogButtonWidthConverter x:Key="DialogButtonWidthConverter"/>
+            <vc:DialogWidthRatioConverter x:Key="DialogWidthRatioConverter"/>
 
             <!-- Brushes -->
             <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource Accent}" Opacity="0.2"/>

@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:FolderStyleEditorForWindows.Views"
+             x:Class="FolderStyleEditorForWindows.Views.PerformanceBadge"
+             x:DataType="local:PerformanceBadge">
+    <Border x:Name="BadgeRoot"
+            Background="#B8FAFBFD"
+            BorderBrush="#CCE0E4EB"
+            BorderThickness="1"
+            CornerRadius="999"
+            Padding="8,4"
+            Opacity="0.6"
+            BoxShadow="0 3 10 0 #18000000">
+        <Border.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+                <DoubleTransition Property="ScaleTransform.ScaleX" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+                <DoubleTransition Property="ScaleTransform.ScaleY" Duration="0:0:0.14" Easing="CubicEaseOut"/>
+            </Transitions>
+        </Border.Transitions>
+        <Border.RenderTransform>
+            <ScaleTransform ScaleX="1" ScaleY="1"/>
+        </Border.RenderTransform>
+        <Border.RenderTransformOrigin>0.5,0.5</Border.RenderTransformOrigin>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=local:PerformanceBadge}}"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource Fg3Brush}"/>
+            <TextBlock Text="{Binding ValueText, RelativeSource={RelativeSource AncestorType=local:PerformanceBadge}}"
+                       FontSize="10"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource Fg1Brush}"/>
+        </StackPanel>
+    </Border>
+</UserControl>

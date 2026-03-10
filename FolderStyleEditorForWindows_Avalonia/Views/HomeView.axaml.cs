@@ -20,7 +20,9 @@ namespace FolderStyleEditorForWindows.Views
     public partial class HomeView : UserControl
     {
         private const int GradientCycles = 3;
-        private readonly DispatcherTimer _folderWordGradientTimer;
+        private readonly AmbientAnimationScheduler? _ambientScheduler;
+        private readonly FrameRateSettings? _frameRateSettings;
+        private IAmbientAnimationHandle? _folderWordAmbientHandle;
         private LinearGradientBrush? _folderWordAnimatedBrush;
         private readonly Color[] _defaultGradientColors =
         {
@@ -41,6 +43,8 @@ namespace FolderStyleEditorForWindows.Views
         private readonly ElevationSessionState? _elevationSessionState;
         private double _folderWordGradientPhase;
         private bool _isElevatedPalette;
+        private bool _isAmbientSuspended;
+        private double _lastGradientTickSeconds;
 
         public HomeView()
         {
@@ -61,6 +65,11 @@ namespace FolderStyleEditorForWindows.Views
             {
                 folderWordButton.Click += FolderWordButton_Click;
             }
+            var homeTitleBadge = this.FindControl<Control>("HomeTitlePerformanceBadge");
+            if (homeTitleBadge != null)
+            {
+                homeTitleBadge.DataContext = App.Services?.GetService<ComponentFpsBadgeSource>();
+            }
 
             var aboutInfoIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("AboutInfoIcon");
             if (aboutInfoIcon != null)
@@ -75,11 +84,8 @@ namespace FolderStyleEditorForWindows.Views
                 historyList.SelectionChanged += (s, e) => historyList.SelectedItem = null;
             }
 
-            _folderWordGradientTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(33)
-            };
-            _folderWordGradientTimer.Tick += FolderWordGradientTimer_Tick;
+            _ambientScheduler = App.Services?.GetService<AmbientAnimationScheduler>();
+            _frameRateSettings = App.Services?.GetService<FrameRateSettings>();
 
             if (Resources.TryGetResource("FolderWordAnimatedBrush", null, out var brushResource) &&
                 brushResource is LinearGradientBrush brush)
@@ -91,18 +97,79 @@ namespace FolderStyleEditorForWindows.Views
                     _elevationSessionState.PropertyChanged += ElevationSessionState_PropertyChanged;
                     ApplyFolderGradientPalette(_elevationSessionState.IsElevatedSessionActive);
                 }
-                _folderWordGradientTimer.Start();
+                if (_ambientScheduler != null)
+                {
+                    _folderWordAmbientHandle = _ambientScheduler.Register(
+                        "home-title-gradient",
+                        () => _frameRateSettings?.HomeTitleAmbientFps ?? 15,
+                        OnFolderWordAmbientTick);
+                    UpdateAmbientHandleState();
+                }
+            }
+
+            DebugRuntimeAnalysis.PauseAnimationsChanged += DebugRuntimeAnalysis_PauseAnimationsChanged;
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            UpdateAmbientHandleState();
+        }
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+            if (change.Property == IsVisibleProperty)
+            {
+                UpdateAmbientHandleState();
             }
         }
 
-        private void FolderWordGradientTimer_Tick(object? sender, EventArgs e)
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
-            if (_folderWordAnimatedBrush == null)
+            base.OnDetachedFromVisualTree(e);
+            _folderWordAmbientHandle?.SetEnabled(false);
+            _folderWordAmbientHandle?.Dispose();
+            _folderWordAmbientHandle = null;
+            DebugRuntimeAnalysis.PauseAnimationsChanged -= DebugRuntimeAnalysis_PauseAnimationsChanged;
+            if (_elevationSessionState != null)
+            {
+                _elevationSessionState.PropertyChanged -= ElevationSessionState_PropertyChanged;
+            }
+        }
+
+        public void SetAmbientSuspended(bool suspended)
+        {
+            if (_isAmbientSuspended == suspended)
             {
                 return;
             }
 
-            _folderWordGradientPhase += 0.01;
+            _isAmbientSuspended = suspended;
+            UpdateAmbientHandleState();
+        }
+
+        private void OnFolderWordAmbientTick(double nowSeconds)
+        {
+            if (_folderWordAnimatedBrush == null || !IsVisible)
+            {
+                return;
+            }
+
+            if (this.GetVisualRoot() == null)
+            {
+                return;
+            }
+
+            if (_lastGradientTickSeconds <= 0)
+            {
+                _lastGradientTickSeconds = nowSeconds;
+                return;
+            }
+
+            var deltaSeconds = Math.Clamp(nowSeconds - _lastGradientTickSeconds, 0, 0.2);
+            _lastGradientTickSeconds = nowSeconds;
+            _folderWordGradientPhase += deltaSeconds / 6.0;
             if (_folderWordGradientPhase >= 1)
             {
                 _folderWordGradientPhase -= 1;
@@ -110,6 +177,27 @@ namespace FolderStyleEditorForWindows.Views
 
             EnsureGradientPattern();
             UpdateGradientOffsets();
+        }
+
+        private void UpdateAmbientHandleState()
+        {
+            if (_folderWordAmbientHandle == null)
+            {
+                return;
+            }
+
+            var enabled = !_isAmbientSuspended && !DebugRuntimeAnalysis.PauseAnimations && IsVisible && VisualRoot != null;
+            if (!enabled)
+            {
+                _lastGradientTickSeconds = 0;
+            }
+
+            _folderWordAmbientHandle.SetEnabled(enabled);
+        }
+
+        private void DebugRuntimeAnalysis_PauseAnimationsChanged(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.Post(UpdateAmbientHandleState, DispatcherPriority.Background);
         }
 
         private void ElevationSessionState_PropertyChanged(object? sender, PropertyChangedEventArgs e)

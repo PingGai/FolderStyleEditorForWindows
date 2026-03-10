@@ -496,6 +496,7 @@ namespace FolderStyleEditorForWindows.Views
 
         private async void DialogHeaderMetaText_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            e.Handled = true;
             if (_state is not { IsActive: true })
             {
                 return;
@@ -523,24 +524,7 @@ namespace FolderStyleEditorForWindows.Views
             }
 
             await Task.Delay(220);
-            await dialogService.ShowFailureAsync(
-                loc["Dialog_SaveFailed_Title"],
-                loc["Dialog_Elevation_RequiredHeadline"],
-                loc["Dialog_Debug_TestError_Content"],
-                "DEBUG_TEST: Elevated helper diagnostic view\n" +
-                "CodeBlock: left-click copy / right-click copy / text selection\n" +
-                "Status: Simulated exception for manual UX verification.\n\n" +
-                "StackTrace (simulated):\n" +
-                "  at FolderStyleEditorForWindows.Services.ElevatedHelperController.SaveAsync(...)\n" +
-                "  at FolderStyleEditorForWindows.Services.FolderStyleSaveCoordinator.SaveAsync(...)\n" +
-                "  at FolderStyleEditorForWindows.ViewModels.MainViewModel.SaveFolderSettings()\n\n" +
-                "Diagnostic payload:\n" +
-                "  - Folder: C:\\Program Files\\ExampleApp\n" +
-                "  - IconPath: %SystemRoot%\\System32\\shell32.dll,-244\n" +
-                "  - HRESULT: 0x80070005 (Access Denied)\n" +
-                "  - Session: debug-rev4-simulated\n" +
-                "  - Timestamp: 2026-03-08T00:00:00Z\n\n" +
-                "This block is intentionally long so scrolling, copy, and selection behavior can be tested.");
+            await dialogService.ShowDebugDialogAsync();
         }
 
         private async void CodeBlockHost_PointerReleased(object? sender, PointerReleasedEventArgs e)
