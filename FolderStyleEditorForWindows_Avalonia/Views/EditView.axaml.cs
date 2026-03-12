@@ -243,6 +243,18 @@ namespace FolderStyleEditorForWindows.Views
             var iconListBox = this.FindControl<ListBox>("iconListBox");
             _iconListScrollViewer = this.FindControl<ScrollViewer>("iconListScrollViewer");
             _aliasAutocompleteScrollViewer = this.FindControl<ScrollViewer>("aliasAutocompleteScrollViewer");
+            if (_iconListScrollViewer != null)
+            {
+                _iconListScrollViewer.PointerWheelChanged -= IconListScrollViewer_PointerWheelChanged;
+                _iconListScrollViewer.PointerWheelChanged += IconListScrollViewer_PointerWheelChanged;
+            }
+
+            if (_aliasAutocompleteScrollViewer != null)
+            {
+                _aliasAutocompleteScrollViewer.PointerWheelChanged -= AliasAutocompleteScrollViewer_PointerWheelChanged;
+                _aliasAutocompleteScrollViewer.PointerWheelChanged += AliasAutocompleteScrollViewer_PointerWheelChanged;
+            }
+
             if (iconListBox != null)
             {
                 iconListBox.SelectionChanged -= IconListBox_SelectionChanged;
@@ -551,6 +563,38 @@ namespace FolderStyleEditorForWindows.Views
                 }
                 e.Handled = true;
             }
+        }
+
+        private void IconListScrollViewer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            if (_iconListScrollViewer == null)
+            {
+                return;
+            }
+
+            if (_iconListScrollViewer.Extent.Height <= _iconListScrollViewer.Viewport.Height)
+            {
+                e.Handled = true;
+                return;
+            }
+
+            var currentOffset = _iconListScrollViewer.Offset;
+            var maxOffset = Math.Max(0, _iconListScrollViewer.Extent.Height - _iconListScrollViewer.Viewport.Height);
+            var step = Math.Abs(e.Delta.Y) switch
+            {
+                < 0.01 => 36,
+                < 1.5 => 48,
+                _ => 72
+            };
+            var direction = e.Delta.Y > 0 ? -1 : 1;
+            var nextY = Math.Clamp(currentOffset.Y + (direction * step), 0, maxOffset);
+
+            if (Math.Abs(nextY - currentOffset.Y) > 0.01)
+            {
+                _iconListScrollViewer.Offset = new Vector(currentOffset.X, nextY);
+            }
+
+            e.Handled = true;
         }
 
         private void AliasAutocompleteCandidate_PointerPressed(object? sender, PointerPressedEventArgs e)

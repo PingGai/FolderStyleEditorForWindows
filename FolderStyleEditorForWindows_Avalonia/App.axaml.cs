@@ -49,6 +49,7 @@ public partial class App : Application
         services.AddSingleton<ElevatedHelperController>();
         services.AddSingleton<FolderStyleSaveCoordinator>();
         services.AddSingleton<MainViewModel>();
+        services.AddSingleton<MemoryProfileService>();
         Services = services.BuildServiceProvider();
         
         // Load and apply SVG color from config

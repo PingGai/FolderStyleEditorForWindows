@@ -29,6 +29,8 @@ namespace FolderStyleEditorForWindows.Services
         private TimeSpan _lastProcessCpuTime;
         private int _metricsSamplingState;
         private bool _isSuspended;
+        private bool _isDebugSessionActive;
+        private bool _isMemoryProfilingActive;
         private bool _disposed;
         private long _foregroundFrames;
         private long _staticFrames;
@@ -65,7 +67,7 @@ namespace FolderStyleEditorForWindows.Services
                 Interval = TimeSpan.FromSeconds(1)
             };
             _publishTimer.Tick += PublishTimer_Tick;
-            _publishTimer.Start();
+            RefreshPublishTimerState();
         }
 
         public bool IsMonitorVisible => _settings.ShowPerformanceMonitor;
@@ -136,14 +138,30 @@ namespace FolderStyleEditorForWindows.Services
                 return;
             }
 
-            _sampleWindowStartedUtc = DateTime.UtcNow;
-            _lastCpuSampleUtc = DateTime.UtcNow;
-            _lastMetricsSampleUtc = DateTime.MinValue;
-            _lastGpuMetricsSampleUtc = DateTime.MinValue;
-            if (!_publishTimer.IsEnabled)
+            ResetPublishWindow();
+            RefreshPublishTimerState();
+        }
+
+        public void SetDebugSessionActive(bool active)
+        {
+            if (_isDebugSessionActive == active || _disposed)
             {
-                _publishTimer.Start();
+                return;
             }
+
+            _isDebugSessionActive = active;
+            RefreshPublishTimerState();
+        }
+
+        public void SetMemoryProfilingActive(bool active)
+        {
+            if (_isMemoryProfilingActive == active || _disposed)
+            {
+                return;
+            }
+
+            _isMemoryProfilingActive = active;
+            RefreshPublishTimerState();
         }
 
         private void PublishTimer_Tick(object? sender, EventArgs e)
@@ -353,8 +371,10 @@ namespace FolderStyleEditorForWindows.Services
         private void Settings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(FrameRateSettings.ShowPerformanceMonitor) ||
-                e.PropertyName == nameof(FrameRateSettings.ShowDetailedPerformanceMonitor))
+                e.PropertyName == nameof(FrameRateSettings.ShowDetailedPerformanceMonitor) ||
+                e.PropertyName == nameof(FrameRateSettings.ShowComponentFpsBadges))
             {
+                RefreshPublishTimerState();
                 if (ShouldSampleProcessMetrics())
                 {
                     _lastMetricsSampleUtc = DateTime.MinValue;
@@ -373,7 +393,50 @@ namespace FolderStyleEditorForWindows.Services
 
         private bool ShouldSampleProcessMetrics()
         {
-            return _settings.ShowPerformanceMonitor && !_isSuspended;
+            return !_isSuspended && (_settings.ShowPerformanceMonitor || _isMemoryProfilingActive);
+        }
+
+        private bool ShouldPublishTelemetry()
+        {
+            return !_isSuspended &&
+                   (_settings.ShowPerformanceMonitor ||
+                    _settings.ShowComponentFpsBadges ||
+                    _isDebugSessionActive ||
+                    _isMemoryProfilingActive);
+        }
+
+        private void RefreshPublishTimerState()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (!ShouldPublishTelemetry())
+            {
+                _publishTimer.Stop();
+                StopProcessMetricSamplingAsync(clearValues: !_settings.ShowPerformanceMonitor);
+                return;
+            }
+
+            ResetPublishWindow();
+            if (!_publishTimer.IsEnabled)
+            {
+                _publishTimer.Start();
+            }
+        }
+
+        private void ResetPublishWindow()
+        {
+            _sampleWindowStartedUtc = DateTime.UtcNow;
+            _lastCpuSampleUtc = DateTime.UtcNow;
+            _lastMetricsSampleUtc = DateTime.MinValue;
+            _lastGpuMetricsSampleUtc = DateTime.MinValue;
+            Interlocked.Exchange(ref _foregroundFrames, 0);
+            Interlocked.Exchange(ref _staticFrames, 0);
+            Interlocked.Exchange(ref _backgroundAmbientFrames, 0);
+            Interlocked.Exchange(ref _homeTitleAmbientFrames, 0);
+            Interlocked.Exchange(ref _adminTitleAmbientFrames, 0);
         }
 
         private void QueueProcessMetricsSample(DateTime now, bool includeGpuMetrics)

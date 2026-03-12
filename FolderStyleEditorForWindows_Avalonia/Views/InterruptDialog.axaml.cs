@@ -330,6 +330,18 @@ namespace FolderStyleEditorForWindows.Views
                     source.FindAncestorOfType<ToggleButton>() != null);
         }
 
+        private void StatusFieldCard_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed &&
+                sender is Control control &&
+                control.DataContext is DialogStatusFieldItem { HasCommand: true, Command: { } command } &&
+                command.CanExecute(null))
+            {
+                command.Execute(null);
+                e.Handled = true;
+            }
+        }
+
         private void AnimatedContainer_AttachedToVisualTree(object? sender, Avalonia.VisualTreeAttachmentEventArgs e)
         {
             if (sender is not Border border)

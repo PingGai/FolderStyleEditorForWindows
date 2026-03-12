@@ -1029,7 +1029,8 @@ namespace FolderStyleEditorForWindows.Services
 
         public async Task ShowDebugDialogAsync()
         {
-            using var controller = new FrameRateDebugDialogController(_frameRateSettings, _performanceTelemetryService, _toastService, State);
+            var memoryProfileService = App.Services?.GetService(typeof(MemoryProfileService)) as MemoryProfileService;
+            using var controller = new FrameRateDebugDialogController(_frameRateSettings, _performanceTelemetryService, _toastService, State, memoryProfileService);
             await ShowAsync(controller.BuildOptions());
         }
 

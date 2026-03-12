@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime;
 using System.Runtime.InteropServices;
+using System.IO;
 using Avalonia.Media;
 using Avalonia.Threading;
 using FolderStyleEditorForWindows.ViewModels;
@@ -23,6 +24,7 @@ namespace FolderStyleEditorForWindows.Services
         private readonly PerformanceTelemetryService _telemetry;
         private readonly IToastService _toastService;
         private readonly InterruptDialogState _state;
+        private readonly MemoryProfileService? _memoryProfileService;
         private readonly LocalizationManager _loc;
         private readonly SolidColorBrush _savedBrush = new(Color.Parse("#4F7A57"));
         private readonly SolidColorBrush _dirtyBrush = new(Color.Parse("#B26F1A"));
@@ -63,6 +65,10 @@ namespace FolderStyleEditorForWindows.Services
         private readonly DialogStatusFieldItem _privateMemoryStatus;
         private readonly DialogStatusFieldItem _workingSetStatus;
         private readonly DialogStatusFieldItem _gcCollectionsStatus;
+        private readonly DialogStatusFieldItem _memoryProfileStateStatus;
+        private readonly DialogStatusFieldItem _memoryProfileOutputStatus = null!;
+        private readonly DialogStatusFieldItem _memoryProfileSamplesStatus;
+        private readonly DialogActionFieldItem _memoryProfileToggleAction;
         private readonly DialogActionFieldItem _memoryTrimAction;
         private readonly DispatcherTimer _debugMemoryTimer;
 #endif
@@ -78,13 +84,16 @@ namespace FolderStyleEditorForWindows.Services
             FrameRateSettings settings,
             PerformanceTelemetryService telemetry,
             IToastService toastService,
-            InterruptDialogState state)
+            InterruptDialogState state,
+            MemoryProfileService? memoryProfileService)
         {
             _settings = settings;
             _telemetry = telemetry;
             _toastService = toastService;
             _state = state;
+            _memoryProfileService = memoryProfileService;
             _loc = LocalizationManager.Instance;
+            _telemetry.SetDebugSessionActive(true);
 
             SaveCommand = new RelayCommand(SaveToConfig, () => !HasValidationErrors);
             RestoreDefaultsCommand = new RelayCommand(RestoreDefaults);
@@ -239,6 +248,23 @@ namespace FolderStyleEditorForWindows.Services
             _gcCollectionsStatus = CreateStatusField(
                 _loc["Dialog_DebugMemory_Status_GcCollections"],
                 _loc["Dialog_DebugMemory_Status_GcCollections_Desc"]);
+            _memoryProfileStateStatus = CreateStatusField(
+                _loc["Dialog_DebugMemory_Status_ProfileState"],
+                _loc["Dialog_DebugMemory_Status_ProfileState_Desc"]);
+            _memoryProfileOutputStatus = CreateStatusField(
+                _loc["Dialog_DebugMemory_Status_ProfileOutput"],
+                _loc["Dialog_DebugMemory_Status_ProfileOutput_Desc"]);
+            _memoryProfileSamplesStatus = CreateStatusField(
+                _loc["Dialog_DebugMemory_Status_ProfileSamples"],
+                _loc["Dialog_DebugMemory_Status_ProfileSamples_Desc"]);
+            _memoryProfileToggleAction = new DialogActionFieldItem(
+                _loc["Dialog_DebugMemory_Action_Profile"],
+                _loc["Dialog_DebugMemory_Action_Profile_Desc"],
+                _loc["Dialog_DebugMemory_Action_Profile_Start_Button"],
+                new RelayCommand(ToggleMemoryProfile),
+                new SolidColorBrush(Color.Parse("#FFFFFFFF")),
+                _neutralBrush,
+                new SolidColorBrush(Color.Parse("#EEAAAAAA")));
             _memoryTrimAction = new DialogActionFieldItem(
                 _loc["Dialog_DebugMemory_Action_Trim"],
                 _loc["Dialog_DebugMemory_Action_Trim_Desc"],
@@ -320,6 +346,10 @@ namespace FolderStyleEditorForWindows.Services
                         _privateMemoryStatus,
                         _workingSetStatus,
                         _gcCollectionsStatus,
+                        _memoryProfileStateStatus,
+                        _memoryProfileOutputStatus,
+                        _memoryProfileSamplesStatus,
+                        _memoryProfileToggleAction,
                         _memoryTrimAction
                     },
                     _loc["Dialog_DebugMemory_Section_Desc"]));
@@ -330,6 +360,10 @@ namespace FolderStyleEditorForWindows.Services
             };
             _debugMemoryTimer.Tick += DebugMemoryTimer_Tick;
             _debugMemoryTimer.Start();
+            if (_memoryProfileOutputStatus != null)
+            {
+                _memoryProfileOutputStatus.Command = new RelayCommand(OpenMemoryProfileDirectory);
+            }
 #endif
 
             _debugCodeBlock = new DialogCodeBlockItem(
@@ -374,6 +408,7 @@ namespace FolderStyleEditorForWindows.Services
             _disposed = true;
             _settings.PropertyChanged -= Settings_PropertyChanged;
             _telemetry.PropertyChanged -= Telemetry_PropertyChanged;
+            _telemetry.SetDebugSessionActive(false);
 #if DEBUG
             _debugMemoryTimer.Stop();
             _debugMemoryTimer.Tick -= DebugMemoryTimer_Tick;
@@ -632,6 +667,7 @@ namespace FolderStyleEditorForWindows.Services
                 _privateMemoryStatus.Value = FormatMegabytes(privateMb);
                 _workingSetStatus.Value = FormatMegabytes(workingSetMb);
                 _gcCollectionsStatus.Value = $"Gen0 {gen0} / Gen1 {gen1} / Gen2 {gen2}";
+                UpdateMemoryProfileStatus();
             }
             catch
             {
@@ -639,7 +675,68 @@ namespace FolderStyleEditorForWindows.Services
                 _privateMemoryStatus.Value = "-";
                 _workingSetStatus.Value = "-";
                 _gcCollectionsStatus.Value = "-";
+                UpdateMemoryProfileStatus();
             }
+        }
+
+        private void ToggleMemoryProfile()
+        {
+            if (_memoryProfileService == null)
+            {
+                return;
+            }
+
+            if (_memoryProfileService.IsRecording)
+            {
+                _memoryProfileService.StopRecording();
+            }
+            else
+            {
+                _memoryProfileService.StartRecording();
+            }
+
+            UpdateMemoryProfileStatus();
+        }
+
+        private void UpdateMemoryProfileStatus()
+        {
+            if (_memoryProfileService == null)
+            {
+                _memoryProfileStateStatus.Value = _loc["PerformanceMonitor_Value_Unavailable"];
+                _memoryProfileStateStatus.ValueForeground = _invalidBrush;
+                _memoryProfileOutputStatus.Value = "-";
+                _memoryProfileSamplesStatus.Value = "-";
+                _memoryProfileToggleAction.ButtonText = _loc["Dialog_DebugMemory_Action_Profile_Start_Button"];
+                return;
+            }
+
+            if (_memoryProfileService.IsRecording)
+            {
+                _memoryProfileStateStatus.Value = _loc["Dialog_DebugMemory_Value_Profile_Recording"];
+                _memoryProfileStateStatus.ValueForeground = _dirtyBrush;
+                _memoryProfileToggleAction.ButtonText = _loc["Dialog_DebugMemory_Action_Profile_Stop_Button"];
+            }
+            else if (!string.IsNullOrWhiteSpace(_memoryProfileService.LastError))
+            {
+                _memoryProfileStateStatus.Value = string.Format(_loc["Dialog_DebugMemory_Value_Profile_Error"], _memoryProfileService.LastError);
+                _memoryProfileStateStatus.ValueForeground = _invalidBrush;
+                _memoryProfileToggleAction.ButtonText = _loc["Dialog_DebugMemory_Action_Profile_Start_Button"];
+            }
+            else
+            {
+                _memoryProfileStateStatus.Value = _loc["Dialog_DebugMemory_Value_Profile_Idle"];
+                _memoryProfileStateStatus.ValueForeground = _savedBrush;
+                _memoryProfileToggleAction.ButtonText = _loc["Dialog_DebugMemory_Action_Profile_Start_Button"];
+            }
+
+            _memoryProfileOutputStatus.Value = string.IsNullOrWhiteSpace(_memoryProfileService.OutputPath)
+                ? "-"
+                : _memoryProfileService.OutputPath;
+            _memoryProfileOutputStatus.ValueForeground = _neutralBrush;
+            _memoryProfileSamplesStatus.Value = string.Format(
+                _loc["Dialog_DebugMemory_Value_Profile_Samples"],
+                _memoryProfileService.SampleCount);
+            _memoryProfileSamplesStatus.ValueForeground = _neutralBrush;
         }
 
         private void ForceMemoryTrim()
@@ -671,6 +768,36 @@ namespace FolderStyleEditorForWindows.Services
         private string FormatMegabytes(double value)
         {
             return string.Format(_loc["Dialog_DebugMemory_Value_Mb"], value.ToString("F1"));
+        }
+
+        private void OpenMemoryProfileDirectory()
+        {
+            if (_memoryProfileService == null)
+            {
+                return;
+            }
+
+            var targetDirectory = _memoryProfileService.ProfilesDirectory;
+            if (!string.IsNullOrWhiteSpace(_memoryProfileService.OutputPath))
+            {
+                var candidate = Path.GetDirectoryName(_memoryProfileService.OutputPath);
+                if (!string.IsNullOrWhiteSpace(candidate))
+                {
+                    targetDirectory = candidate;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(targetDirectory))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(targetDirectory);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = targetDirectory,
+                UseShellExecute = true
+            });
         }
 #endif
     }

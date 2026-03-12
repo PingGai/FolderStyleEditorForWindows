@@ -1425,10 +1425,23 @@ namespace FolderStyleEditorForWindows.ViewModels
 
        public void RequestIdleMemoryTrim()
        {
-           ScheduleMemoryTrim(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));
+           if (GC.GetTotalMemory(false) < 96L * 1024L * 1024L)
+           {
+               return;
+           }
+
+           ScheduleMemoryTrim(
+               delay: TimeSpan.FromSeconds(8),
+               minInterval: TimeSpan.FromSeconds(90),
+               allowWorkingSetTrim: false,
+               forceAggressiveCollection: false);
        }
 
-       private void ScheduleMemoryTrim(TimeSpan? delay = null, TimeSpan? minInterval = null)
+       private void ScheduleMemoryTrim(
+           TimeSpan? delay = null,
+           TimeSpan? minInterval = null,
+           bool allowWorkingSetTrim = true,
+           bool? forceAggressiveCollection = null)
        {
            _memoryTrimCts?.Cancel();
            var cts = new CancellationTokenSource();
@@ -1453,6 +1466,9 @@ namespace FolderStyleEditorForWindows.ViewModels
 
                try
                {
+                   var managedMemoryBytes = GC.GetTotalMemory(false);
+                   var shouldUseAggressiveTrim = forceAggressiveCollection ?? (managedMemoryBytes >= 128L * 1024L * 1024L);
+
                    if (minInterval.HasValue)
                    {
                        var nowTicksUtc = DateTime.UtcNow.Ticks;
@@ -1465,12 +1481,19 @@ namespace FolderStyleEditorForWindows.ViewModels
                        Interlocked.Exchange(ref _lastMemoryTrimTicksUtc, nowTicksUtc);
                    }
 
-                   GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-                   GC.Collect(2, GCCollectionMode.Optimized, blocking: true, compacting: true);
-                   GC.WaitForPendingFinalizers();
-                   GC.Collect(2, GCCollectionMode.Optimized, blocking: true, compacting: true);
+                   if (shouldUseAggressiveTrim)
+                   {
+                       GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+                       GC.Collect(2, GCCollectionMode.Optimized, blocking: true, compacting: true);
+                       GC.WaitForPendingFinalizers();
+                       GC.Collect(2, GCCollectionMode.Optimized, blocking: true, compacting: true);
+                   }
+                   else
+                   {
+                       GC.Collect(1, GCCollectionMode.Optimized, blocking: false, compacting: false);
+                   }
 
-                   if (OperatingSystem.IsWindows())
+                   if (allowWorkingSetTrim && OperatingSystem.IsWindows())
                    {
                        using var process = System.Diagnostics.Process.GetCurrentProcess();
                        EmptyWorkingSet(process.Handle);

@@ -34,6 +34,7 @@ namespace FolderStyleEditorForWindows
     {
         private HomeView? _homeView;
         private EditView? _editView;
+        private Grid? _rootLayer;
         private Border? _baseLayer;
         private Border? _flowLayer;
         private Grid? _cardsLayer;
@@ -96,6 +97,7 @@ namespace FolderStyleEditorForWindows
         private readonly Dictionary<Control, DebugExcludedComponentState> _debugExcludedPlaceholders = new();
         private readonly DispatcherTimer _renderWakeTimer;
         private readonly DispatcherTimer _idleMemoryTrimTimer;
+        private CancellationTokenSource? _windowRootAnimationCts;
         private bool _closingAnimating;
         private const double DragStartThresholdPx = 7.0;
         private const double TapMaxMoveThresholdPx = 10.0;
@@ -188,6 +190,7 @@ namespace FolderStyleEditorForWindows
            };
 
             _baseLayer = this.FindControl<Border>("BaseLayer");
+            _rootLayer = this.FindControl<Grid>("RootLayer");
             _flowLayer = this.FindControl<Border>("FlowLayer");
             _cardsLayer = this.FindControl<Grid>("CardsLayer");
             EnsureBackgroundFlowBrush();
@@ -275,9 +278,8 @@ namespace FolderStyleEditorForWindows
 
         private void MainWindow_Deactivated(object? sender, EventArgs e)
         {
-            SetWindowRuntimeSuspended(WindowState == WindowState.Minimized);
             _performanceMonitorViewModel.SetHostActive(false);
-            _performanceMonitor?.DismissContextMenu();
+            DismissTransientPopupUi();
             _animationStateSource.SetDragging(false);
             _animationStateSource.SetTransitionAnimating(false);
             if (_viewModel.IsDragOver || _interruptDialogService.State.IsPassiveOverlayVisible)
@@ -295,7 +297,6 @@ namespace FolderStyleEditorForWindows
 
         private void MainWindow_Activated(object? sender, EventArgs e)
         {
-            SetWindowRuntimeSuspended(WindowState == WindowState.Minimized);
             _performanceMonitorViewModel.SetHostActive(true);
             _displayInfoService.Refresh();
             if (_languagePopupDesiredOpen && _languagePopup is { IsOpen: true })
@@ -321,7 +322,7 @@ namespace FolderStyleEditorForWindows
 
         private void MainWindow_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
         {
-            if (e.Property == BoundsProperty || e.Property == WindowStateProperty)
+            if (e.Property == BoundsProperty)
             {
                 _animationStateSource.MarkStaticDirty();
             }
@@ -586,31 +587,19 @@ namespace FolderStyleEditorForWindows
         {
             base.OnPropertyChanged(change);
 
-            if (change.Property == WindowStateProperty)
+            if (change.Property != WindowStateProperty)
             {
-                var newState = (WindowState?)change.NewValue;
-                
-                // 澶勭悊浠庝换鍔℃爮鐐瑰嚮鎭㈠ (Normal/Maximized)
-                if ((newState == WindowState.Normal || newState == WindowState.Maximized) && Opacity < 1.0)
-                {
-                    SetWindowRuntimeSuspended(false);
-                    _ = Dispatcher.UIThread.InvokeAsync(async () =>
-                    {
-                        await Task.Delay(50); // 绛夊緟绯荤粺鍔ㄧ敾
-                        await AnimateFadeIn();
-                    }, DispatcherPriority.Render);
-                }
-                // 澶勭悊閫氳繃浠诲姟鏍忕偣鍑绘渶灏忓寲
-                else if (newState == WindowState.Minimized && Opacity > 0)
-                {
-                    SetWindowRuntimeSuspended(true);
-                    // 最小化时不再播放淡出动画，否则会从当前状态直接切到最小化
-                    // 恢复时若没有合适的初始值，窗口会从 0 透明度突兀出现
-                    // 这里直接将透明度归零，避免淡出动画干扰窗口状态切换
-                    Opacity = 0;
-                    _animationStateSource.MarkStaticDirty();
-                }
+                return;
             }
+
+            var newState = (WindowState?)change.NewValue;
+            SetWindowRuntimeSuspended(newState == WindowState.Minimized);
+            if (newState != WindowState.Minimized)
+            {
+                RestoreWindowPresentationState();
+                _ = AnimateRestoreTransitionAsync();
+            }
+            _animationStateSource.MarkStaticDirty();
         }
 
         protected override void OnClosing(WindowClosingEventArgs e)
@@ -1112,6 +1101,130 @@ namespace FolderStyleEditorForWindows
             _animationStateSource.MarkStaticDirty();
         }
 
+        public async Task AnimateMinimizeTransitionAsync()
+        {
+            if (_rootLayer == null || WindowState == WindowState.Minimized)
+            {
+                return;
+            }
+
+            _animationStateSource.MarkTransitionActivity(WindowTransitionDurationMs);
+            var token = ReplaceWindowRootAnimationToken();
+            var translate = EnsureRootLayerTranslateTransform();
+            _rootLayer.Opacity = 1;
+            translate.X = 0;
+            translate.Y = 0;
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(180),
+                Easing = new CubicEaseOut(),
+                FillMode = FillMode.Forward,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 1.0),
+                            new Setter(Avalonia.Media.TranslateTransform.YProperty, 0.0)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 0.78),
+                            new Setter(Avalonia.Media.TranslateTransform.YProperty, 14.0)
+                        }
+                    }
+                }
+            };
+
+            try
+            {
+                await animation.RunAsync(_rootLayer, token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        public void BeginMinimizeFromTitleBar()
+        {
+            if (WindowState == WindowState.Minimized)
+            {
+                return;
+            }
+
+            CancelWindowRootAnimation();
+            ResetRootLayerPresentationState();
+            DismissTransientPopupUi();
+            WindowState = WindowState.Minimized;
+        }
+
+        private async Task AnimateRestoreTransitionAsync()
+        {
+            if (_rootLayer == null || _isWindowRuntimeSuspended)
+            {
+                return;
+            }
+
+            _animationStateSource.MarkTransitionActivity(WindowTransitionDurationMs);
+            var token = ReplaceWindowRootAnimationToken();
+            var translate = EnsureRootLayerTranslateTransform();
+            _rootLayer.Opacity = 0.84;
+            translate.X = 0;
+            translate.Y = 14;
+
+            var animation = new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(220),
+                Easing = new CubicEaseOut(),
+                FillMode = FillMode.Forward,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 0.84),
+                            new Setter(Avalonia.Media.TranslateTransform.YProperty, 14.0)
+                        }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters =
+                        {
+                            new Setter(Visual.OpacityProperty, 1.0),
+                            new Setter(Avalonia.Media.TranslateTransform.YProperty, 0.0)
+                        }
+                    }
+                }
+            };
+
+            try
+            {
+                await animation.RunAsync(_rootLayer, token);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            finally
+            {
+                if (_rootLayer != null)
+                {
+                    _rootLayer.Opacity = 1;
+                }
+
+                translate.Y = 0;
+            }
+        }
+
         public async Task AnimateFadeOut()
         {
             _animationStateSource.MarkTransitionActivity(WindowTransitionDurationMs);
@@ -1564,6 +1677,13 @@ namespace FolderStyleEditorForWindows
 
             if (suspended)
             {
+                CancelWindowRootAnimation();
+                ResetRootLayerPresentationState();
+                DismissTransientPopupUi();
+                if (_rootLayer != null)
+                {
+                    _rootLayer.IsVisible = false;
+                }
                 _renderWakeTimer.Stop();
                 _idleMemoryTrimTimer.Stop();
                 _isRenderLoopActive = false;
@@ -1574,10 +1694,103 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
+            if (_rootLayer != null)
+            {
+                _rootLayer.IsVisible = true;
+            }
+            RestoreWindowPresentationState();
             _idleMemoryTrimTimer.Start();
             StartRenderLoop();
             _animationStateSource.MarkStaticDirty();
             RequestRenderFrame();
+        }
+
+        private void RestoreWindowPresentationState()
+        {
+            Opacity = 1;
+            if (RenderTransform is ScaleTransform scaleTransform)
+            {
+                scaleTransform.ScaleX = 1;
+                scaleTransform.ScaleY = 1;
+            }
+
+            if (_rootLayer != null)
+            {
+                _rootLayer.IsVisible = true;
+            }
+
+            ResetRootLayerPresentationState();
+
+            Background = _isLowCostTransparencyActive ? LowCostWindowBackground : ActiveWindowBackground;
+        }
+
+        private void ResetRootLayerPresentationState()
+        {
+            if (_rootLayer == null)
+            {
+                return;
+            }
+
+            _rootLayer.Opacity = 1;
+            var translate = EnsureRootLayerTranslateTransform();
+            translate.X = 0;
+            translate.Y = 0;
+        }
+
+        private TranslateTransform EnsureRootLayerTranslateTransform()
+        {
+            if (_rootLayer?.RenderTransform is TranslateTransform translate)
+            {
+                return translate;
+            }
+
+            var created = new TranslateTransform();
+            if (_rootLayer != null)
+            {
+                _rootLayer.RenderTransform = created;
+            }
+
+            return created;
+        }
+
+        private CancellationToken ReplaceWindowRootAnimationToken()
+        {
+            _windowRootAnimationCts?.Cancel();
+            _windowRootAnimationCts?.Dispose();
+            _windowRootAnimationCts = new CancellationTokenSource();
+            return _windowRootAnimationCts.Token;
+        }
+
+        private void CancelWindowRootAnimation()
+        {
+            _windowRootAnimationCts?.Cancel();
+            _windowRootAnimationCts?.Dispose();
+            _windowRootAnimationCts = null;
+        }
+
+        private void DismissTransientPopupUi()
+        {
+            _performanceMonitor?.DismissContextMenu();
+
+            if (_pinToolTipPopup != null)
+            {
+                _pinToolTipPopup.Opacity = 0;
+                _pinToolTipPopup.IsOpen = false;
+            }
+
+            if (_langToolTipPopup != null)
+            {
+                _langToolTipPopup.Opacity = 0;
+                _langToolTipPopup.IsOpen = false;
+            }
+
+            _languagePopupDesiredOpen = false;
+            _languagePopupAnimationCts?.Cancel();
+            if (_languagePopup != null)
+            {
+                _languagePopup.IsLightDismissEnabled = true;
+                _languagePopup.IsOpen = false;
+            }
         }
 
         private void DebugRuntimeAnalysis_PauseAnimationsChanged(object? sender, EventArgs e)
@@ -1782,7 +1995,8 @@ namespace FolderStyleEditorForWindows
             }
 
             return source.FindAncestorOfType<TextBox>() != null ||
-                   source.FindAncestorOfType<ScrollViewer>() != null ||
+                   source.FindAncestorOfType<ScrollBar>() != null ||
+                   source.FindAncestorOfType<Thumb>() != null ||
                    source.FindAncestorOfType<ToggleButton>() != null ||
                    source.FindAncestorOfType<CheckBox>() != null ||
                    source.FindAncestorOfType<Button>() != null ||
@@ -2013,5 +2227,6 @@ namespace FolderStyleEditorForWindows
             Canvas.SetRight(target, Canvas.GetRight(source));
             Canvas.SetBottom(target, Canvas.GetBottom(source));
         }
+
     }
 }

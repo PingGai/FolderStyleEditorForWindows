@@ -47,12 +47,11 @@ namespace FolderStyleEditorForWindows.Controls
             BackRequested?.Invoke(this, e);
         }
 
-        private async void MinimizeButton_Click(object? sender, RoutedEventArgs e)
+        private void MinimizeButton_Click(object? sender, RoutedEventArgs e)
         {
             if (VisualRoot is MainWindow mainWindow)
             {
-                await mainWindow.AnimateFadeOut();
-                mainWindow.WindowState = WindowState.Minimized;
+                mainWindow.BeginMinimizeFromTitleBar();
             }
         }
 

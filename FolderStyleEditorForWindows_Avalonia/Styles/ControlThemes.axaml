@@ -335,4 +335,8 @@
             </Transitions>
         </Setter>
     </Style>
+    <Style Selector="ScrollBar /template/ Thumb">
+        <Setter Property="CornerRadius" Value="999"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
 </Styles>

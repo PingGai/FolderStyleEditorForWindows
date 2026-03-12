@@ -250,6 +250,7 @@ namespace FolderStyleEditorForWindows.Services
     {
         private string _value;
         private IBrush _valueForeground;
+        private ICommand? _command;
 
         public DialogStatusFieldItem(string label, string? description, string value, IBrush? valueForeground = null)
             : base(label, description)
@@ -269,6 +270,20 @@ namespace FolderStyleEditorForWindows.Services
             get => _valueForeground;
             set => SetField(ref _valueForeground, value);
         }
+
+        public ICommand? Command
+        {
+            get => _command;
+            set
+            {
+                if (SetField(ref _command, value))
+                {
+                    OnPropertyChanged(nameof(HasCommand));
+                }
+            }
+        }
+
+        public bool HasCommand => Command != null;
     }
 
     public sealed class DialogActionFieldItem : DialogFormFieldItem

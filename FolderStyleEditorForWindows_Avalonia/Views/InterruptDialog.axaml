@@ -181,7 +181,8 @@
               BorderBrush="#E3E7ED"
               BorderThickness="1"
               CornerRadius="12"
-              Padding="14,12">
+              Padding="14,12"
+              PointerPressed="StatusFieldCard_PointerPressed">
         <StackPanel Spacing="8">
           <TextBlock Text="{Binding Label}"
                      FontSize="13"

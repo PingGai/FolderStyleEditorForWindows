@@ -92,18 +92,18 @@
        <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar">
            <Setter Property="CornerRadius" Value="999"/>
        </Style>
-       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar /template/ Thumb">
-           <Setter Property="Background" Value="#F0AEB9C7"/>
-           <Setter Property="BorderBrush" Value="#00FFFFFF"/>
-           <Setter Property="BorderThickness" Value="0"/>
-           <Setter Property="CornerRadius" Value="999"/>
-       </Style>
-       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pointerover /template/ Thumb">
-           <Setter Property="Background" Value="#F4BBC6D2"/>
-       </Style>
-       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pressed /template/ Thumb">
-           <Setter Property="Background" Value="#F8C5D0DB"/>
-       </Style>
+        <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar /template/ Thumb">
+            <Setter Property="Background" Value="#F0B8B6B2"/>
+            <Setter Property="BorderBrush" Value="#00FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="999"/>
+        </Style>
+        <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pointerover /template/ Thumb">
+            <Setter Property="Background" Value="#F4C4C1BC"/>
+        </Style>
+        <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pressed /template/ Thumb">
+            <Setter Property="Background" Value="#F8CFCCC7"/>
+        </Style>
    </UserControl.Styles>
    <UserControl.Resources>
        <vc:FolderTagBorderBrushConverter x:Key="FolderTagBorderBrushConverter"/>
