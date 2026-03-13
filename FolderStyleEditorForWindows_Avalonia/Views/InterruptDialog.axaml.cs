@@ -30,6 +30,7 @@ namespace FolderStyleEditorForWindows.Views
         private Button? _primaryButton;
         private InterruptDialogState? _state;
         private Border? _dialogCard;
+        private ItemsControl? _passiveChoiceCardsHost;
         private Border? _codeBlockHost;
         private SelectableTextBlock? _codeBlockTextBox;
         private ScrollViewer? _codeBlockScrollViewer;
@@ -61,6 +62,7 @@ namespace FolderStyleEditorForWindows.Views
 
             _primaryButton = this.FindControl<Button>("PrimaryButton");
             _dialogCard = this.FindControl<Border>("DialogCard");
+            _passiveChoiceCardsHost = this.FindControl<ItemsControl>("PassiveChoiceCardsHost");
             _codeBlockHost = this.FindControl<Border>("DialogCodeBlockHost");
             _codeBlockTextBox = this.FindControl<SelectableTextBlock>("DialogCodeBlockTextBox");
             _codeBlockScrollViewer = this.FindControl<ScrollViewer>("DialogCodeBlockScrollViewer");
@@ -83,6 +85,7 @@ namespace FolderStyleEditorForWindows.Views
 
             AddHandler(KeyDownEvent, InterruptDialog_KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
             DataContextChanged += InterruptDialog_DataContextChanged;
+            LayoutUpdated += InterruptDialog_LayoutUpdated;
         }
 
         private void InterruptDialog_KeyDown(object? sender, KeyEventArgs e)
@@ -127,6 +130,7 @@ namespace FolderStyleEditorForWindows.Views
             UpdatePrimaryButtonShakeState();
             SyncDialogActiveState();
             _headerMetaTapCount = 0;
+            UpdatePassiveChoiceBounds();
         }
 
         private void PrimaryButton_PointerEntered(object? sender, PointerEventArgs e)
@@ -191,10 +195,50 @@ namespace FolderStyleEditorForWindows.Views
         private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(InterruptDialogState.IsActive) ||
-                e.PropertyName == nameof(InterruptDialogState.IsPrimaryDanger))
+                e.PropertyName == nameof(InterruptDialogState.IsPrimaryDanger) ||
+                e.PropertyName == nameof(InterruptDialogState.IsPassiveOverlay) ||
+                e.PropertyName == nameof(InterruptDialogState.PassiveChoiceCards))
             {
                 SyncDialogActiveState();
+                UpdatePassiveChoiceBounds();
             }
+        }
+
+        private void InterruptDialog_LayoutUpdated(object? sender, EventArgs e)
+        {
+            UpdatePassiveChoiceBounds();
+        }
+
+        private void UpdatePassiveChoiceBounds()
+        {
+            var interruptDialogService = App.Services?.GetService<InterruptDialogService>();
+            if (interruptDialogService == null || _state == null || _passiveChoiceCardsHost == null)
+            {
+                return;
+            }
+
+            if (!_state.IsPassiveOverlayVisible || !_state.HasPassiveChoiceCards || !_passiveChoiceCardsHost.IsVisible)
+            {
+                interruptDialogService.UpdatePassiveChoiceBounds(null);
+                return;
+            }
+
+            var visualRoot = this.GetVisualRoot() as Visual;
+            if (visualRoot == null)
+            {
+                interruptDialogService.UpdatePassiveChoiceBounds(null);
+                return;
+            }
+
+            var topLeft = _passiveChoiceCardsHost.TranslatePoint(new Point(0, 0), visualRoot);
+            if (!topLeft.HasValue)
+            {
+                interruptDialogService.UpdatePassiveChoiceBounds(null);
+                return;
+            }
+
+            var bounds = new Rect(topLeft.Value, _passiveChoiceCardsHost.Bounds.Size);
+            interruptDialogService.UpdatePassiveChoiceBounds(bounds);
         }
 
         private void ResetShakeImmediately()
@@ -595,6 +639,19 @@ namespace FolderStyleEditorForWindows.Views
             await desktop.MainWindow.Clipboard.SetTextAsync(content);
             var toastService = App.Services?.GetRequiredService<IToastService>();
             toastService?.Show(LocalizationManager.Instance["Toast_CopySuccess"], new SolidColorBrush(Color.Parse("#EBB762")));
+        }
+
+        private void CropResetHint_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed &&
+                e.ClickCount >= 2 &&
+                sender is Control control &&
+                control.DataContext is DialogImageCropFieldItem { ResetCropCommand: { } command } &&
+                command.CanExecute(null))
+            {
+                command.Execute(null);
+                e.Handled = true;
+            }
         }
     }
 }

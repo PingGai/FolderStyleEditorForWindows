@@ -373,7 +373,18 @@
                 <Border Classes="Card">
                     <StackPanel Spacing="10">
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Reset_Title]}" Classes="Subtitle"/>
-                        <Button Name="btnClearAll" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Reset_ClearAll]}" Classes="Btn BtnDanger" Command="{Binding ClearAllStylesCommand}"/>
+                        <Grid ColumnDefinitions="*,12,*">
+                            <Button Name="btnClearAll"
+                                    Grid.Column="0"
+                                    Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Reset_ClearAll]}"
+                                    Classes="Btn BtnDanger"
+                                    Command="{Binding ClearAllStylesCommand}"/>
+                            <Button Name="btnClearIconCache"
+                                    Grid.Column="2"
+                                    Content="{Binding IconCacheButtonText}"
+                                    Classes="Btn BtnGhost"
+                                    Command="{Binding ClearIconCacheCommand}"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
                 

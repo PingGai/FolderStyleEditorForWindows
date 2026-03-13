@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:services="using:FolderStyleEditorForWindows.Services"
+             xmlns:controls="using:FolderStyleEditorForWindows.Controls"
              xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
              xmlns:i="using:Avalonia.Xaml.Interactivity"
              xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
@@ -238,6 +239,114 @@
         </StackPanel>
       </Border>
     </DataTemplate>
+
+    <DataTemplate x:DataType="services:DialogChoiceFieldItem">
+      <Border MinHeight="118"
+              Margin="0,0,0,10"
+              Background="#82FFFFFF"
+              BorderBrush="#E3E7ED"
+              BorderThickness="1"
+              CornerRadius="12"
+              Padding="14,12">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding Label}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="{StaticResource Fg1Brush}"
+                     TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding Description}"
+                     IsVisible="{Binding HasDescription}"
+                     FontSize="11"
+                     Foreground="{StaticResource Fg3Brush}"
+                     TextWrapping="Wrap"/>
+          <ItemsControl ItemsSource="{Binding Options}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="services:DialogChoiceOptionItem">
+                <Border Margin="0,0,0,8"
+                        Background="{Binding IsSelected, Converter={StaticResource BoolToBrushConverter}, ConverterParameter='PreviewBrush'}"
+                        BorderBrush="#E3E7ED"
+                        BorderThickness="1"
+                        CornerRadius="11">
+                  <Button Background="Transparent"
+                          BorderBrush="Transparent"
+                          BorderThickness="0"
+                          Padding="12,10"
+                          HorizontalContentAlignment="Stretch"
+                  Command="{Binding SelectCommand}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <StackPanel>
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Fg1Brush}" />
+                        <TextBlock Text="{Binding Description}"
+                                   IsVisible="{Binding HasDescription}"
+                                   FontSize="11"
+                                   Foreground="{StaticResource Fg3Brush}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                      <TextBlock Grid.Column="1"
+                                 Text="已选"
+                                 IsVisible="{Binding IsSelected}"
+                                 VerticalAlignment="Center"
+                                 Foreground="{StaticResource AccentBrush}" />
+                    </Grid>
+                    <Button.CommandParameter>
+                      <Binding Path="Key" />
+                    </Button.CommandParameter>
+                  </Button>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:DataType="services:DialogImagePreviewFieldItem">
+      <Border MinHeight="112"
+              Margin="0,0,0,10"
+              Background="#82FFFFFF"
+              BorderBrush="#E3E7ED"
+              BorderThickness="1"
+              CornerRadius="12"
+              Padding="14,12">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding Label}"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="{StaticResource Fg1Brush}" />
+          <TextBlock Text="{Binding Description}"
+                     IsVisible="{Binding HasDescription}"
+                     FontSize="11"
+                     Foreground="{StaticResource Fg3Brush}"
+                     TextWrapping="Wrap"/>
+          <Border IsVisible="{Binding HasPreviewImage}"
+                  Background="#0FFFFFFF"
+                  CornerRadius="12"
+                  BorderBrush="#DDE1E8"
+                  BorderThickness="1"
+                  Padding="10">
+            <Image Source="{Binding PreviewImage}"
+                   Height="{Binding PreviewHeight}"
+                   Stretch="Uniform"/>
+          </Border>
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+
+    <DataTemplate x:DataType="services:DialogImageCropFieldItem">
+      <StackPanel Margin="0,0,0,10"
+                  Spacing="10">
+        <controls:ImageCropEditor DataContext="{Binding}" />
+        <TextBlock Margin="18,0,0,8"
+                   HorizontalAlignment="Left"
+                   Foreground="{StaticResource Fg3Brush}"
+                   Opacity="0.82"
+                   PointerPressed="CropResetHint_PointerPressed"
+                   Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[ImageToIco_Crop_ResetHint]}" />
+      </StackPanel>
+    </DataTemplate>
   </UserControl.DataTemplates>
 
   <Grid x:Name="OverlayRoot"
@@ -414,11 +523,57 @@
                            IsVisible="{Binding IsStandardOverlay}"
                            FontSize="14"
                            Foreground="{StaticResource Fg2Brush}"
-                           TextAlignment="Left"
-                           HorizontalAlignment="Left"
+                           TextAlignment="{Binding ContentTextAlignment}"
+                           HorizontalAlignment="{Binding ContentHorizontalAlignment}"
                            TextWrapping="Wrap"/>
+                <ItemsControl x:Name="PassiveChoiceCardsHost"
+                              ItemsSource="{Binding PassiveChoiceCards}"
+                              IsVisible="{Binding HasPassiveChoiceCards}"
+                              HorizontalAlignment="Center"
+                              Margin="0,10,0,0">
+                  <ItemsControl.Width>
+                    <Binding ElementName="DialogCard"
+                             Path="Bounds.Width"
+                             Converter="{StaticResource MathConverter}"
+                             ConverterParameter="@VALUE*0.8"/>
+                  </ItemsControl.Width>
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Vertical"
+                                  Spacing="12"
+                                  HorizontalAlignment="Center"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="services:DialogPassiveChoiceCardItem">
+                      <Border HorizontalAlignment="Stretch"
+                              MinHeight="82"
+                              Padding="14,12"
+                              Background="{Binding IsSelected, Converter={StaticResource BoolToBrushConverter}, ConverterParameter='PreviewBrush'}"
+                              BorderBrush="#D7C2B7"
+                              BorderThickness="1"
+                              CornerRadius="14">
+                        <StackPanel Spacing="7">
+                          <TextBlock Text="{Binding Title}"
+                                     FontSize="13.5"
+                                     FontWeight="Bold"
+                                     Foreground="{StaticResource Fg1Brush}"
+                                     TextAlignment="Left"
+                                     TextWrapping="Wrap"/>
+                          <TextBlock Text="{Binding Description}"
+                                     IsVisible="{Binding HasDescription}"
+                                     FontSize="11"
+                                     Foreground="{StaticResource Fg3Brush}"
+                                     TextAlignment="Left"
+                                     TextWrapping="Wrap"/>
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <TextBlock Text="{Binding SubText}"
                            IsVisible="{Binding HasSubText}"
+                           Margin="0,12,0,0"
                            FontSize="13"
                            FontWeight="SemiBold"
                            Foreground="{Binding SubTextForeground}"

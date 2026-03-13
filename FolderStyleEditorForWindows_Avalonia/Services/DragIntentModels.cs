@@ -11,6 +11,7 @@ namespace FolderStyleEditorForWindows.Services
         SingleFolder,
         MultiFolder,
         Ico,
+        ImageToIcon,
         ExeInternal,
         ExeExternal,
         Text,

@@ -9,6 +9,8 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using FolderStyleEditorForWindows.ViewModels;
@@ -227,6 +229,8 @@ namespace FolderStyleEditorForWindows.Services
         public string? HeaderMeta { get; init; }
         public string? SectionTitle { get; init; }
         public string Content { get; init; } = string.Empty;
+        public TextAlignment ContentTextAlignment { get; init; } = TextAlignment.Left;
+        public HorizontalAlignment ContentHorizontalAlignment { get; init; } = HorizontalAlignment.Left;
         public string? CenterIconPath { get; init; }
         public string? SubText { get; init; }
         public IBrush? SubTextForeground { get; init; }
@@ -257,6 +261,7 @@ namespace FolderStyleEditorForWindows.Services
         public IReadOnlyList<DialogActionLinkItem>? ActionLinks { get; init; }
         public IReadOnlyList<DialogExpandableSectionItem>? ExpandableSections { get; init; }
         public IReadOnlyList<DialogFormSectionItem>? FormSections { get; init; }
+        public IReadOnlyList<DialogPassiveChoiceCardItem>? PassiveChoiceCards { get; init; }
         public IReadOnlyList<DialogTabItem>? Tabs { get; init; }
         public double WidthRatio { get; init; } = 1.0;
         public ICommand? PrimaryButtonCommand { get; init; }
@@ -272,6 +277,8 @@ namespace FolderStyleEditorForWindows.Services
         private string _title = string.Empty;
         private IBrush _titleForeground = new SolidColorBrush(Color.Parse("#303034"));
         private string _content = string.Empty;
+        private TextAlignment _contentTextAlignment = TextAlignment.Left;
+        private HorizontalAlignment _contentHorizontalAlignment = HorizontalAlignment.Left;
         private string? _headerMeta;
         private string? _sectionTitle;
         private string? _centerIconPath;
@@ -313,6 +320,7 @@ namespace FolderStyleEditorForWindows.Services
         private ObservableCollection<DialogActionLinkItem> _actionLinks = new();
         private ObservableCollection<DialogExpandableSectionItem> _expandableSections = new();
         private ObservableCollection<DialogFormSectionItem> _formSections = new();
+        private ObservableCollection<DialogPassiveChoiceCardItem> _passiveChoiceCards = new();
         private ObservableCollection<DialogTabItem> _tabs = new();
         private ICommand _primaryActionCommand;
         private ICommand _secondaryActionCommand;
@@ -346,6 +354,8 @@ namespace FolderStyleEditorForWindows.Services
         public string Title { get => _title; set => SetField(ref _title, value); }
         public IBrush TitleForeground { get => _titleForeground; set => SetField(ref _titleForeground, value); }
         public string Content { get => _content; set => SetField(ref _content, value); }
+        public TextAlignment ContentTextAlignment { get => _contentTextAlignment; set => SetField(ref _contentTextAlignment, value); }
+        public HorizontalAlignment ContentHorizontalAlignment { get => _contentHorizontalAlignment; set => SetField(ref _contentHorizontalAlignment, value); }
         public string? HeaderMeta { get => _headerMeta; set { if (SetField(ref _headerMeta, value)) OnPropertyChanged(nameof(HasHeaderMeta)); } }
         public string? SectionTitle { get => _sectionTitle; set { if (SetField(ref _sectionTitle, value)) OnPropertyChanged(nameof(HasSectionTitle)); } }
         public string? CenterIconPath { get => _centerIconPath; set { if (SetField(ref _centerIconPath, value)) OnPropertyChanged(nameof(HasCenterIcon)); } }
@@ -432,6 +442,7 @@ namespace FolderStyleEditorForWindows.Services
         public ObservableCollection<DialogActionLinkItem> ActionLinks { get => _actionLinks; set { if (SetField(ref _actionLinks, value)) OnPropertyChanged(nameof(HasActionLinks)); } }
         public ObservableCollection<DialogExpandableSectionItem> ExpandableSections { get => _expandableSections; set { if (SetField(ref _expandableSections, value)) OnPropertyChanged(nameof(HasExpandableSections)); } }
         public ObservableCollection<DialogFormSectionItem> FormSections { get => _formSections; set { if (SetField(ref _formSections, value)) OnPropertyChanged(nameof(HasFormSections)); } }
+        public ObservableCollection<DialogPassiveChoiceCardItem> PassiveChoiceCards { get => _passiveChoiceCards; set { if (SetField(ref _passiveChoiceCards, value)) OnPropertyChanged(nameof(HasPassiveChoiceCards)); } }
         public ObservableCollection<DialogTabItem> Tabs { get => _tabs; set { if (SetField(ref _tabs, value)) OnPropertyChanged(nameof(HasTabs)); } }
         public ICommand PrimaryActionCommand { get => _primaryActionCommand; set => SetField(ref _primaryActionCommand, value); }
         public ICommand SecondaryActionCommand { get => _secondaryActionCommand; set => SetField(ref _secondaryActionCommand, value); }
@@ -451,6 +462,7 @@ namespace FolderStyleEditorForWindows.Services
         public DialogActionLinkItem? SecondActionLink => ActionLinks.Count > 1 ? ActionLinks[1] : null;
         public bool HasExpandableSections => ExpandableSections.Count > 0;
         public bool HasFormSections => FormSections.Count > 0;
+        public bool HasPassiveChoiceCards => PassiveChoiceCards.Count > 0;
         public bool HasTabs => Tabs.Count > 0;
         public bool HasCheckbox => Checkbox != null;
         public bool HasCodeBlock => CodeBlock != null && !string.IsNullOrWhiteSpace(CodeBlock.Content);
@@ -791,6 +803,7 @@ namespace FolderStyleEditorForWindows.Services
         private readonly DispatcherTimer _primaryCountdownTimer;
         private TaskCompletionSource<InterruptDialogResponse>? _pendingCompletion;
         private bool _isPassiveOverlayActive;
+        private Rect? _passiveChoiceBounds;
 
         public InterruptDialogState State { get; }
 
@@ -832,6 +845,8 @@ namespace FolderStyleEditorForWindows.Services
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
+                State.ContentTextAlignment = options.ContentTextAlignment;
+                State.ContentHorizontalAlignment = options.ContentHorizontalAlignment;
                 State.CenterIconPath = options.CenterIconPath;
                 State.SubText = options.SubText;
                 State.SubTextForeground = options.SubTextForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
@@ -860,6 +875,7 @@ namespace FolderStyleEditorForWindows.Services
                 State.ActionLinks = new ObservableCollection<DialogActionLinkItem>(options.ActionLinks ?? Array.Empty<DialogActionLinkItem>());
                 State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>(options.ExpandableSections ?? Array.Empty<DialogExpandableSectionItem>());
                 State.FormSections = new ObservableCollection<DialogFormSectionItem>(options.FormSections ?? Array.Empty<DialogFormSectionItem>());
+                State.PassiveChoiceCards = new ObservableCollection<DialogPassiveChoiceCardItem>(options.PassiveChoiceCards ?? Array.Empty<DialogPassiveChoiceCardItem>());
                 State.Tabs = new ObservableCollection<DialogTabItem>(options.Tabs ?? Array.Empty<DialogTabItem>());
                 State.DialogWidthRatio = options.WidthRatio > 0 ? options.WidthRatio : 1.0;
                 State.PrimaryActionCommand = options.PrimaryButtonCommand ?? State.ConfirmCommand;
@@ -905,6 +921,8 @@ namespace FolderStyleEditorForWindows.Services
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
+                State.ContentTextAlignment = options.ContentTextAlignment;
+                State.ContentHorizontalAlignment = options.ContentHorizontalAlignment;
                 State.CenterIconPath = options.CenterIconPath;
                 State.SubText = options.SubText;
                 State.SubTextForeground = options.SubTextForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
@@ -924,6 +942,7 @@ namespace FolderStyleEditorForWindows.Services
                 State.ActionLinks = new ObservableCollection<DialogActionLinkItem>();
                 State.ExpandableSections = new ObservableCollection<DialogExpandableSectionItem>();
                 State.FormSections = new ObservableCollection<DialogFormSectionItem>();
+                State.PassiveChoiceCards = new ObservableCollection<DialogPassiveChoiceCardItem>(options.PassiveChoiceCards ?? Array.Empty<DialogPassiveChoiceCardItem>());
                 State.Tabs = new ObservableCollection<DialogTabItem>();
                 State.DialogWidthRatio = options.WidthRatio > 0 ? options.WidthRatio : 1.0;
                 State.PrimaryActionCommand = State.ConfirmCommand;
@@ -946,6 +965,7 @@ namespace FolderStyleEditorForWindows.Services
             }
 
             _isPassiveOverlayActive = false;
+            _passiveChoiceBounds = null;
             _animationStateSource.MarkTransitionActivity(180);
             _dispatcher.Post(() =>
             {
@@ -1014,6 +1034,51 @@ namespace FolderStyleEditorForWindows.Services
                     State.CardScale = 1.0;
                 }
             });
+        }
+
+        public void UpdatePassiveOverlayChoice(string? key)
+        {
+            if (!_isPassiveOverlayActive)
+            {
+                return;
+            }
+
+            _dispatcher.Post(() =>
+            {
+                foreach (var item in State.PassiveChoiceCards)
+                {
+                    item.IsSelected = !string.IsNullOrWhiteSpace(key) &&
+                                      string.Equals(item.Key, key, StringComparison.Ordinal);
+                }
+            });
+        }
+
+        public void UpdatePassiveChoiceBounds(Rect? bounds)
+        {
+            _passiveChoiceBounds = bounds;
+        }
+
+        public string? ResolvePassiveChoiceAt(double pointerX, double pointerY, string? fallbackKey = null)
+        {
+            if (!_isPassiveOverlayActive || !_passiveChoiceBounds.HasValue || State.PassiveChoiceCards.Count == 0)
+            {
+                return fallbackKey;
+            }
+
+            var bounds = _passiveChoiceBounds.Value;
+            if (!bounds.Contains(new Point(pointerX, pointerY)))
+            {
+                return fallbackKey;
+            }
+
+            var sectionHeight = bounds.Height / State.PassiveChoiceCards.Count;
+            if (sectionHeight <= 0)
+            {
+                return fallbackKey;
+            }
+
+            var index = Math.Min(State.PassiveChoiceCards.Count - 1, (int)((pointerY - bounds.Y) / sectionHeight));
+            return State.PassiveChoiceCards[index].Key;
         }
 
         public async Task ShowSingleActionAsync(string title, string content, string acknowledgeText, string? sectionTitle = null)

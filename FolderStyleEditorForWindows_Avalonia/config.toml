@@ -20,7 +20,7 @@ SuppressElevationPrompt = false
 
   [HoverIcon.FileTypes]
   Supported = ["exe", "dll", "ico"]
-  SupportedToConvert = ["png", "jpg", "jpeg", "bmp", "svg"]
+  SupportedToConvert = ["png", "jpg", "jpeg", "bmp", "svg", "webp"]
 
   [[HoverIcon.MainIcons]]
   Extensions = ["exe", "dll"]

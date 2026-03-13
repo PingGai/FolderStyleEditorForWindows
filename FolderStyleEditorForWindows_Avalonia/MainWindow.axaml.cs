@@ -42,6 +42,8 @@ namespace FolderStyleEditorForWindows
         private EditSessionManager _sessionManager;
         private readonly DragIntentAnalyzerService _dragIntentAnalyzerService;
         private readonly InterruptDialogService _interruptDialogService;
+        private readonly ImageToIcoService _imageToIcoService;
+        private readonly IToastService _toastService;
         private readonly DisplayInfoService _displayInfoService;
         private readonly AnimationStateSource _animationStateSource;
         private readonly FrameRateGovernor _frameRateGovernor;
@@ -57,6 +59,7 @@ namespace FolderStyleEditorForWindows
         private CancellationTokenSource? _dragLeaveCts;
         private int _dragIntentVersion;
         private string? _lastOverlaySignature;
+        private string _imageDragSelectionKey = nameof(ImageFitMode.FillHeight);
         private bool _isDropHandling;
         private readonly DispatcherTimer _dragOverlayWatchdogTimer;
         private DateTime _lastDragHeartbeatUtc;
@@ -132,6 +135,8 @@ namespace FolderStyleEditorForWindows
             _sessionManager = new EditSessionManager(_viewModel);
             _dragIntentAnalyzerService = App.Services!.GetRequiredService<DragIntentAnalyzerService>();
             _interruptDialogService = App.Services!.GetRequiredService<InterruptDialogService>();
+            _imageToIcoService = App.Services!.GetRequiredService<ImageToIcoService>();
+            _toastService = App.Services!.GetRequiredService<IToastService>();
             _displayInfoService = App.Services!.GetRequiredService<DisplayInfoService>();
             _animationStateSource = App.Services!.GetRequiredService<AnimationStateSource>();
             _frameRateGovernor = App.Services!.GetRequiredService<FrameRateGovernor>();
@@ -789,6 +794,16 @@ namespace FolderStyleEditorForWindows
                     ResolveDragContext(),
                     _viewModel.FolderPath,
                     CancellationToken.None);
+                var imageDropSelectionKey = _imageDragSelectionKey;
+                if (dropIntent.Type == DragIntentType.ImageToIcon)
+                {
+                    var dropPosition = e.GetPosition(this);
+                    imageDropSelectionKey = _interruptDialogService.ResolvePassiveChoiceAt(
+                        dropPosition.X,
+                        dropPosition.Y,
+                        _imageDragSelectionKey);
+                }
+
                 _viewModel.IsDragOver = false;
                 ResetDragOverlayState();
                 e.Handled = true;
@@ -811,6 +826,12 @@ namespace FolderStyleEditorForWindows
                         if (context == DragContext.Edit && !string.IsNullOrWhiteSpace(firstPath) && File.Exists(firstPath))
                         {
                             _viewModel.IconPath = firstPath;
+                        }
+                        break;
+                    case DragIntentType.ImageToIcon:
+                        if (context == DragContext.Edit && !string.IsNullOrWhiteSpace(firstPath) && File.Exists(firstPath))
+                        {
+                            await HandleDroppedImageToIconAsync(firstPath, imageDropSelectionKey);
                         }
                         break;
                     case DragIntentType.Text:
@@ -842,6 +863,139 @@ namespace FolderStyleEditorForWindows
         private DragContext ResolveDragContext()
         {
             return _editView?.IsVisible == true ? DragContext.Edit : DragContext.Home;
+        }
+
+        private async Task HandleDroppedImageToIconAsync(string imagePath, string? preferredModeKey = null)
+        {
+            if (string.IsNullOrWhiteSpace(_viewModel.FolderPath) || !Directory.Exists(_viewModel.FolderPath))
+            {
+                return;
+            }
+
+            using var source = await _imageToIcoService.LoadPreviewAsync(imagePath, CancellationToken.None);
+            var selectedMode = TryParseImageFitMode(preferredModeKey) ?? ImageFitMode.FillHeight;
+            ImageCropSelection? manualSelection = null;
+            if (selectedMode == ImageFitMode.ManualCrop)
+            {
+                var cropResult = await ShowManualCropDialogAsync(source);
+                if (cropResult is null)
+                {
+                    return;
+                }
+
+                manualSelection = cropResult.Value;
+            }
+
+            await GenerateAndApplyDroppedImageIconAsync(imagePath, selectedMode, manualSelection);
+        }
+
+        private static ImageFitMode? TryParseImageFitMode(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            return Enum.TryParse<ImageFitMode>(key, out var parsed) ? parsed : null;
+        }
+
+        private async Task<ImageCropSelection?> ShowManualCropDialogAsync(LoadedImageToIcoSource source)
+        {
+            var loc = LocalizationManager.Instance;
+            var cropField = new DialogImageCropFieldItem(
+                loc["ImageToIco_Crop_Title"],
+                source.PreviewBitmap,
+                null,
+                field => InitializeDefaultCropSelection(field, source.PixelWidth, source.PixelHeight));
+
+            InitializeDefaultCropSelection(cropField, source.PixelWidth, source.PixelHeight);
+
+            var response = await _interruptDialogService.ShowAsync(new InterruptDialogOptions
+            {
+                Title = loc["ImageToIco_Crop_Dialog_Title"],
+                HeaderMeta = source.FileName,
+                Content = loc["ImageToIco_Crop_Dialog_Content"],
+                ContentTextAlignment = TextAlignment.Center,
+                ContentHorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                PrimaryButtonText = loc["ImageToIco_Crop_Confirm"],
+                SecondaryButtonText = loc["Dialog_Secondary_Cancel"],
+                WidthRatio = 1.2,
+                FormSections =
+                [
+                    new DialogFormSectionItem(
+                        loc["ImageToIco_Crop_Section"],
+                        new DialogFormFieldItem[] { cropField })
+                ]
+            });
+
+            if (response.Result != InterruptDialogResult.Primary)
+            {
+                return null;
+            }
+
+            return new ImageCropSelection(
+                cropField.SelectionX,
+                cropField.SelectionY,
+                cropField.SelectionWidth,
+                cropField.SelectionHeight,
+                cropField.CornerRadiusNormalized);
+        }
+
+        private static void InitializeDefaultCropSelection(DialogImageCropFieldItem cropField, int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+            {
+                cropField.SetSelection(0, 0, 1, 1);
+                cropField.SetCornerRadius(0);
+                return;
+            }
+
+            if (width > height)
+            {
+                var normalizedWidth = height / (double)width;
+                cropField.SetSelection((1 - normalizedWidth) / 2d, 0, normalizedWidth, 1);
+                cropField.SetCornerRadius(0);
+                return;
+            }
+
+            if (height > width)
+            {
+                var normalizedHeight = width / (double)height;
+                cropField.SetSelection(0, (1 - normalizedHeight) / 2d, 1, normalizedHeight);
+                cropField.SetCornerRadius(0);
+                return;
+            }
+
+            cropField.SetSelection(0, 0, 1, 1);
+            cropField.SetCornerRadius(0);
+        }
+
+        private async Task GenerateAndApplyDroppedImageIconAsync(string imagePath, ImageFitMode fitMode, ImageCropSelection? cropSelection)
+        {
+            var loc = LocalizationManager.Instance;
+
+            try
+            {
+                var result = await _imageToIcoService.GenerateAsync(new ImageToIcoRequest
+                {
+                    SourcePath = imagePath,
+                    TargetFolderPath = _viewModel.FolderPath,
+                    FitMode = fitMode,
+                    CropSelection = cropSelection
+                }, CancellationToken.None);
+
+                _viewModel.IconPath = result.OutputPath;
+                await _viewModel.RefreshIconCacheButtonTextAsync();
+                _toastService.Show(loc["ImageToIco_Toast_Success"], new SolidColorBrush(Color.Parse("#EBB762")));
+            }
+            catch (Exception ex)
+            {
+                await _interruptDialogService.ShowFailureAsync(
+                    loc["ImageToIco_Error_Title"],
+                    loc["ImageToIco_Error_Headline"],
+                    loc["ImageToIco_Error_Content"],
+                    ex.ToString());
+            }
         }
 
         private async Task RefreshDragIntentAsync(DragEventArgs e)
@@ -885,9 +1039,24 @@ namespace FolderStyleEditorForWindows
             var loc = LocalizationManager.Instance;
             var mainText = loc[intent.MainTextKey];
             var subText = string.IsNullOrWhiteSpace(intent.SubTextKey) ? null : loc[intent.SubTextKey];
-            var signature = $"{intent.Type}|{mainText}|{subText}|{intent.IconPath}|{intent.SubTextBrush}";
+            IReadOnlyList<DialogPassiveChoiceCardItem>? passiveChoiceCards = null;
+            if (intent.Type == DragIntentType.ImageToIcon)
+            {
+                passiveChoiceCards =
+                [
+                    new DialogPassiveChoiceCardItem(nameof(ImageFitMode.FillHeight), loc["ImageToIco_Mode_FillHeight"], loc["ImageToIco_Mode_FillHeight_Desc"]),
+                    new DialogPassiveChoiceCardItem(nameof(ImageFitMode.FillWidth), loc["ImageToIco_Mode_FillWidth"], loc["ImageToIco_Mode_FillWidth_Desc"]),
+                    new DialogPassiveChoiceCardItem(nameof(ImageFitMode.ManualCrop), loc["ImageToIco_Mode_Manual"], loc["ImageToIco_Mode_Manual_Desc"])
+                ];
+            }
+
+            var signature = $"{intent.Type}|{mainText}|{subText}|{intent.IconPath}|{intent.SubTextBrush}|{(passiveChoiceCards?.Count ?? 0)}";
             if (string.Equals(_lastOverlaySignature, signature, StringComparison.Ordinal))
             {
+                if (intent.Type == DragIntentType.ImageToIcon)
+                {
+                    _interruptDialogService.UpdatePassiveOverlayChoice(_imageDragSelectionKey);
+                }
                 return;
             }
 
@@ -903,12 +1072,20 @@ namespace FolderStyleEditorForWindows
                 CenterIconPath = intent.IconPath,
                 SubText = subText,
                 SubTextForeground = subBrush,
+                WidthRatio = intent.Type == DragIntentType.ImageToIcon ? 1.2 : 1.0,
                 ShowPrimaryButton = ConfigManager.Config.DragOverlay.ShowPrimaryButton,
                 ShowSecondaryButton = ConfigManager.Config.DragOverlay.ShowSecondaryButton,
                 DismissOnEsc = ConfigManager.Config.DragOverlay.DismissOnEsc,
                 AllowOverlayClickDismiss = ConfigManager.Config.DragOverlay.AllowOverlayClickDismiss,
+                PassiveChoiceCards = passiveChoiceCards,
                 HitTestVisible = false
             });
+
+            if (intent.Type == DragIntentType.ImageToIcon)
+            {
+                _imageDragSelectionKey = nameof(ImageFitMode.FillHeight);
+                _interruptDialogService.UpdatePassiveOverlayChoice(_imageDragSelectionKey);
+            }
 
             _componentFpsBadgeSource.SetDragOverlayVisible(true);
             _lastOverlaySignature = signature;
@@ -921,6 +1098,7 @@ namespace FolderStyleEditorForWindows
             _animationStateSource.MarkStaticDirty();
             _lastDragIntent = DragIntentResult.Unsupported;
             _lastOverlaySignature = null;
+            _imageDragSelectionKey = nameof(ImageFitMode.FillHeight);
             Interlocked.Increment(ref _dragIntentVersion);
             _dragIntentCts?.Cancel();
             _dragOverlayWatchdogTimer.Stop();
@@ -937,6 +1115,15 @@ namespace FolderStyleEditorForWindows
 
             var position = e.GetPosition(this);
             _interruptDialogService.UpdatePassiveOverlayMotion(position.X, position.Y, Bounds.Width, Bounds.Height);
+            if (_lastDragIntent.Type == DragIntentType.ImageToIcon)
+            {
+                var selectedKey = _interruptDialogService.ResolvePassiveChoiceAt(position.X, position.Y, _imageDragSelectionKey);
+                if (!string.IsNullOrWhiteSpace(selectedKey) && !string.Equals(_imageDragSelectionKey, selectedKey, StringComparison.Ordinal))
+                {
+                    _imageDragSelectionKey = selectedKey;
+                    _interruptDialogService.UpdatePassiveOverlayChoice(selectedKey);
+                }
+            }
         }
 
         private void TouchDragHeartbeat()

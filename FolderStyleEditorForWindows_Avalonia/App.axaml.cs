@@ -45,6 +45,7 @@ public partial class App : Application
         services.AddSingleton<ElevationSessionState>();
         services.AddSingleton<LicenseCatalogService>();
         services.AddSingleton<InterruptDialogService>();
+        services.AddSingleton<ImageToIcoService>();
         services.AddSingleton<FolderStyleMutationEngine>();
         services.AddSingleton<ElevatedHelperController>();
         services.AddSingleton<FolderStyleSaveCoordinator>();

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -71,6 +72,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 OnPropertyChanged();
                 EnsureUndoStackExists(_folderPath);
                 LoadFolderSettings();
+                _ = RefreshIconCacheButtonTextAsync();
             }
         }
 
@@ -138,6 +140,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 _iconPath = value;
                 OnPropertyChanged();
                 QueueIconLoad(_iconPath);
+                _ = RefreshIconCacheButtonTextAsync();
                 RecordUndoIfNeeded(UndoField.IconPath, oldValue, _iconPath);
             }
         }
@@ -147,6 +150,18 @@ namespace FolderStyleEditorForWindows.ViewModels
         {
             get => _isDragOver;
             set { if (_isDragOver == value) return; _isDragOver = value; OnPropertyChanged(); }
+        }
+
+        private string _iconCacheButtonText = string.Empty;
+        public string IconCacheButtonText
+        {
+            get => _iconCacheButtonText;
+            private set
+            {
+                if (_iconCacheButtonText == value) return;
+                _iconCacheButtonText = value;
+                OnPropertyChanged();
+            }
         }
         
         private Avalonia.Media.Geometry? _dragIconData;
@@ -598,6 +613,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         public ICommand GoHomeCommand { get; }
         public ICommand ResetIconCommand { get; }
         public ICommand ClearAllStylesCommand { get; }
+        public ICommand ClearIconCacheCommand { get; }
         public Action<string, string?>? NavigateToEditView { get; set; }
         public Action? NavigateToHomeView { get; set; }
         
@@ -724,6 +740,8 @@ namespace FolderStyleEditorForWindows.ViewModels
             GoHomeCommand = new RelayCommand(() => NavigateToHomeView?.Invoke());
             ResetIconCommand = new RelayCommand(ResetIcon);
             ClearAllStylesCommand = new RelayCommand(ClearAllStyles);
+            ClearIconCacheCommand = new RelayCommand(async () => await ClearIconCacheAsync());
+            IconCacheButtonText = LocalizationManager.Instance["Edit_Reset_ClearIconCacheButton"];
             _ = LoadPersistedDataAsync();
         }
 
@@ -937,8 +955,8 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
 
         [SupportedOSPlatform("windows")]
-        private void ClearAllStyles()
-        {
+       private void ClearAllStyles()
+       {
             IconPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll,4");
             if (Directory.Exists(FolderPath))
             {
@@ -949,7 +967,74 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 Alias = "";
             }
-        }
+
+            _ = RefreshIconCacheButtonTextAsync();
+       }
+
+       public async Task RefreshIconCacheButtonTextAsync()
+       {
+            var format = LocalizationManager.Instance["Edit_Reset_ClearIconCacheButtonFormat"];
+            var sizeText = await Task.Run(() => GetIconCacheSizeText(FolderPath));
+            IconCacheButtonText = string.Format(CultureInfo.CurrentCulture, format, sizeText);
+       }
+
+       private static string GetIconCacheSizeText(string? folderPath)
+       {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return "0 MB";
+            }
+
+            var iconDirectory = Path.Combine(folderPath, ".ICON");
+            if (!Directory.Exists(iconDirectory))
+            {
+                return "0 MB";
+            }
+
+            long totalBytes = 0;
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(iconDirectory, "*", SearchOption.AllDirectories))
+                {
+                    totalBytes += new FileInfo(file).Length;
+                }
+            }
+            catch
+            {
+                return "0 MB";
+            }
+
+            if (totalBytes <= 0)
+            {
+                return "0 MB";
+            }
+
+            const double kb = 1024d;
+            const double mb = kb * 1024d;
+            if (totalBytes < mb)
+            {
+                return $"{totalBytes / kb:F1} KB";
+            }
+
+            return $"{totalBytes / mb:F1} MB";
+       }
+
+       private async Task ClearIconCacheAsync()
+       {
+            if (string.IsNullOrWhiteSpace(FolderPath))
+            {
+                return;
+            }
+
+            var iconDirectory = Path.Combine(FolderPath, ".ICON");
+            if (Directory.Exists(iconDirectory))
+            {
+                await Task.Run(() => Directory.Delete(iconDirectory, recursive: true));
+            }
+
+            ClearIconPreview();
+            await RefreshIconCacheButtonTextAsync();
+       }
 
        [SupportedOSPlatform("windows")]
        private async void AutoGetIcon()

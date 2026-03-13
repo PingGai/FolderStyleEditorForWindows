@@ -13,6 +13,15 @@ namespace FolderStyleEditorForWindows.Services
     public sealed class DragIntentAnalyzerService
     {
         private readonly ConcurrentDictionary<string, (bool hasIcons, DateTime cachedAtUtc)> _hasIconsCache = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> SupportedImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".svg",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".bmp",
+            ".webp"
+        };
         private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(15);
 
         public DragIntentResult AnalyzeImmediate(
@@ -130,6 +139,18 @@ namespace FolderStyleEditorForWindows.Services
                     };
                 }
 
+                if (SupportedImageExtensions.Contains(ext))
+                {
+                    return new DragIntentResult
+                    {
+                        Type = DragIntentType.ImageToIcon,
+                        MainTextKey = "Drag_Image_Main",
+                        SubTextKey = "Drag_Image_Sub",
+                        IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg",
+                        CanDrop = true
+                    };
+                }
+
                 if (ext == ".exe")
                 {
                     var isInternal = IsUnderFolder(path, currentFolderPath);
@@ -210,6 +231,18 @@ namespace FolderStyleEditorForWindows.Services
                         SubTextKey = subKey,
                         IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg",
                         SubTextBrush = subKey == null ? null : "#E07167",
+                        CanDrop = true
+                    };
+                }
+
+                if (SupportedImageExtensions.Contains(ext))
+                {
+                    return new DragIntentResult
+                    {
+                        Type = DragIntentType.ImageToIcon,
+                        MainTextKey = "Drag_Image_Main",
+                        SubTextKey = "Drag_Image_Sub",
+                        IconPath = "avares://FolderStyleEditorForWindows/Resources/SVG/book-image.svg",
                         CanDrop = true
                     };
                 }

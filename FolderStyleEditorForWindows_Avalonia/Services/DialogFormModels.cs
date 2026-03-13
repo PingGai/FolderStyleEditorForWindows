@@ -6,6 +6,8 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using FolderStyleEditorForWindows.ViewModels;
 
 namespace FolderStyleEditorForWindows.Services
 {
@@ -360,6 +362,40 @@ namespace FolderStyleEditorForWindows.Services
         }
     }
 
+    public sealed class DialogPassiveChoiceCardItem : INotifyPropertyChanged
+    {
+        private bool _isSelected;
+
+        public DialogPassiveChoiceCardItem(string key, string title, string? description = null)
+        {
+            Key = key;
+            Title = title;
+            Description = description;
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public string Key { get; }
+        public string Title { get; }
+        public string? Description { get; }
+        public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected == value)
+                {
+                    return;
+                }
+
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
+    }
+
     public sealed class DialogTabItem : INotifyPropertyChanged
     {
         private string _title;
@@ -403,6 +439,288 @@ namespace FolderStyleEditorForWindows.Services
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             return true;
+        }
+    }
+
+    public sealed class DialogChoiceOptionItem : INotifyPropertyChanged
+    {
+        private bool _isSelected;
+
+        public DialogChoiceOptionItem(string key, string title, string? description = null)
+        {
+            Key = key;
+            Title = title;
+            Description = description;
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        public string Key { get; }
+        public string Title { get; }
+        public string? Description { get; }
+        public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+        public ICommand? SelectCommand { get; set; }
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected == value)
+                {
+                    return;
+                }
+
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
+    }
+
+    public sealed class DialogChoiceFieldItem : DialogFormFieldItem
+    {
+        private readonly Action<string> _applySelection;
+        private string _selectedKey;
+        private bool _isSyncing;
+
+        public DialogChoiceFieldItem(
+            string label,
+            string? description,
+            IEnumerable<DialogChoiceOptionItem> options,
+            string initialKey,
+            Action<string> applySelection)
+            : base(label, description)
+        {
+            Options = new ObservableCollection<DialogChoiceOptionItem>(options);
+            _selectedKey = initialKey;
+            _applySelection = applySelection;
+            SelectCommand = new RelayCommand<string?>(key =>
+            {
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    Select(key);
+                }
+            });
+            foreach (var option in Options)
+            {
+                option.SelectCommand = SelectCommand;
+            }
+            ApplySelection(initialKey, notify: false);
+        }
+
+        public ObservableCollection<DialogChoiceOptionItem> Options { get; }
+        public ICommand SelectCommand { get; }
+
+        public string SelectedKey
+        {
+            get => _selectedKey;
+            set
+            {
+                if (!SetField(ref _selectedKey, value))
+                {
+                    return;
+                }
+
+                ApplySelection(value, notify: !_isSyncing);
+            }
+        }
+
+        public void Select(string key)
+        {
+            SelectedKey = key;
+        }
+
+        public void SyncFromValue(string key)
+        {
+            _isSyncing = true;
+            SelectedKey = key;
+            _isSyncing = false;
+        }
+
+        private void ApplySelection(string key, bool notify)
+        {
+            foreach (var option in Options)
+            {
+                option.IsSelected = string.Equals(option.Key, key, StringComparison.Ordinal);
+            }
+
+            if (notify)
+            {
+                _applySelection(key);
+            }
+        }
+    }
+
+    public sealed class DialogImagePreviewFieldItem : DialogFormFieldItem
+    {
+        private Bitmap? _previewImage;
+        private double _previewHeight;
+
+        public DialogImagePreviewFieldItem(
+            string label,
+            Bitmap? previewImage,
+            double previewHeight = 220,
+            string? description = null)
+            : base(label, description)
+        {
+            _previewImage = previewImage;
+            _previewHeight = previewHeight;
+        }
+
+        public Bitmap? PreviewImage
+        {
+            get => _previewImage;
+            set
+            {
+                if (SetField(ref _previewImage, value))
+                {
+                    OnPropertyChanged(nameof(HasPreviewImage));
+                }
+            }
+        }
+
+        public double PreviewHeight
+        {
+            get => _previewHeight;
+            set => SetField(ref _previewHeight, value);
+        }
+
+        public bool HasPreviewImage => PreviewImage != null;
+    }
+
+    public sealed class DialogImageCropFieldItem : DialogFormFieldItem
+    {
+        private readonly Action<DialogImageCropFieldItem>? _resetAction;
+        private Bitmap? _previewImage;
+        private double _selectionX;
+        private double _selectionY;
+        private double _selectionWidth;
+        private double _selectionHeight;
+        private double _cornerRadiusNormalized;
+        private string? _selectionSummary;
+
+        public DialogImageCropFieldItem(
+            string label,
+            Bitmap? previewImage,
+            string? description = null,
+            Action<DialogImageCropFieldItem>? resetAction = null)
+            : base(label, description)
+        {
+            _previewImage = previewImage;
+            _resetAction = resetAction;
+            ResetCropCommand = new RelayCommand(ResetSelection);
+            SetSelection(0, 0, 1, 1, updateSummary: true);
+        }
+
+        public Bitmap? PreviewImage
+        {
+            get => _previewImage;
+            set
+            {
+                if (SetField(ref _previewImage, value))
+                {
+                    OnPropertyChanged(nameof(HasPreviewImage));
+                }
+            }
+        }
+
+        public bool HasPreviewImage => PreviewImage != null;
+
+        public double SelectionX
+        {
+            get => _selectionX;
+            private set => SetField(ref _selectionX, value);
+        }
+
+        public double SelectionY
+        {
+            get => _selectionY;
+            private set => SetField(ref _selectionY, value);
+        }
+
+        public double SelectionWidth
+        {
+            get => _selectionWidth;
+            private set => SetField(ref _selectionWidth, value);
+        }
+
+        public double SelectionHeight
+        {
+            get => _selectionHeight;
+            private set => SetField(ref _selectionHeight, value);
+        }
+
+        public string? SelectionSummary
+        {
+            get => _selectionSummary;
+            private set
+            {
+                if (SetField(ref _selectionSummary, value))
+                {
+                    OnPropertyChanged(nameof(HasSelectionSummary));
+                }
+            }
+        }
+
+        public bool HasSelectionSummary => !string.IsNullOrWhiteSpace(SelectionSummary);
+
+        public double CornerRadiusNormalized
+        {
+            get => _cornerRadiusNormalized;
+            private set => SetField(ref _cornerRadiusNormalized, value);
+        }
+
+        public ICommand ResetCropCommand { get; }
+
+        public void SetSelection(double x, double y, double width, double height, bool updateSummary = true)
+        {
+            var clampedWidth = Math.Clamp(width, 0.05, 1.0);
+            var clampedHeight = Math.Clamp(height, 0.05, 1.0);
+            var clampedX = Math.Clamp(x, 0.0, 1.0 - clampedWidth);
+            var clampedY = Math.Clamp(y, 0.0, 1.0 - clampedHeight);
+
+            SelectionX = clampedX;
+            SelectionY = clampedY;
+            SelectionWidth = clampedWidth;
+            SelectionHeight = clampedHeight;
+
+            if (updateSummary)
+            {
+                UpdateSelectionSummary();
+            }
+        }
+
+        public void SetCornerRadius(double normalizedCornerRadius, bool updateSummary = true)
+        {
+            CornerRadiusNormalized = Math.Clamp(normalizedCornerRadius, 0.0, 0.5);
+            if (updateSummary)
+            {
+                UpdateSelectionSummary();
+            }
+        }
+
+        private void UpdateSelectionSummary()
+        {
+            SelectionSummary = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "X {0:P0} | Y {1:P0} | W {2:P0} | H {3:P0} | R {4:P0}",
+                    SelectionX,
+                    SelectionY,
+                    SelectionWidth,
+                    SelectionHeight,
+                    CornerRadiusNormalized * 2d);
+        }
+
+        private void ResetSelection()
+        {
+            if (_resetAction != null)
+            {
+                _resetAction(this);
+                return;
+            }
+
+            SetSelection(0, 0, 1, 1, updateSummary: true);
+            SetCornerRadius(0, updateSummary: true);
         }
     }
 }
