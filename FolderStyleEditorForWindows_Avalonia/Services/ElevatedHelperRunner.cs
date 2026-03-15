@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.Versioning;
+using System.Linq;
+using System.Security;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -82,6 +84,15 @@ namespace FolderStyleEditorForWindows.Services
                                 Result = result
                             }));
                             break;
+                        case ElevatedHelperCommand.DeleteDirectory:
+                            var deleteResult = DeleteDirectory(request.DirectoryPath);
+                            await writer.WriteLineAsync(JsonConvert.SerializeObject(new ElevatedHelperResponse
+                            {
+                                Ok = deleteResult.IsSuccess,
+                                Message = deleteResult.Message,
+                                Result = deleteResult
+                            }));
+                            break;
                         default:
                             await writer.WriteLineAsync(JsonConvert.SerializeObject(new ElevatedHelperResponse
                             {
@@ -110,6 +121,77 @@ namespace FolderStyleEditorForWindows.Services
             catch
             {
                 return false;
+            }
+        }
+
+        private static FolderStyleMutationResult DeleteDirectory(string? directoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.ValidationFailure,
+                    Message = "Directory path is required."
+                };
+            }
+
+            try
+            {
+                if (!Directory.Exists(directoryPath))
+                {
+                    return new FolderStyleMutationResult
+                    {
+                        Status = FolderStyleMutationStatus.Success,
+                        Message = "Directory does not exist."
+                    };
+                }
+
+                foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+                {
+                    File.SetAttributes(filePath, FileAttributes.Normal);
+                }
+
+                foreach (var childDirectory in Directory.EnumerateDirectories(directoryPath, "*", SearchOption.AllDirectories)
+                    .OrderByDescending(static path => path.Length))
+                {
+                    File.SetAttributes(childDirectory, FileAttributes.Normal);
+                }
+
+                File.SetAttributes(directoryPath, FileAttributes.Normal);
+                Directory.Delete(directoryPath, recursive: true);
+
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.Success,
+                    Message = "Directory deleted."
+                };
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.AccessDenied,
+                    Message = ex.Message,
+                    Details = ex.ToString()
+                };
+            }
+            catch (Exception ex) when (ex is IOException or SecurityException)
+            {
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.IoFailure,
+                    Message = ex.Message,
+                    Details = ex.ToString()
+                };
+            }
+            catch (Exception ex)
+            {
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.UnexpectedError,
+                    Message = ex.Message,
+                    Details = ex.ToString()
+                };
             }
         }
     }

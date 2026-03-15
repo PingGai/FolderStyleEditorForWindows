@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Globalization;
 using FolderStyleEditorForWindows.Models;
 using Tomlyn;
 
@@ -196,6 +197,8 @@ namespace FolderStyleEditorForWindows.Services
             text = UpsertSectionValue(text, "FrameRate", "BackgroundAmbientFps", cfg.FrameRate.BackgroundAmbientFps.ToString());
             text = UpsertSectionValue(text, "FrameRate", "HomeTitleAmbientFps", cfg.FrameRate.HomeTitleAmbientFps.ToString());
             text = UpsertSectionValue(text, "FrameRate", "AdminTitleAmbientFps", cfg.FrameRate.AdminTitleAmbientFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "EditHintCarouselFps", cfg.FrameRate.EditHintCarouselFps.ToString());
+            text = UpsertSectionValue(text, "FrameRate", "LiquidSegmentedSelectorFps", cfg.FrameRate.LiquidSegmentedSelectorFps.ToString());
             text = UpsertSectionValue(text, "FrameRate", "ActiveInteractionFps", cfg.FrameRate.ActiveInteractionFps.ToString());
             text = UpsertSectionValue(text, "FrameRate", "UseDisplayRefreshRateAsMaxFps", cfg.FrameRate.UseDisplayRefreshRateAsMaxFps ? "true" : "false");
             text = UpsertSectionValue(text, "FrameRate", "ManualMaxFps", cfg.FrameRate.ManualMaxFps.ToString());
@@ -210,6 +213,16 @@ namespace FolderStyleEditorForWindows.Services
             text = UpsertSectionValue(text, "FrameRate", "ExcludeBottomActionButtons", cfg.FrameRate.ExcludeBottomActionButtons ? "true" : "false");
             text = UpsertSectionValue(text, "FrameRate", "ExcludeActualTopmost", cfg.FrameRate.ExcludeActualTopmost ? "true" : "false");
             text = UpsertSectionValue(text, "FrameRate", "DisableEditScrollAnimations", cfg.FrameRate.DisableEditScrollAnimations ? "true" : "false");
+            text = UpsertSectionValue(text, "EditHintCarousel", "RotationIntervalSeconds", cfg.EditHintCarousel.RotationIntervalSeconds.ToString("0.###", CultureInfo.InvariantCulture));
+            text = UpsertSectionValue(text, "EditHintCarousel", "EnabledItems", FormatStringArray(cfg.EditHintCarousel.EnabledItems));
+            text = UpsertSectionValue(text, "EditHintCarousel", "FolderGradientStart", QuoteString(cfg.EditHintCarousel.FolderGradientStart));
+            text = UpsertSectionValue(text, "EditHintCarousel", "FolderGradientEnd", QuoteString(cfg.EditHintCarousel.FolderGradientEnd));
+            text = UpsertSectionValue(text, "EditHintCarousel", "IconGradientStart", QuoteString(cfg.EditHintCarousel.IconGradientStart));
+            text = UpsertSectionValue(text, "EditHintCarousel", "IconGradientEnd", QuoteString(cfg.EditHintCarousel.IconGradientEnd));
+            text = UpsertSectionValue(text, "EditHintCarousel", "ImageGradientStart", QuoteString(cfg.EditHintCarousel.ImageGradientStart));
+            text = UpsertSectionValue(text, "EditHintCarousel", "ImageGradientEnd", QuoteString(cfg.EditHintCarousel.ImageGradientEnd));
+            text = UpsertSectionValue(text, "EditHintCarousel", "AliasGradientStart", QuoteString(cfg.EditHintCarousel.AliasGradientStart));
+            text = UpsertSectionValue(text, "EditHintCarousel", "AliasGradientEnd", QuoteString(cfg.EditHintCarousel.AliasGradientEnd));
 
             text = UpsertSectionValue(text, "Appearance", "SvgDefaultColor", QuoteString(cfg.Appearance.SvgDefaultColor ?? "#ff606064"));
 
@@ -269,6 +282,16 @@ namespace FolderStyleEditorForWindows.Services
             return $"\"{escaped}\"";
         }
 
+        private static string FormatStringArray(string[]? values)
+        {
+            if (values == null || values.Length == 0)
+            {
+                return "[]";
+            }
+
+            return "[" + string.Join(", ", values.Select(value => QuoteString(value ?? string.Empty))) + "]";
+        }
+
         private static string DefaultConfigTemplate() =>
 @"# FolderStyleEditorForWindows configuration
 ConfigSchemaVersion = 2
@@ -305,9 +328,11 @@ SuppressElevationPrompt = false
 
 [FrameRate]
 StaticContentRefreshFps = 0
-BackgroundAmbientFps = 8
-HomeTitleAmbientFps = 15
-AdminTitleAmbientFps = 15
+BackgroundAmbientFps = 6
+HomeTitleAmbientFps = 12
+AdminTitleAmbientFps = 12
+EditHintCarouselFps = 16
+LiquidSegmentedSelectorFps = 120
 ActiveInteractionFps = 60
 UseDisplayRefreshRateAsMaxFps = true
 ManualMaxFps = 120
@@ -322,6 +347,18 @@ ExcludePinGlow = false
 ExcludeBottomActionButtons = false
 ExcludeActualTopmost = false
 DisableEditScrollAnimations = false
+
+[EditHintCarousel]
+RotationIntervalSeconds = 3
+EnabledItems = [""folder"", ""icon"", ""image"", ""alias""]
+FolderGradientStart = ""#F6D365""
+FolderGradientEnd = ""#FDA085""
+IconGradientStart = ""#A8E063""
+IconGradientEnd = ""#96E6A1""
+ImageGradientStart = ""#5EE7DF""
+ImageGradientEnd = ""#66A6FF""
+AliasGradientStart = ""#F9A8D4""
+AliasGradientEnd = ""#C084FC""
 ";
 
         private static void NormalizeAndPatch(AppConfig cfg)
@@ -392,15 +429,28 @@ DisableEditScrollAnimations = false
                 cfg.Features.PermissionPrompt.SuppressElevationPrompt || cfg.Permissions.SuppressElevationPrompt;
             cfg.Permissions.SuppressElevationPrompt = cfg.Features.PermissionPrompt.SuppressElevationPrompt;
             cfg.FrameRate ??= new FrameRateBehaviorConfig();
+            cfg.EditHintCarousel ??= new EditHintCarouselConfig();
             cfg.FrameRate.StaticContentRefreshFps = Math.Clamp(cfg.FrameRate.StaticContentRefreshFps, 0, 240);
-            if (cfg.FrameRate.BackgroundAmbientFps == 15)
+            if (cfg.FrameRate.BackgroundAmbientFps == 15 || cfg.FrameRate.BackgroundAmbientFps == 8)
             {
-                cfg.FrameRate.BackgroundAmbientFps = 8;
+                cfg.FrameRate.BackgroundAmbientFps = 6;
+            }
+
+            if (cfg.FrameRate.HomeTitleAmbientFps == 15)
+            {
+                cfg.FrameRate.HomeTitleAmbientFps = 12;
+            }
+
+            if (cfg.FrameRate.AdminTitleAmbientFps == 15)
+            {
+                cfg.FrameRate.AdminTitleAmbientFps = 12;
             }
 
             cfg.FrameRate.BackgroundAmbientFps = Math.Clamp(cfg.FrameRate.BackgroundAmbientFps, 1, 120);
             cfg.FrameRate.HomeTitleAmbientFps = Math.Clamp(cfg.FrameRate.HomeTitleAmbientFps, 1, 120);
             cfg.FrameRate.AdminTitleAmbientFps = Math.Clamp(cfg.FrameRate.AdminTitleAmbientFps, 1, 120);
+            cfg.FrameRate.EditHintCarouselFps = Math.Clamp(cfg.FrameRate.EditHintCarouselFps, 1, 120);
+            cfg.FrameRate.LiquidSegmentedSelectorFps = Math.Clamp(cfg.FrameRate.LiquidSegmentedSelectorFps, 1, 120);
             cfg.FrameRate.ActiveInteractionFps = Math.Clamp(cfg.FrameRate.ActiveInteractionFps, 1, 240);
             cfg.FrameRate.ManualMaxFps = Math.Clamp(cfg.FrameRate.ManualMaxFps, 1, 500);
             cfg.FrameRate.HoverCooldownMs = Math.Clamp(cfg.FrameRate.HoverCooldownMs, 0, 5000);
@@ -421,6 +471,42 @@ DisableEditScrollAnimations = false
             cfg.FrameRate.ExcludeBottomActionButtons = cfg.FrameRate.ExcludeBottomActionButtons;
             cfg.FrameRate.ExcludeActualTopmost = cfg.FrameRate.ExcludeActualTopmost;
             cfg.FrameRate.DisableEditScrollAnimations = cfg.FrameRate.DisableEditScrollAnimations;
+            cfg.EditHintCarousel.RotationIntervalSeconds = Math.Clamp(cfg.EditHintCarousel.RotationIntervalSeconds, 1.5, 12.0);
+            cfg.EditHintCarousel.EnabledItems = (cfg.EditHintCarousel.EnabledItems ?? Array.Empty<string>())
+                .Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(static value => value.Trim().ToLowerInvariant())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (cfg.EditHintCarousel.EnabledItems.Length == 0)
+            {
+                cfg.EditHintCarousel.EnabledItems = new[] { "folder", "icon", "image", "alias" };
+            }
+
+            cfg.EditHintCarousel.FolderGradientStart = NormalizeHexColor(cfg.EditHintCarousel.FolderGradientStart, "#F6D365");
+            cfg.EditHintCarousel.FolderGradientEnd = NormalizeHexColor(cfg.EditHintCarousel.FolderGradientEnd, "#FDA085");
+            cfg.EditHintCarousel.IconGradientStart = NormalizeHexColor(cfg.EditHintCarousel.IconGradientStart, "#A8E063");
+            cfg.EditHintCarousel.IconGradientEnd = NormalizeHexColor(cfg.EditHintCarousel.IconGradientEnd, "#96E6A1");
+            cfg.EditHintCarousel.ImageGradientStart = NormalizeHexColor(cfg.EditHintCarousel.ImageGradientStart, "#5EE7DF");
+            cfg.EditHintCarousel.ImageGradientEnd = NormalizeHexColor(cfg.EditHintCarousel.ImageGradientEnd, "#66A6FF");
+            cfg.EditHintCarousel.AliasGradientStart = NormalizeHexColor(cfg.EditHintCarousel.AliasGradientStart, "#F9A8D4");
+            cfg.EditHintCarousel.AliasGradientEnd = NormalizeHexColor(cfg.EditHintCarousel.AliasGradientEnd, "#C084FC");
+        }
+
+        private static string NormalizeHexColor(string? value, string fallback)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                try
+                {
+                    Avalonia.Media.Color.Parse(value);
+                    return value;
+                }
+                catch
+                {
+                }
+            }
+
+            return fallback;
         }
     }
 }

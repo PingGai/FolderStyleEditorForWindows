@@ -15,8 +15,10 @@ using System.Runtime;
 using System.Runtime.InteropServices;
 using Avalonia.Media;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.Input;
 using Newtonsoft.Json;
 using FolderStyleEditorForWindows;
+using FolderStyleEditorForWindows.Controls;
 using FolderStyleEditorForWindows.Services;
 using static FolderStyleEditorForWindows.Services.ConfigManager;
 
@@ -30,6 +32,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly InterruptDialogService _interruptDialogService;
         private readonly FolderStyleSaveCoordinator _saveCoordinator;
         private readonly ElevationSessionState _elevationSessionState;
+        private readonly ExplorerHiddenVisibilityService _explorerHiddenVisibilityService;
         private List<string> _foundIconPaths = new List<string>();
         private int _currentIconIndex = -1;
         private bool _isScanningIcons = false;
@@ -45,16 +48,25 @@ namespace FolderStyleEditorForWindows.ViewModels
         private string _aliasAutocompleteSeed = string.Empty;
         private bool _suppressUndo = false;
         private bool _suppressAliasAutocomplete = false;
+        private bool _suppressIconPathSyncFromSelection = false;
         private int _iconLoadingVersion;
         private CancellationTokenSource? _iconLoadCts;
         private readonly Dictionary<string, CachedIconPreviewSet> _iconPreviewCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, Task> _iconPreviewWarmTasks = new(StringComparer.OrdinalIgnoreCase);
         private readonly SemaphoreSlim _iconPreviewWarmGate = new(1, 1);
         private readonly SemaphoreSlim _historyIoGate = new(1, 1);
+        private readonly object _iconPreviewCacheSync = new();
+        private CancellationTokenSource? _explorerHiddenVisibilityCts;
+        private readonly object _explorerHiddenVisibilityApplySync = new();
+        private CancellationTokenSource? _explorerHiddenVisibilityApplyDebounceCts;
         private CancellationTokenSource? _memoryTrimCts;
         private long _lastMemoryTrimTicksUtc;
         private DebugOverlayViewModel? _debugOverlay;
-        private const int IconPreviewCacheCapacity = 2;
+        private const int IconPreviewCacheCapacity = 3;
+        public const int IconGridColumns = 5;
+        private const int AutoGetFirstResultWaitStepMs = 25;
+        private const int AutoGetFirstResultWaitMaxMs = 1200;
+        private static readonly SolidColorBrush ExplorerHiddenVisibilityErrorBrush = new(Color.Parse("#D56A61"));
 
         [DllImport("psapi.dll", SetLastError = true)]
         private static extern bool EmptyWorkingSet(IntPtr hProcess);
@@ -206,12 +218,91 @@ namespace FolderStyleEditorForWindows.ViewModels
             set { if (_iconCounterDenominator == value) return; _iconCounterDenominator = value; OnPropertyChanged(); }
         }
 
+        private double _iconCounterProgressOpacity = 0.56;
+        public double IconCounterProgressOpacity
+        {
+            get => _iconCounterProgressOpacity;
+            set { if (Math.Abs(_iconCounterProgressOpacity - value) < 0.001) return; _iconCounterProgressOpacity = value; OnPropertyChanged(); }
+        }
+
         private bool _isIconCounterVisible;
         public bool IsIconCounterVisible
         {
             get => _isIconCounterVisible;
             set { if (_isIconCounterVisible == value) return; _isIconCounterVisible = value; OnPropertyChanged(); }
         }
+
+        private ObservableCollection<LiquidSegmentedSelectorItem> _explorerHiddenLevelOptions = new();
+        public ObservableCollection<LiquidSegmentedSelectorItem> ExplorerHiddenLevelOptions
+        {
+            get => _explorerHiddenLevelOptions;
+            private set
+            {
+                if (ReferenceEquals(_explorerHiddenLevelOptions, value)) return;
+                _explorerHiddenLevelOptions = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _selectedExplorerHiddenLevelKey = ExplorerHiddenVisibilityLevel.HideAll.ToSelectorKey();
+        public string SelectedExplorerHiddenLevelKey
+        {
+            get => _selectedExplorerHiddenLevelKey;
+            set
+            {
+                if (_selectedExplorerHiddenLevelKey == value) return;
+                _selectedExplorerHiddenLevelKey = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ExplorerHiddenLevelDescription));
+
+                if (_suppressExplorerHiddenVisibilitySync)
+                {
+                    return;
+                }
+
+                if (!TryParseExplorerHiddenLevelKey(value, out var level))
+                {
+                    return;
+                }
+
+                QueueExplorerHiddenVisibilityLevelApply(level, userInitiated: true);
+            }
+        }
+
+        public string ExplorerHiddenLevelDescription
+        {
+            get
+            {
+                if (string.Equals(_selectedExplorerHiddenLevelKey, ExplorerHiddenVisibilityLevel.ShowSystemHidden.ToSelectorKey(), StringComparison.Ordinal))
+                {
+                    return LocalizationManager.Instance["Edit_System_HiddenLevel_ShowSystemHidden_Desc"];
+                }
+
+                if (string.Equals(_selectedExplorerHiddenLevelKey, ExplorerHiddenVisibilityLevel.ShowHidden.ToSelectorKey(), StringComparison.Ordinal))
+                {
+                    return LocalizationManager.Instance["Edit_System_HiddenLevel_ShowHidden_Desc"];
+                }
+
+                return LocalizationManager.Instance["Edit_System_HiddenLevel_HideAll_Desc"];
+            }
+        }
+
+        private bool _isApplyingExplorerHiddenVisibilityLevel;
+        public bool IsApplyingExplorerHiddenVisibilityLevel
+        {
+            get => _isApplyingExplorerHiddenVisibilityLevel;
+            private set
+            {
+                if (_isApplyingExplorerHiddenVisibilityLevel == value) return;
+                _isApplyingExplorerHiddenVisibilityLevel = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanInteractWithExplorerHiddenVisibilityLevel));
+            }
+        }
+
+        public bool CanInteractWithExplorerHiddenVisibilityLevel => true;
+        private bool _suppressExplorerHiddenVisibilitySync;
+        private ExplorerHiddenVisibilityLevel _appliedExplorerHiddenVisibilityLevel = ExplorerHiddenVisibilityLevel.HideAll;
  
         private bool _isAliasAsPlaceholder;
         public bool IsAliasAsPlaceholder
@@ -283,6 +374,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
 
         public ObservableCollection<IconViewModel> Icons { get; } = new();
+        public ObservableCollection<IconRowViewModel> IconRows { get; } = new();
 
         private IconViewModel? _selectedIcon;
         public IconViewModel? SelectedIcon
@@ -302,7 +394,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 {
                     _selectedIcon.IsSelected = true;
                     var newIconPath = $"{_selectedIcon.FilePath},{_selectedIcon.Index}";
-                    if (IconPath != newIconPath)
+                    if (!_suppressIconPathSyncFromSelection && IconPath != newIconPath)
                     {
                         var oldValue = _iconPath;
                         _iconPath = newIconPath;
@@ -376,9 +468,10 @@ namespace FolderStyleEditorForWindows.ViewModels
             _iconScanCompleted = false;
             _isScanningIcons = false;
             IconCounterNumerator = "0";
-            IconCounterDenominator = "???";
+            IconCounterDenominator = "0";
             IconCounterText = "";
             IsIconCounterVisible = false;
+            IconCounterProgressOpacity = 0.56;
 
             try
             {
@@ -454,8 +547,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 if (desktop.MainWindow is MainWindow mainWindow)
                 {
-                    var sessionManager = new EditSessionManager(this);
-                    sessionManager.ClearSession();
+                    EditSessionManager.ClearPersistedSession();
                 }
             }
         }
@@ -656,6 +748,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 IconPath = iconSourcePath;
             }
+            await RefreshExplorerHiddenVisibilityLevelAsync();
             UpdateAliasAutocomplete();
             NavigateToEditView?.Invoke(folderPath, iconSourcePath);
         }
@@ -670,6 +763,159 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
 
             await _saveCoordinator.EnsureElevationSessionAsync();
+        }
+
+        private void LocalizationManager_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != string.Empty)
+            {
+                return;
+            }
+
+            RebuildExplorerHiddenLevelOptions();
+        }
+
+        private void RebuildExplorerHiddenLevelOptions()
+        {
+            ExplorerHiddenLevelOptions = new ObservableCollection<LiquidSegmentedSelectorItem>
+            {
+                new(ExplorerHiddenVisibilityLevel.HideAll.ToSelectorKey(), LocalizationManager.Instance["Edit_System_HiddenLevel_HideAll"]),
+                new(ExplorerHiddenVisibilityLevel.ShowHidden.ToSelectorKey(), LocalizationManager.Instance["Edit_System_HiddenLevel_ShowHidden"]),
+                new(
+                    ExplorerHiddenVisibilityLevel.ShowSystemHidden.ToSelectorKey(),
+                    LocalizationManager.Instance["Edit_System_HiddenLevel_ShowSystemHidden"],
+                    LocalizationManager.Instance["Edit_System_HiddenLevel_ShowSystemHidden_Tooltip"])
+            };
+            OnPropertyChanged(nameof(ExplorerHiddenLevelDescription));
+        }
+
+        public async Task RefreshExplorerHiddenVisibilityLevelAsync()
+        {
+            _explorerHiddenVisibilityCts?.Cancel();
+            _explorerHiddenVisibilityCts?.Dispose();
+            _explorerHiddenVisibilityCts = new CancellationTokenSource();
+            var token = _explorerHiddenVisibilityCts.Token;
+
+            try
+            {
+                var level = await _explorerHiddenVisibilityService.GetCurrentLevelAsync(token);
+                _appliedExplorerHiddenVisibilityLevel = level;
+                SetExplorerHiddenVisibilitySelection(level);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                _appliedExplorerHiddenVisibilityLevel = ExplorerHiddenVisibilityLevel.HideAll;
+                SetExplorerHiddenVisibilitySelection(_appliedExplorerHiddenVisibilityLevel);
+            }
+        }
+
+        private void QueueExplorerHiddenVisibilityLevelApply(ExplorerHiddenVisibilityLevel level, bool userInitiated)
+        {
+            if (!userInitiated || level == _appliedExplorerHiddenVisibilityLevel)
+            {
+                return;
+            }
+
+            CancellationTokenSource debounceCts;
+            lock (_explorerHiddenVisibilityApplySync)
+            {
+                _explorerHiddenVisibilityApplyDebounceCts?.Cancel();
+                _explorerHiddenVisibilityApplyDebounceCts?.Dispose();
+                debounceCts = new CancellationTokenSource();
+                _explorerHiddenVisibilityApplyDebounceCts = debounceCts;
+            }
+
+            _ = ApplyExplorerHiddenVisibilityLevelDebouncedAsync(level, debounceCts);
+        }
+
+        private async Task ApplyExplorerHiddenVisibilityLevelDebouncedAsync(ExplorerHiddenVisibilityLevel level, CancellationTokenSource debounceCts)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3), debounceCts.Token);
+
+                lock (_explorerHiddenVisibilityApplySync)
+                {
+                    if (!ReferenceEquals(_explorerHiddenVisibilityApplyDebounceCts, debounceCts))
+                    {
+                        return;
+                    }
+                }
+
+                if (level == _appliedExplorerHiddenVisibilityLevel)
+                {
+                    return;
+                }
+
+                var previousLevel = _appliedExplorerHiddenVisibilityLevel;
+                IsApplyingExplorerHiddenVisibilityLevel = true;
+
+                try
+                {
+                    await _explorerHiddenVisibilityService.ApplyLevelAsync(level, debounceCts.Token);
+                    _appliedExplorerHiddenVisibilityLevel = level;
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    SetExplorerHiddenVisibilitySelection(previousLevel);
+                    _toastService.Show(
+                        string.Format(
+                            CultureInfo.CurrentCulture,
+                            LocalizationManager.Instance["Toast_ExplorerHiddenLevelApplyFailed"],
+                            ex.Message),
+                        ExplorerHiddenVisibilityErrorBrush);
+                }
+                finally
+                {
+                    lock (_explorerHiddenVisibilityApplySync)
+                    {
+                        if (ReferenceEquals(_explorerHiddenVisibilityApplyDebounceCts, debounceCts))
+                        {
+                            IsApplyingExplorerHiddenVisibilityLevel = false;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
+        private void SetExplorerHiddenVisibilitySelection(ExplorerHiddenVisibilityLevel level)
+        {
+            _suppressExplorerHiddenVisibilitySync = true;
+            try
+            {
+                SelectedExplorerHiddenLevelKey = level.ToSelectorKey();
+            }
+            finally
+            {
+                _suppressExplorerHiddenVisibilitySync = false;
+            }
+        }
+
+        private static bool TryParseExplorerHiddenLevelKey(string? key, out ExplorerHiddenVisibilityLevel level)
+        {
+            switch (key)
+            {
+                case "show-hidden":
+                    level = ExplorerHiddenVisibilityLevel.ShowHidden;
+                    return true;
+                case "show-system-hidden":
+                    level = ExplorerHiddenVisibilityLevel.ShowSystemHidden;
+                    return true;
+                case "hide-all":
+                default:
+                    level = ExplorerHiddenVisibilityLevel.HideAll;
+                    return key != null;
+            }
         }
 
         private void QueueIconLoad(string path)
@@ -711,7 +957,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
  
         [SupportedOSPlatform("windows")]
-        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService, FolderStyleSaveCoordinator saveCoordinator, ElevationSessionState elevationSessionState)
+        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService, FolderStyleSaveCoordinator saveCoordinator, ElevationSessionState elevationSessionState, ExplorerHiddenVisibilityService explorerHiddenVisibilityService)
         {
             _iconFinderService = new IconFinderService();
             _toastService = toastService;
@@ -719,6 +965,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             _interruptDialogService = interruptDialogService;
             _saveCoordinator = saveCoordinator;
             _elevationSessionState = elevationSessionState;
+            _explorerHiddenVisibilityService = explorerHiddenVisibilityService;
             IsElevationSessionActive = _elevationSessionState.IsElevatedSessionActive;
             _elevationSessionState.PropertyChanged += (_, args) =>
             {
@@ -731,6 +978,8 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 DebugOverlay = new DebugOverlayViewModel(ConfigManager.Config, HoverIcon);
             }
+            LocalizationManager.Instance.PropertyChanged += LocalizationManager_PropertyChanged;
+            RebuildExplorerHiddenLevelOptions();
             
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(async path => await OpenFromHistoryAsync(path));
@@ -740,9 +989,10 @@ namespace FolderStyleEditorForWindows.ViewModels
             GoHomeCommand = new RelayCommand(() => NavigateToHomeView?.Invoke());
             ResetIconCommand = new RelayCommand(ResetIcon);
             ClearAllStylesCommand = new RelayCommand(ClearAllStyles);
-            ClearIconCacheCommand = new RelayCommand(async () => await ClearIconCacheAsync());
+            ClearIconCacheCommand = new AsyncRelayCommand(ClearIconCacheAsync);
             IconCacheButtonText = LocalizationManager.Instance["Edit_Reset_ClearIconCacheButton"];
             _ = LoadPersistedDataAsync();
+            _ = RefreshExplorerHiddenVisibilityLevelAsync();
         }
 
         private async Task OpenFromHistoryAsync(string? path)
@@ -1027,13 +1277,98 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
 
             var iconDirectory = Path.Combine(FolderPath, ".ICON");
-            if (Directory.Exists(iconDirectory))
+            try
             {
-                await Task.Run(() => Directory.Delete(iconDirectory, recursive: true));
+                await Dispatcher.UIThread.InvokeAsync(() => ClearIconPreview());
+                await Task.Yield();
+                await Task.Delay(60);
+
+                if (Directory.Exists(iconDirectory))
+                {
+                    await Task.Run(() => DeleteDirectoryRecursive(iconDirectory));
+                }
+
+                await RefreshIconCacheButtonTextAsync();
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                if (!await TryClearIconCacheWithElevationAsync(iconDirectory))
+                {
+                    await HandleClearIconCacheFailureAsync(ex);
+                }
+            }
+            catch (SecurityException ex)
+            {
+                if (!await TryClearIconCacheWithElevationAsync(iconDirectory))
+                {
+                    await HandleClearIconCacheFailureAsync(ex);
+                }
+            }
+            catch (IOException ex)
+            {
+                if (!await TryClearIconCacheWithElevationAsync(iconDirectory))
+                {
+                    await HandleClearIconCacheFailureAsync(ex);
+                }
+            }
+       }
+
+       private async Task HandleClearIconCacheFailureAsync(Exception ex)
+       {
+            await RefreshIconCacheButtonTextAsync();
+            await _interruptDialogService.ShowFailureAsync(
+                LocalizationManager.Instance["Edit_Reset_ClearIconCacheFailed_Title"],
+                LocalizationManager.Instance["Edit_Reset_ClearIconCacheFailed_Headline"],
+                ex.Message,
+                ex.ToString());
+       }
+
+       private static void DeleteDirectoryRecursive(string directoryPath)
+       {
+            foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+            {
+                File.SetAttributes(filePath, FileAttributes.Normal);
             }
 
-            ClearIconPreview();
-            await RefreshIconCacheButtonTextAsync();
+            foreach (var childDirectory in Directory.EnumerateDirectories(directoryPath, "*", SearchOption.AllDirectories)
+                .OrderByDescending(static path => path.Length))
+            {
+                File.SetAttributes(childDirectory, FileAttributes.Normal);
+            }
+
+            File.SetAttributes(directoryPath, FileAttributes.Normal);
+            Directory.Delete(directoryPath, recursive: true);
+       }
+
+       private async Task<bool> TryClearIconCacheWithElevationAsync(string iconDirectory)
+       {
+            if (string.IsNullOrWhiteSpace(iconDirectory) || !Directory.Exists(iconDirectory))
+            {
+                return true;
+            }
+
+            if (!_saveCoordinator.IsElevationSessionActive && !FolderProtectionPolicy.RequiresElevation(FolderPath))
+            {
+                return false;
+            }
+
+            var result = await _saveCoordinator.DeleteDirectoryWithElevationAsync(iconDirectory);
+            if (result.IsSuccess)
+            {
+                await RefreshIconCacheButtonTextAsync();
+                return true;
+            }
+
+            if (result.IsAccessDenied || result.Status == FolderStyleMutationStatus.IoFailure || result.Status == FolderStyleMutationStatus.UnexpectedError)
+            {
+                await _interruptDialogService.ShowFailureAsync(
+                    LocalizationManager.Instance["Edit_Reset_ClearIconCacheFailed_Title"],
+                    LocalizationManager.Instance["Edit_Reset_ClearIconCacheFailed_Headline"],
+                    result.Message,
+                    result.Details);
+            }
+
+            return false;
        }
 
        [SupportedOSPlatform("windows")]
@@ -1057,15 +1392,12 @@ namespace FolderStyleEditorForWindows.ViewModels
                var cts = _iconScanCts;
                if (cts != null)
                {
-                   await Task.Run(async () =>
+                   var waitMs = 0;
+                   while (!_iconScanCompleted && !_foundIconPaths.Any() && !cts.IsCancellationRequested && waitMs < AutoGetFirstResultWaitMaxMs)
                    {
-                       var waitMs = 0;
-                       while (!_iconScanCompleted && !_foundIconPaths.Any() && !cts.IsCancellationRequested && waitMs < 3000)
-                       {
-                           await Task.Delay(100);
-                           waitMs += 100;
-                       }
-                   });
+                       await Task.Delay(AutoGetFirstResultWaitStepMs, cts.Token);
+                       waitMs += AutoGetFirstResultWaitStepMs;
+                   }
                    if (_foundIconPaths.Any())
                    {
                        _currentIconIndex = 0;
@@ -1076,6 +1408,9 @@ namespace FolderStyleEditorForWindows.ViewModels
                        UpdateIconCounterDisplay();
                    }
                }
+           }
+           catch (OperationCanceledException)
+           {
            }
            catch (Exception ex)
            {
@@ -1131,15 +1466,16 @@ namespace FolderStyleEditorForWindows.ViewModels
            _isScanningIcons = true;
            _iconScanCompleted = false;
            _foundIconPaths.Clear();
-           _currentIconIndex = -1;
-           IsIconCounterVisible = true;
-           IconCounterNumerator = "0";
-           IconCounterDenominator = "???";
-           IconCounterText = "0/???";
+            _currentIconIndex = -1;
+            IsIconCounterVisible = true;
+            IconCounterNumerator = "0";
+            IconCounterDenominator = "0";
+            IconCounterText = "0/0";
+            IconCounterProgressOpacity = 0.56;
 
            var progress = new Progress<IconScanProgress>(p =>
            {
-               _foundIconPaths = p.Found.Distinct().ToList();
+               _foundIconPaths = p.Found;
                _iconScanCompleted = p.IsCompleted;
                if (_foundIconPaths.Any() && _currentIconIndex < 0)
                {
@@ -1150,28 +1486,17 @@ namespace FolderStyleEditorForWindows.ViewModels
                UpdateIconCounterDisplay();
            });
 
-           _ = Task.Run(async () =>
-           {
-               try
-               {
-                   await _iconFinderService.FindIconsIncrementalAsync(FolderPath, progress, _iconScanCts.Token);
-               }
-               catch (OperationCanceledException) { }
-               finally
-               {
-                   _isScanningIcons = false;
-                   UpdateIconCounterDisplay();
-               }
-           });
+           _ = RunProgressiveIconScanAsync(progress, _iconScanCts.Token);
        }
 
        private void UpdateIconCounterDisplay()
        {
-           var numerator = _foundIconPaths.Any() && _currentIconIndex >= 0 ? _currentIconIndex + 1 : 0;
-           IconCounterNumerator = numerator.ToString();
-           IconCounterDenominator = _iconScanCompleted ? _foundIconPaths.Count.ToString() : "???";
-           IconCounterText = $"{IconCounterNumerator}/{IconCounterDenominator}";
-           IsIconCounterVisible = _isScanningIcons || _foundIconPaths.Any() || _iconScanCompleted;
+            var numerator = _foundIconPaths.Any() && _currentIconIndex >= 0 ? _currentIconIndex + 1 : 0;
+            IconCounterNumerator = numerator.ToString();
+            IconCounterDenominator = _foundIconPaths.Count.ToString();
+            IconCounterText = $"{IconCounterNumerator}/{IconCounterDenominator}";
+            IsIconCounterVisible = _isScanningIcons || _foundIconPaths.Any() || _iconScanCompleted;
+            IconCounterProgressOpacity = _iconScanCompleted ? 1.0 : 0.56;
        }
    
        [SupportedOSPlatform("windows")]
@@ -1207,15 +1532,14 @@ namespace FolderStyleEditorForWindows.ViewModels
 
            selectedIndex = ResolveSelectedIconIndex(fileName, selectedIndex);
 
-           if (_iconPreviewCache.TryGetValue(fileName, out var cachedSet))
+           if (TryGetCachedIconPreviewSet(fileName, out var cachedSet))
            {
-               cachedSet.Touch();
                DisplayCachedIcons(cachedSet, selectedIndex);
                PrefetchAdjacentAutoGetIcons();
                return;
            }
 
-           if (_iconPreviewWarmTasks.TryGetValue(fileName, out var warmTask))
+           if (TryGetWarmIconPreviewTask(fileName, out var warmTask))
            {
                IsLoadingIcons = true;
                IsLoadingIconsIndicatorVisible = false;
@@ -1229,9 +1553,8 @@ namespace FolderStyleEditorForWindows.ViewModels
                    IsLoadingIconsIndicatorVisible = false;
                }
 
-               if (_iconPreviewCache.TryGetValue(fileName, out cachedSet))
+               if (TryGetCachedIconPreviewSet(fileName, out cachedSet))
                {
-                   cachedSet.Touch();
                    DisplayCachedIcons(cachedSet, selectedIndex);
                    PrefetchAdjacentAutoGetIcons();
                    return;
@@ -1243,27 +1566,13 @@ namespace FolderStyleEditorForWindows.ViewModels
            _iconLoadCts = new CancellationTokenSource();
            var iconLoadToken = _iconLoadCts.Token;
            var loadedIcons = new List<IconViewModel>();
+           var hasSwappedDisplayedIcons = false;
            IsLoadingIcons = true;
            IsLoadingIconsIndicatorVisible = false;
-           _ = Task.Run(async () =>
-           {
-               await Task.Delay(250);
-               await Dispatcher.UIThread.InvokeAsync(() =>
-               {
-                   if (IsLoadingIcons && loadingVersion == _iconLoadingVersion)
-                   {
-                       IsLoadingIconsIndicatorVisible = true;
-                   }
-               });
-           });
+           _ = ShowLoadingIndicatorAsync(loadingVersion, iconLoadToken);
   
            try
            {
-               await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-               {
-                   ClearDisplayedIcons();
-               });
-
                var progress = new Progress<IconExtractionProgress>(update =>
                {
                     if (loadingVersion != _iconLoadingVersion)
@@ -1290,15 +1599,17 @@ namespace FolderStyleEditorForWindows.ViewModels
                            return;
                        }
 
-                       foreach (var icon in update.Batch)
+                       if (!hasSwappedDisplayedIcons)
                        {
-                           Icons.Add(icon);
+                           ClearDisplayedIcons();
+                           hasSwappedDisplayedIcons = true;
                        }
+
+                       AppendDisplayedIcons(update.Batch);
 
                        if (selectedIndex >= 0 && selectedIndex < Icons.Count && SelectedIcon != Icons[selectedIndex])
                        {
-                           SelectedIcon = Icons[selectedIndex];
-                           PreviewedIcon = Icons[selectedIndex];
+                           ApplyLoadedSelection(Icons[selectedIndex]);
                        }
                    }, DispatcherPriority.Background);
                });
@@ -1307,6 +1618,11 @@ namespace FolderStyleEditorForWindows.ViewModels
 
                if (loadingVersion == _iconLoadingVersion)
                {
+                   if (!hasSwappedDisplayedIcons)
+                   {
+                       await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(ClearDisplayedIcons);
+                   }
+
                    StoreIconPreviewCache(fileName, loadedIcons);
                    PrefetchAdjacentAutoGetIcons();
                }
@@ -1340,37 +1656,112 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
        }
 
+       private async Task RunProgressiveIconScanAsync(IProgress<IconScanProgress> progress, CancellationToken cancellationToken)
+       {
+           try
+           {
+               await _iconFinderService.FindIconsIncrementalAsync(FolderPath, progress, cancellationToken);
+           }
+           catch (OperationCanceledException)
+           {
+           }
+           finally
+           {
+               _isScanningIcons = false;
+               UpdateIconCounterDisplay();
+           }
+       }
+
+       private async Task ShowLoadingIndicatorAsync(int loadingVersion, CancellationToken cancellationToken)
+       {
+           try
+           {
+               await Task.Delay(250, cancellationToken);
+           }
+           catch (OperationCanceledException)
+           {
+               return;
+           }
+
+           await Dispatcher.UIThread.InvokeAsync(() =>
+           {
+               if (!cancellationToken.IsCancellationRequested &&
+                   IsLoadingIcons &&
+                   loadingVersion == _iconLoadingVersion)
+               {
+                   IsLoadingIconsIndicatorVisible = true;
+               }
+           });
+       }
+
        private void ClearDisplayedIcons()
        {
            PreviewedIcon = null;
            SelectedIcon = null;
            Icons.Clear();
+           IconRows.Clear();
        }
 
        private void DisplayCachedIcons(CachedIconPreviewSet cachedSet, int selectedIndex)
        {
            ClearDisplayedIcons();
-           foreach (var icon in cachedSet.Icons)
-           {
-               Icons.Add(icon);
-           }
+           AppendDisplayedIcons(cachedSet.Icons);
 
            if (selectedIndex >= 0 && selectedIndex < Icons.Count)
            {
-               SelectedIcon = Icons[selectedIndex];
-               PreviewedIcon = Icons[selectedIndex];
+               ApplyLoadedSelection(Icons[selectedIndex]);
+           }
+       }
+
+       private void AppendDisplayedIcons(IReadOnlyList<IconViewModel> icons)
+       {
+           foreach (var icon in icons)
+           {
+               AppendDisplayedIcon(icon);
+           }
+       }
+
+       private void AppendDisplayedIcon(IconViewModel icon)
+       {
+           Icons.Add(icon);
+
+           var targetRow = IconRows.LastOrDefault();
+           if (targetRow == null || targetRow.Icons.Count >= IconGridColumns)
+           {
+               targetRow = new IconRowViewModel();
+               IconRows.Add(targetRow);
+           }
+
+           targetRow.Icons.Add(icon);
+       }
+
+       private void ApplyLoadedSelection(IconViewModel icon)
+       {
+           _suppressIconPathSyncFromSelection = true;
+           try
+           {
+               SelectedIcon = icon;
+               PreviewedIcon = icon;
+           }
+           finally
+           {
+               _suppressIconPathSyncFromSelection = false;
            }
        }
 
        private void StoreIconPreviewCache(string fileName, List<IconViewModel> icons)
        {
-           if (_iconPreviewCache.TryGetValue(fileName, out var existing))
+           lock (_iconPreviewCacheSync)
            {
-               existing.Touch();
-               return;
+               if (_iconPreviewCache.TryGetValue(fileName, out var existing))
+               {
+                   existing.Touch();
+                   return;
+               }
+
+               _iconPreviewCache[fileName] = new CachedIconPreviewSet(fileName, icons);
            }
 
-           _iconPreviewCache[fileName] = new CachedIconPreviewSet(fileName, icons);
            TrimIconPreviewCache();
        }
 
@@ -1378,15 +1769,20 @@ namespace FolderStyleEditorForWindows.ViewModels
        {
            _iconLoadCts?.Cancel();
            _iconLoadCts = null;
-           var hadCacheEntries = _iconPreviewCache.Count > 0;
+           List<CachedIconPreviewSet> evictedEntries;
+           var hadCacheEntries = false;
+           lock (_iconPreviewCacheSync)
+           {
+               hadCacheEntries = _iconPreviewCache.Count > 0;
+               evictedEntries = _iconPreviewCache.Values.ToList();
+               _iconPreviewCache.Clear();
+               _iconPreviewWarmTasks.Clear();
+           }
 
-           foreach (var cacheEntry in _iconPreviewCache.Values)
+           foreach (var cacheEntry in evictedEntries)
            {
                cacheEntry.Dispose();
            }
-
-           _iconPreviewCache.Clear();
-           _iconPreviewWarmTasks.Clear();
 
            if (hadCacheEntries)
            {
@@ -1420,24 +1816,28 @@ namespace FolderStyleEditorForWindows.ViewModels
        private async Task WarmIconPreviewCacheAsync(string fileName)
        {
            if (string.IsNullOrWhiteSpace(fileName) ||
-               !File.Exists(fileName) ||
-               _iconPreviewCache.ContainsKey(fileName))
+               !File.Exists(fileName))
            {
                return;
            }
 
-           if (_iconPreviewWarmTasks.TryGetValue(fileName, out var existingTask))
+           if (TryGetCachedIconPreviewSet(fileName, out _))
+           {
+               return;
+           }
+
+           if (TryGetWarmIconPreviewTask(fileName, out var existingTask))
            {
                await existingTask;
                return;
            }
 
-           var warmTask = Task.Run(async () =>
+           async Task WarmCacheCoreAsync()
            {
                await _iconPreviewWarmGate.WaitAsync();
                try
                {
-                   if (_iconPreviewCache.ContainsKey(fileName))
+                   if (TryGetCachedIconPreviewSet(fileName, out _))
                    {
                        return;
                    }
@@ -1448,23 +1848,37 @@ namespace FolderStyleEditorForWindows.ViewModels
                finally
                {
                    _iconPreviewWarmGate.Release();
-                   _iconPreviewWarmTasks.Remove(fileName);
+                   lock (_iconPreviewCacheSync)
+                   {
+                       _iconPreviewWarmTasks.Remove(fileName);
+                   }
                }
-           });
+           }
 
-           _iconPreviewWarmTasks[fileName] = warmTask;
+           var warmTask = WarmCacheCoreAsync();
+
+           lock (_iconPreviewCacheSync)
+           {
+               if (_iconPreviewCache.ContainsKey(fileName))
+               {
+                   return;
+               }
+
+               if (_iconPreviewWarmTasks.TryGetValue(fileName, out existingTask))
+               {
+                   warmTask = existingTask;
+               }
+               else
+               {
+                   _iconPreviewWarmTasks[fileName] = warmTask;
+               }
+           }
+
            await warmTask;
        }
 
        private void TrimIconPreviewCache()
        {
-           if (_iconPreviewCache.Count <= IconPreviewCacheCapacity)
-           {
-               return;
-           }
-
-           var evictedAny = false;
-
            var protectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
            var currentPath = GetCurrentIconPreviewFilePath();
            if (!string.IsNullOrWhiteSpace(currentPath))
@@ -1484,22 +1898,37 @@ namespace FolderStyleEditorForWindows.ViewModels
                protectedPaths.Add(nextPath);
            }
 
-           foreach (var evictKey in _iconPreviewCache
-               .Where(pair => !protectedPaths.Contains(pair.Key))
-               .OrderBy(pair => pair.Value.LastAccessUtc)
-               .Select(pair => pair.Key)
-               .ToList())
+           var evictedAny = false;
+           var evictedSets = new List<CachedIconPreviewSet>();
+           lock (_iconPreviewCacheSync)
            {
                if (_iconPreviewCache.Count <= IconPreviewCacheCapacity)
                {
-                   break;
+                   return;
                }
 
-               if (_iconPreviewCache.Remove(evictKey, out var evictedSet))
+               foreach (var evictKey in _iconPreviewCache
+                   .Where(pair => !protectedPaths.Contains(pair.Key))
+                   .OrderBy(pair => pair.Value.LastAccessUtc)
+                   .Select(pair => pair.Key)
+                   .ToList())
                {
-                   evictedSet.Dispose();
-                   evictedAny = true;
+                   if (_iconPreviewCache.Count <= IconPreviewCacheCapacity)
+                   {
+                       break;
+                   }
+
+                   if (_iconPreviewCache.Remove(evictKey, out var evictedSet))
+                   {
+                       evictedSets.Add(evictedSet);
+                       evictedAny = true;
+                   }
                }
+           }
+
+           foreach (var evictedSet in evictedSets)
+           {
+               evictedSet.Dispose();
            }
 
            if (evictedAny)
@@ -1607,6 +2036,29 @@ namespace FolderStyleEditorForWindows.ViewModels
            }
 
            return fileName;
+       }
+
+       private bool TryGetCachedIconPreviewSet(string fileName, out CachedIconPreviewSet cachedSet)
+       {
+           lock (_iconPreviewCacheSync)
+           {
+               if (_iconPreviewCache.TryGetValue(fileName, out cachedSet!))
+               {
+                   cachedSet.Touch();
+                   return true;
+               }
+           }
+
+           cachedSet = null!;
+           return false;
+       }
+
+       private bool TryGetWarmIconPreviewTask(string fileName, out Task warmTask)
+       {
+           lock (_iconPreviewCacheSync)
+           {
+               return _iconPreviewWarmTasks.TryGetValue(fileName, out warmTask!);
+           }
        }
 
        [SupportedOSPlatform("windows")]
@@ -1930,6 +2382,11 @@ namespace FolderStyleEditorForWindows.ViewModels
             public event PropertyChangedEventHandler? PropertyChanged;
         }
 
+        public sealed class IconRowViewModel
+        {
+            public ObservableCollection<IconViewModel> Icons { get; } = new();
+        }
+
         private sealed class CachedIconPreviewSet : IDisposable
         {
             public CachedIconPreviewSet(string filePath, List<IconViewModel> icons)
@@ -1955,6 +2412,20 @@ namespace FolderStyleEditorForWindows.ViewModels
                     icon.Dispose();
                 }
             }
+        }
+    }
+
+    internal static class ExplorerHiddenVisibilityLevelExtensions
+    {
+        public static string ToSelectorKey(this ExplorerHiddenVisibilityLevel level)
+        {
+            return level switch
+            {
+                ExplorerHiddenVisibilityLevel.HideAll => "hide-all",
+                ExplorerHiddenVisibilityLevel.ShowHidden => "show-hidden",
+                ExplorerHiddenVisibilityLevel.ShowSystemHidden => "show-system-hidden",
+                _ => "hide-all"
+            };
         }
     }
 }

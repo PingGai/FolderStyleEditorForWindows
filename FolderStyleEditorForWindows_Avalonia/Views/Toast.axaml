@@ -4,10 +4,13 @@
              x:Class="FolderStyleEditorForWindows.Views.Toast"
              x:DataType="vm:ToastViewModel"
              ClipToBounds="False">
-    <Grid HorizontalAlignment="Center"
+    <Grid x:Name="ToastHost"
+          HorizontalAlignment="Center"
           VerticalAlignment="Top"
+          RowDefinitions="Auto,6"
           ClipToBounds="False">
-        <Border Background="#CCFFFFFF"
+        <Border Grid.Row="0"
+                Background="#CCFFFFFF"
                 CornerRadius="20"
                 Padding="24,12"
                 VerticalAlignment="Top"
@@ -18,5 +21,8 @@
                        FontWeight="SemiBold"
                        VerticalAlignment="Center"/>
         </Border>
+        <Border Grid.Row="1"
+                Background="Transparent"
+                IsHitTestVisible="False"/>
     </Grid>
 </UserControl>

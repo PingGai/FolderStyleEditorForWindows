@@ -10,6 +10,8 @@
             BorderBrush="#DDE1E8"
             BorderThickness="1"
             CornerRadius="12"
+            ClipToBounds="False"
+            BoxShadow="{StaticResource Shadow1}"
             Padding="18"
             Margin="4,2,4,2"
             HorizontalAlignment="Stretch"
@@ -176,6 +178,8 @@
                 Padding="8,4"
                 Background="#FFFFFFFF"
                 CornerRadius="8"
+                ClipToBounds="False"
+                BoxShadow="0 6 18 0 #16000000"
                 IsVisible="{Binding HasSelectionSummary}">
           <TextBlock Text="{Binding SelectionSummary}"
                      FontSize="11"

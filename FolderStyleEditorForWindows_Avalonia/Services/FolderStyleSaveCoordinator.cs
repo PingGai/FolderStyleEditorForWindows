@@ -132,6 +132,26 @@ namespace FolderStyleEditorForWindows.Services
             return await SaveViaHelperAsync(request, addFolderOnSuccess: true);
         }
 
+        public async Task<FolderStyleMutationResult> DeleteDirectoryWithElevationAsync(string directoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.ValidationFailure,
+                    Message = "Directory path is required."
+                };
+            }
+
+            var ensure = await _helperController.EnsureConnectedAsync();
+            if (!ensure.IsSuccess)
+            {
+                return ensure;
+            }
+
+            return await _helperController.DeleteDirectoryAsync(directoryPath);
+        }
+
         private async Task<FolderStyleSaveOutcome> SaveViaHelperAsync(FolderStyleMutationRequest request, bool addFolderOnSuccess)
         {
             var ensure = await _helperController.EnsureConnectedAsync();

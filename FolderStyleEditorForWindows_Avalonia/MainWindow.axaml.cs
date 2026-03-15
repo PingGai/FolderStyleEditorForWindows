@@ -98,6 +98,7 @@ namespace FolderStyleEditorForWindows
         private bool _isRenderFramePending;
         private readonly Dictionary<Control, DebugExcludedComponentState> _debugExcludedComponents = new();
         private readonly Dictionary<Control, DebugExcludedComponentState> _debugExcludedPlaceholders = new();
+        private readonly Dictionary<string, SolidColorBrush> _dragOverlayBrushCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly DispatcherTimer _renderWakeTimer;
         private readonly DispatcherTimer _idleMemoryTrimTimer;
         private CancellationTokenSource? _windowRootAnimationCts;
@@ -110,6 +111,12 @@ namespace FolderStyleEditorForWindows
         private const int PopupTransitionDurationMs = 320;
         private static readonly IBrush ActiveWindowBackground = Brushes.Transparent;
         private static readonly IBrush LowCostWindowBackground = new ImmutableSolidColorBrush(Colors.White);
+        private static readonly SolidColorBrush AccentToastBrush = new(Color.Parse("#EBB762"));
+        private static readonly SolidColorBrush PinButtonPinnedBackgroundBrush = new(Color.Parse("#7CDDDDDD"));
+        private static readonly SolidColorBrush PinButtonDefaultBackgroundBrush = new(Color.Parse("#50FFFFFF"));
+        private static readonly SolidColorBrush DebugExcludedPlaceholderBackgroundBrush = new(Color.Parse("#14D56A61"));
+        private static readonly SolidColorBrush DebugExcludedPlaceholderBorderBrush = new(Color.Parse("#E07167"));
+        private static readonly SolidColorBrush DebugExcludedPlaceholderForegroundBrush = new(Color.Parse("#C45E56"));
 
         private sealed class DebugExcludedComponentState
         {
@@ -271,6 +278,7 @@ namespace FolderStyleEditorForWindows
                 _idleMemoryTrimTimer.Start();
                 _animationStateSource.MarkStaticDirty();
             };
+            Closed += (_, _) => _sessionManager.Dispose();
             Activated += MainWindow_Activated;
             Deactivated += MainWindow_Deactivated;
             PropertyChanged += MainWindow_PropertyChanged;
@@ -296,7 +304,6 @@ namespace FolderStyleEditorForWindows
             {
                 _lastEditScrollOffsetY = _editView.GetEditScrollOffsetY();
             }
-
             _animationStateSource.MarkStaticDirty();
         }
 
@@ -698,7 +705,10 @@ namespace FolderStyleEditorForWindows
                 e.DragEffects = DragDropEffects.Link;
                 ShowDragOverlay(intent);
                 UpdatePassiveOverlayMotion(e);
-                _ = RefreshDragIntentAsync(e);
+                if (ShouldRefreshDragIntent(intent))
+                {
+                    _ = RefreshDragIntentAsync(e);
+                }
                 e.Handled = true;
             }
             catch (Exception ex)
@@ -723,7 +733,10 @@ namespace FolderStyleEditorForWindows
                 e.DragEffects = DragDropEffects.Link;
                 ShowDragOverlay(intent);
                 UpdatePassiveOverlayMotion(e);
-                _ = RefreshDragIntentAsync(e);
+                if (ShouldRefreshDragIntent(intent))
+                {
+                    _ = RefreshDragIntentAsync(e);
+                }
                 e.Handled = true;
             }
             catch (Exception ex)
@@ -809,8 +822,7 @@ namespace FolderStyleEditorForWindows
                 e.Handled = true;
 
                 var context = ResolveDragContext();
-                var files = e.Data.GetFiles()?.ToList() ?? new System.Collections.Generic.List<IStorageItem>();
-                var firstPath = files.FirstOrDefault()?.Path.LocalPath ?? string.Empty;
+                var firstPath = TryGetFirstStoragePath(e.Data) ?? string.Empty;
 
                 switch (dropIntent.Type)
                 {
@@ -863,6 +875,21 @@ namespace FolderStyleEditorForWindows
         private DragContext ResolveDragContext()
         {
             return _editView?.IsVisible == true ? DragContext.Edit : DragContext.Home;
+        }
+
+        private static string? TryGetFirstStoragePath(IDataObject data)
+        {
+            if (data.GetFiles() is not { } files)
+            {
+                return null;
+            }
+
+            foreach (var item in files)
+            {
+                return item.Path.LocalPath;
+            }
+
+            return null;
         }
 
         private async Task HandleDroppedImageToIconAsync(string imagePath, string? preferredModeKey = null)
@@ -986,7 +1013,7 @@ namespace FolderStyleEditorForWindows
 
                 _viewModel.IconPath = result.OutputPath;
                 await _viewModel.RefreshIconCacheButtonTextAsync();
-                _toastService.Show(loc["ImageToIco_Toast_Success"], new SolidColorBrush(Color.Parse("#EBB762")));
+                _toastService.Show(loc["ImageToIco_Toast_Success"], AccentToastBrush);
             }
             catch (Exception ex)
             {
@@ -1034,23 +1061,18 @@ namespace FolderStyleEditorForWindows
             ShowDragOverlay(result);
         }
 
+        private static bool ShouldRefreshDragIntent(DragIntentResult immediateIntent)
+        {
+            return immediateIntent.Type is DragIntentType.ExeInternal or DragIntentType.ExeExternal;
+        }
+
         private void ShowDragOverlay(DragIntentResult intent)
         {
             var loc = LocalizationManager.Instance;
             var mainText = loc[intent.MainTextKey];
             var subText = string.IsNullOrWhiteSpace(intent.SubTextKey) ? null : loc[intent.SubTextKey];
-            IReadOnlyList<DialogPassiveChoiceCardItem>? passiveChoiceCards = null;
-            if (intent.Type == DragIntentType.ImageToIcon)
-            {
-                passiveChoiceCards =
-                [
-                    new DialogPassiveChoiceCardItem(nameof(ImageFitMode.FillHeight), loc["ImageToIco_Mode_FillHeight"], loc["ImageToIco_Mode_FillHeight_Desc"]),
-                    new DialogPassiveChoiceCardItem(nameof(ImageFitMode.FillWidth), loc["ImageToIco_Mode_FillWidth"], loc["ImageToIco_Mode_FillWidth_Desc"]),
-                    new DialogPassiveChoiceCardItem(nameof(ImageFitMode.ManualCrop), loc["ImageToIco_Mode_Manual"], loc["ImageToIco_Mode_Manual_Desc"])
-                ];
-            }
-
-            var signature = $"{intent.Type}|{mainText}|{subText}|{intent.IconPath}|{intent.SubTextBrush}|{(passiveChoiceCards?.Count ?? 0)}";
+            var passiveChoiceCardCount = intent.Type == DragIntentType.ImageToIcon ? 3 : 0;
+            var signature = $"{intent.Type}|{mainText}|{subText}|{intent.IconPath}|{intent.SubTextBrush}|{passiveChoiceCardCount}";
             if (string.Equals(_lastOverlaySignature, signature, StringComparison.Ordinal))
             {
                 if (intent.Type == DragIntentType.ImageToIcon)
@@ -1060,10 +1082,16 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
+            IReadOnlyList<DialogPassiveChoiceCardItem>? passiveChoiceCards = null;
+            if (intent.Type == DragIntentType.ImageToIcon)
+            {
+                passiveChoiceCards = CreateImageDragChoiceCards(loc);
+            }
+
             var ui = ConfigManager.Config.Ui;
             var isWarningMain = intent.Type == DragIntentType.Unsupported;
-            var mainBrush = new SolidColorBrush(Color.Parse(isWarningMain ? ui.DragOverlayWarningTextColor : ui.DragOverlayMainTextColor));
-            var subBrush = new SolidColorBrush(Color.Parse(string.IsNullOrWhiteSpace(intent.SubTextBrush) ? ui.DragOverlayWarningTextColor : intent.SubTextBrush));
+            var mainBrush = GetDragOverlayBrush(isWarningMain ? ui.DragOverlayWarningTextColor : ui.DragOverlayMainTextColor);
+            var subBrush = GetDragOverlayBrush(string.IsNullOrWhiteSpace(intent.SubTextBrush) ? ui.DragOverlayWarningTextColor : intent.SubTextBrush);
 
             _interruptDialogService.ShowPassiveOverlay(new InterruptDialogOptions
             {
@@ -1089,6 +1117,28 @@ namespace FolderStyleEditorForWindows
 
             _componentFpsBadgeSource.SetDragOverlayVisible(true);
             _lastOverlaySignature = signature;
+        }
+
+        private static IReadOnlyList<DialogPassiveChoiceCardItem> CreateImageDragChoiceCards(LocalizationManager loc)
+        {
+            return
+            [
+                new DialogPassiveChoiceCardItem(nameof(ImageFitMode.FillHeight), loc["ImageToIco_Mode_FillHeight"], loc["ImageToIco_Mode_FillHeight_Desc"]),
+                new DialogPassiveChoiceCardItem(nameof(ImageFitMode.FillWidth), loc["ImageToIco_Mode_FillWidth"], loc["ImageToIco_Mode_FillWidth_Desc"]),
+                new DialogPassiveChoiceCardItem(nameof(ImageFitMode.ManualCrop), loc["ImageToIco_Mode_Manual"], loc["ImageToIco_Mode_Manual_Desc"])
+            ];
+        }
+
+        private SolidColorBrush GetDragOverlayBrush(string colorText)
+        {
+            if (_dragOverlayBrushCache.TryGetValue(colorText, out var brush))
+            {
+                return brush;
+            }
+
+            brush = new SolidColorBrush(Color.Parse(colorText));
+            _dragOverlayBrushCache[colorText] = brush;
+            return brush;
         }
 
         private void ResetDragOverlayState()
@@ -1856,11 +1906,7 @@ namespace FolderStyleEditorForWindows
             _isWindowRuntimeSuspended = suspended;
             _performanceTelemetryService.SetSuspended(suspended);
             _performanceMonitorViewModel.SetHostSuspended(suspended);
-            var ambientSuspended = suspended || DebugRuntimeAnalysis.PauseAnimations;
-            _backgroundAmbientHandle?.SetEnabled(!ambientSuspended);
-            _pinGlowAmbientHandle?.SetEnabled(!ambientSuspended && IsPinnedVisualActive && !_frameRateSettings.ExcludePinGlow);
-            _homeView?.SetAmbientSuspended(ambientSuspended);
-            _editView?.SetAmbientSuspended(ambientSuspended);
+            UpdateAmbientSuspensionState();
 
             if (suspended)
             {
@@ -1984,14 +2030,19 @@ namespace FolderStyleEditorForWindows
         {
             Dispatcher.UIThread.Post(() =>
             {
-                var ambientSuspended = _isWindowRuntimeSuspended || DebugRuntimeAnalysis.PauseAnimations;
-                _backgroundAmbientHandle?.SetEnabled(!ambientSuspended);
-                _pinGlowAmbientHandle?.SetEnabled(!ambientSuspended && IsPinnedVisualActive && !_frameRateSettings.ExcludePinGlow);
-                _homeView?.SetAmbientSuspended(ambientSuspended);
-                _editView?.SetAmbientSuspended(ambientSuspended);
+                UpdateAmbientSuspensionState();
                 _animationStateSource.MarkStaticDirty();
                 RequestRenderFrame();
             }, DispatcherPriority.Background);
+        }
+
+        private void UpdateAmbientSuspensionState()
+        {
+            var ambientSuspended = _isWindowRuntimeSuspended || DebugRuntimeAnalysis.PauseAnimations;
+            _backgroundAmbientHandle?.SetEnabled(!ambientSuspended);
+            _pinGlowAmbientHandle?.SetEnabled(!ambientSuspended && IsPinnedVisualActive && !_frameRateSettings.ExcludePinGlow);
+            _homeView?.SetAmbientSuspended(ambientSuspended);
+            _editView?.SetAmbientSuspended(ambientSuspended);
         }
 
         private void TickBackgroundAmbientFlow(double nowSeconds)
@@ -2093,14 +2144,13 @@ namespace FolderStyleEditorForWindows
 
             if (_pinButton != null)
             {
-                var pinnedBackground = isPinned ? "#7CDDDDDD" : "#50FFFFFF";
-                _pinButton.Background = new SolidColorBrush(Color.Parse(pinnedBackground));
+                _pinButton.Background = isPinned ? PinButtonPinnedBackgroundBrush : PinButtonDefaultBackgroundBrush;
                 _pinButton.Classes.Set("pinned", isPinned);
             }
 
             if (_languageButton != null)
             {
-                _languageButton.Background = new SolidColorBrush(Color.Parse("#50FFFFFF"));
+                _languageButton.Background = PinButtonDefaultBackgroundBrush;
             }
 
             _pinButtonIcon.Opacity = isPinned ? 0.82 : 0.4;
@@ -2124,7 +2174,7 @@ namespace FolderStyleEditorForWindows
             var message = IsPinnedVisualActive
                 ? LocalizationManager.Instance["Toast_WindowPinned"]
                 : LocalizationManager.Instance["Toast_WindowUnpinned"];
-            toastService.Show(message, new SolidColorBrush(Color.Parse("#EBB762")));
+            toastService.Show(message, AccentToastBrush);
         }
 
         private void UpdatePinGlowVisual()
@@ -2315,8 +2365,8 @@ namespace FolderStyleEditorForWindows
             var placeholder = new Border
             {
                 Classes = { "DebugExcludedPlaceholder" },
-                Background = new SolidColorBrush(Color.Parse("#14D56A61")),
-                BorderBrush = new SolidColorBrush(Color.Parse("#E07167")),
+                Background = DebugExcludedPlaceholderBackgroundBrush,
+                BorderBrush = DebugExcludedPlaceholderBorderBrush,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(12, 10),
@@ -2324,7 +2374,7 @@ namespace FolderStyleEditorForWindows
                 Child = new TextBlock
                 {
                     Text = LocalizationManager.Instance["Dialog_FrameRate_ComponentExcluded"],
-                    Foreground = new SolidColorBrush(Color.Parse("#C45E56")),
+                    Foreground = DebugExcludedPlaceholderForegroundBrush,
                     FontWeight = FontWeight.SemiBold,
                     TextAlignment = TextAlignment.Center,
                     HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,

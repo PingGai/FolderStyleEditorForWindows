@@ -13,9 +13,11 @@ namespace FolderStyleEditorForWindows.Services
     public sealed class FrameRateSettings : INotifyPropertyChanged
     {
         private int _staticContentRefreshFps;
-        private int _backgroundAmbientFps = 8;
-        private int _homeTitleAmbientFps = 15;
-        private int _adminTitleAmbientFps = 15;
+        private int _backgroundAmbientFps = 6;
+        private int _homeTitleAmbientFps = 12;
+        private int _adminTitleAmbientFps = 12;
+        private int _editHintCarouselFps = 16;
+        private int _liquidSegmentedSelectorFps = 120;
         private int _activeInteractionFps = 60;
         private bool _useDisplayRefreshRateAsMaxFps = true;
         private int _manualMaxFps = 120;
@@ -32,7 +34,7 @@ namespace FolderStyleEditorForWindows.Services
         private bool _disableEditScrollAnimations;
         private int _displayRefreshRateHz = 60;
         private int _currentForegroundTargetFps;
-        private int _currentAmbientTargetFps = 15;
+        private int _currentAmbientTargetFps = 12;
         private bool _isDirty;
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -41,6 +43,8 @@ namespace FolderStyleEditorForWindows.Services
         public int BackgroundAmbientFps { get => _backgroundAmbientFps; set => SetField(ref _backgroundAmbientFps, Clamp(value, 1, 120)); }
         public int HomeTitleAmbientFps { get => _homeTitleAmbientFps; set => SetField(ref _homeTitleAmbientFps, Clamp(value, 1, 120)); }
         public int AdminTitleAmbientFps { get => _adminTitleAmbientFps; set => SetField(ref _adminTitleAmbientFps, Clamp(value, 1, 120)); }
+        public int EditHintCarouselFps { get => _editHintCarouselFps; set => SetField(ref _editHintCarouselFps, Clamp(value, 1, 120)); }
+        public int LiquidSegmentedSelectorFps { get => _liquidSegmentedSelectorFps; set => SetField(ref _liquidSegmentedSelectorFps, Clamp(value, 1, 120)); }
         public int ActiveInteractionFps { get => _activeInteractionFps; set => SetField(ref _activeInteractionFps, Clamp(value, 1, 240)); }
         public bool UseDisplayRefreshRateAsMaxFps { get => _useDisplayRefreshRateAsMaxFps; set => SetField(ref _useDisplayRefreshRateAsMaxFps, value); }
         public int ManualMaxFps { get => _manualMaxFps; set => SetField(ref _manualMaxFps, Clamp(value, 1, 500)); }
@@ -68,6 +72,8 @@ namespace FolderStyleEditorForWindows.Services
             _backgroundAmbientFps = Clamp(cfg.BackgroundAmbientFps, 1, 120);
             _homeTitleAmbientFps = Clamp(cfg.HomeTitleAmbientFps, 1, 120);
             _adminTitleAmbientFps = Clamp(cfg.AdminTitleAmbientFps, 1, 120);
+            _editHintCarouselFps = Clamp(cfg.EditHintCarouselFps, 1, 120);
+            _liquidSegmentedSelectorFps = Clamp(cfg.LiquidSegmentedSelectorFps, 1, 120);
             _activeInteractionFps = Clamp(cfg.ActiveInteractionFps, 1, 240);
             _useDisplayRefreshRateAsMaxFps = cfg.UseDisplayRefreshRateAsMaxFps;
             _manualMaxFps = Clamp(cfg.ManualMaxFps, 1, 500);
@@ -82,7 +88,9 @@ namespace FolderStyleEditorForWindows.Services
             _excludeBottomActionButtons = cfg.ExcludeBottomActionButtons;
             _excludeActualTopmost = cfg.ExcludeActualTopmost;
             _disableEditScrollAnimations = cfg.DisableEditScrollAnimations;
-            _currentAmbientTargetFps = Math.Max(_backgroundAmbientFps, Math.Max(_homeTitleAmbientFps, _adminTitleAmbientFps));
+            _currentAmbientTargetFps = Math.Max(
+                Math.Max(_backgroundAmbientFps, _homeTitleAmbientFps),
+                Math.Max(_adminTitleAmbientFps, _editHintCarouselFps));
             _isDirty = false;
             RaiseAll();
         }
@@ -90,9 +98,11 @@ namespace FolderStyleEditorForWindows.Services
         public void ApplyDefaults()
         {
             StaticContentRefreshFps = 0;
-            BackgroundAmbientFps = 8;
-            HomeTitleAmbientFps = 15;
-            AdminTitleAmbientFps = 15;
+            BackgroundAmbientFps = 6;
+            HomeTitleAmbientFps = 12;
+            AdminTitleAmbientFps = 12;
+            EditHintCarouselFps = 16;
+            LiquidSegmentedSelectorFps = 120;
             ActiveInteractionFps = 60;
             UseDisplayRefreshRateAsMaxFps = true;
             ManualMaxFps = 120;
@@ -117,6 +127,8 @@ namespace FolderStyleEditorForWindows.Services
                 BackgroundAmbientFps = BackgroundAmbientFps,
                 HomeTitleAmbientFps = HomeTitleAmbientFps,
                 AdminTitleAmbientFps = AdminTitleAmbientFps,
+                EditHintCarouselFps = EditHintCarouselFps,
+                LiquidSegmentedSelectorFps = LiquidSegmentedSelectorFps,
                 ActiveInteractionFps = ActiveInteractionFps,
                 UseDisplayRefreshRateAsMaxFps = UseDisplayRefreshRateAsMaxFps,
                 ManualMaxFps = ManualMaxFps,
@@ -286,14 +298,24 @@ namespace FolderStyleEditorForWindows.Services
 
         public void MarkHoverActivity()
         {
-            _hoverActiveUntilTicks = AddMs(Stopwatch.GetTimestamp(), Math.Max(_settings.HoverCooldownMs, 320));
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            var now = Stopwatch.GetTimestamp();
+            var wasActive = now <= _hoverActiveUntilTicks;
+            _hoverActiveUntilTicks = AddMs(now, Math.Max(_settings.HoverCooldownMs, 320));
+            if (!wasActive)
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         public void MarkScrollActivity()
         {
-            _scrollActiveUntilTicks = AddMs(Stopwatch.GetTimestamp(), _settings.ScrollCooldownMs);
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            var now = Stopwatch.GetTimestamp();
+            var wasActive = now <= _scrollActiveUntilTicks;
+            _scrollActiveUntilTicks = AddMs(now, _settings.ScrollCooldownMs);
+            if (!wasActive)
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         public void SetDragging(bool dragging)
@@ -352,20 +374,34 @@ namespace FolderStyleEditorForWindows.Services
 
         public void MarkTransitionActivity(int durationMs)
         {
-            _transitionActiveUntilTicks = AddMs(Stopwatch.GetTimestamp(), Math.Max(0, durationMs));
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            var now = Stopwatch.GetTimestamp();
+            var wasActive = _isTransitionAnimating || now <= _transitionActiveUntilTicks;
+            _transitionActiveUntilTicks = AddMs(now, Math.Max(0, durationMs));
+            if (!wasActive)
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         public void MarkStaticDirty()
         {
+            if (_hasStaticDirtyRegion)
+            {
+                return;
+            }
+
             _hasStaticDirtyRegion = true;
             StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ClearStaticDirty()
         {
+            if (!_hasStaticDirtyRegion)
+            {
+                return;
+            }
+
             _hasStaticDirtyRegion = false;
-            StateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public FrameRateStateSnapshot Snapshot()
@@ -437,7 +473,9 @@ namespace FolderStyleEditorForWindows.Services
                 ForegroundTargetFps = 0;
             }
 
-            AmbientTargetFps = Math.Max(_settings.BackgroundAmbientFps, Math.Max(_settings.HomeTitleAmbientFps, _settings.AdminTitleAmbientFps));
+            AmbientTargetFps = Math.Max(
+                Math.Max(_settings.BackgroundAmbientFps, _settings.HomeTitleAmbientFps),
+                Math.Max(_settings.AdminTitleAmbientFps, _settings.EditHintCarouselFps));
             _settings.CurrentForegroundTargetFps = ForegroundTargetFps;
             _settings.CurrentAmbientTargetFps = AmbientTargetFps;
         }

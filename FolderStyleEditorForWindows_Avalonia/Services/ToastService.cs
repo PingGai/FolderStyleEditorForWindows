@@ -39,7 +39,7 @@ namespace FolderStyleEditorForWindows.Services
                     toast.IsVisible = false;
                 });
 
-                await Task.Delay(animationDuration);
+                await Task.Delay(animationDuration + TimeSpan.FromMilliseconds(60));
             }
             catch
             {

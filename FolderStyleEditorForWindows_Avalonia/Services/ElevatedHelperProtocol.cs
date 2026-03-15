@@ -6,6 +6,7 @@ namespace FolderStyleEditorForWindows.Services
     {
         Handshake,
         SaveFolderStyle,
+        DeleteDirectory,
         Ping,
         Shutdown
     }
@@ -23,6 +24,9 @@ namespace FolderStyleEditorForWindows.Services
 
         [JsonProperty("payload")]
         public FolderStyleMutationRequest? Payload { get; set; }
+
+        [JsonProperty("directoryPath")]
+        public string? DirectoryPath { get; set; }
     }
 
     public sealed class ElevatedHelperResponse

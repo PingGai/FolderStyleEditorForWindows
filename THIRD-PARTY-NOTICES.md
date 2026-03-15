@@ -439,6 +439,31 @@ licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
+Package:System.CodeDom
+Version:9.0.10
+Authors:Microsoft
+Copyright:© Microsoft Corporation. All rights reserved.
+project URL:https://dot.net/
+Description:Provides types that can be used to model the structure of a source code document and to output source code for that model in C# or Visual Basic.
+licenseUrl:https://licenses.nuget.org/MIT
+license Type:MIT
+
+####################################################################################################
+Package:System.Management
+Version:9.0.10
+Authors:Microsoft
+Copyright:© Microsoft Corporation. All rights reserved.
+project URL:https://dot.net/
+Description:Provides access to a rich set of management information and management events about the system, devices, and applications instrumented to the Windows Management Instrumentation (WMI) infrastructure.
+
+Commonly Used Types:
+System.Management.ManagementClass
+System.Management.ManagementObject
+System.Management.SelectQuery
+licenseUrl:https://licenses.nuget.org/MIT
+license Type:MIT
+
+####################################################################################################
 Package:System.IO.Pipelines
 Version:8.0.0
 Authors:Microsoft

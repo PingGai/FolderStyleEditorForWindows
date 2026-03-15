@@ -12,7 +12,7 @@ namespace FolderStyleEditorForWindows.Views
 {
     public partial class Toast : UserControl
     {
-        private const double ExpandedHeight = 50;
+        private const double ExpandedHeight = 56;
         private ToastViewModel? _viewModel;
         private Transitions? _savedTransitions;
 
@@ -22,7 +22,7 @@ namespace FolderStyleEditorForWindows.Views
 
             var duration = TimeSpan.FromMilliseconds(ConfigManager.Config.Animations.ToastAnimationDuration);
 
-            this.Transitions = new Transitions
+            var transitions = new Transitions
             {
                 new DoubleTransition
                 {
@@ -37,7 +37,8 @@ namespace FolderStyleEditorForWindows.Views
                     Easing = new CubicEaseOut()
                 }
             };
-            _savedTransitions = this.Transitions;
+            _savedTransitions = transitions;
+            this.Transitions = transitions;
 
             Height = 0;
             Opacity = 0;

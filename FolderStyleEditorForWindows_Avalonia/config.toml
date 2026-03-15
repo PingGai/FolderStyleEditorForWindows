@@ -103,3 +103,36 @@ PreferredDataRoot = ""
 
 [Permissions]
 SuppressElevationPrompt = false
+
+[FrameRate]
+StaticContentRefreshFps = 0
+BackgroundAmbientFps = 6
+HomeTitleAmbientFps = 12
+AdminTitleAmbientFps = 12
+EditHintCarouselFps = 16
+ActiveInteractionFps = 60
+UseDisplayRefreshRateAsMaxFps = true
+ManualMaxFps = 120
+HoverCooldownMs = 120
+ScrollCooldownMs = 240
+DragCooldownMs = 280
+ShowPerformanceMonitor = false
+ShowDetailedPerformanceMonitor = false
+ShowComponentFpsBadges = false
+EnableComponentExcludeMode = false
+ExcludePinGlow = false
+ExcludeBottomActionButtons = false
+ExcludeActualTopmost = false
+DisableEditScrollAnimations = false
+
+[EditHintCarousel]
+RotationIntervalSeconds = 3
+EnabledItems = ["folder", "icon", "image", "alias"]
+FolderGradientStart = "#F6D365"
+FolderGradientEnd = "#FDA085"
+IconGradientStart = "#A8E063"
+IconGradientEnd = "#96E6A1"
+ImageGradientStart = "#5EE7DF"
+ImageGradientEnd = "#66A6FF"
+AliasGradientStart = "#F9A8D4"
+AliasGradientEnd = "#C084FC"

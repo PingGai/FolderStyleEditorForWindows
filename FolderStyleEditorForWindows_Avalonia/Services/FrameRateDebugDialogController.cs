@@ -40,6 +40,8 @@ namespace FolderStyleEditorForWindows.Services
         private readonly DialogNumberFieldItem _backgroundAmbientField;
         private readonly DialogNumberFieldItem _homeTitleAmbientField;
         private readonly DialogNumberFieldItem _adminTitleAmbientField;
+        private readonly DialogNumberFieldItem _editHintCarouselAmbientField;
+        private readonly DialogNumberFieldItem _liquidSegmentedSelectorField;
         private readonly DialogNumberFieldItem _activeInteractionField;
         private readonly DialogToggleFieldItem _followDisplayRefreshField;
         private readonly DialogNumberFieldItem _manualMaxField;
@@ -133,6 +135,20 @@ namespace FolderStyleEditorForWindows.Services
                 1,
                 120,
                 value => _settings.AdminTitleAmbientFps = value);
+            _editHintCarouselAmbientField = CreateNumberField(
+                _loc["Dialog_FrameRate_Field_EditHintCarouselAmbient"],
+                _loc["Dialog_FrameRate_Field_EditHintCarouselAmbient_Desc"],
+                _settings.EditHintCarouselFps,
+                1,
+                120,
+                value => _settings.EditHintCarouselFps = value);
+            _liquidSegmentedSelectorField = CreateNumberField(
+                _loc["Dialog_FrameRate_Field_LiquidSegmentedSelector"],
+                _loc["Dialog_FrameRate_Field_LiquidSegmentedSelector_Desc"],
+                _settings.LiquidSegmentedSelectorFps,
+                1,
+                120,
+                value => _settings.LiquidSegmentedSelectorFps = value);
             _activeInteractionField = CreateNumberField(
                 _loc["Dialog_FrameRate_Field_ActiveInteraction"],
                 _loc["Dialog_FrameRate_Field_ActiveInteraction_Desc"],
@@ -285,6 +301,7 @@ namespace FolderStyleEditorForWindows.Services
                         _backgroundAmbientField,
                         _homeTitleAmbientField,
                         _adminTitleAmbientField,
+                        _editHintCarouselAmbientField,
                         _activeInteractionField,
                         _followDisplayRefreshField,
                         _manualMaxField
@@ -561,6 +578,8 @@ namespace FolderStyleEditorForWindows.Services
                 case nameof(FrameRateSettings.CurrentAmbientTargetFps):
                 case nameof(FrameRateSettings.UseDisplayRefreshRateAsMaxFps):
                 case nameof(FrameRateSettings.ManualMaxFps):
+                case nameof(FrameRateSettings.EditHintCarouselFps):
+                case nameof(FrameRateSettings.LiquidSegmentedSelectorFps):
                 case nameof(FrameRateSettings.IsDirty):
                     UpdateRuntimeStatus();
                     RaiseSaveCommandState();
@@ -582,6 +601,8 @@ namespace FolderStyleEditorForWindows.Services
             _backgroundAmbientField.SyncFromValue(_settings.BackgroundAmbientFps);
             _homeTitleAmbientField.SyncFromValue(_settings.HomeTitleAmbientFps);
             _adminTitleAmbientField.SyncFromValue(_settings.AdminTitleAmbientFps);
+            _editHintCarouselAmbientField.SyncFromValue(_settings.EditHintCarouselFps);
+            _liquidSegmentedSelectorField.SyncFromValue(_settings.LiquidSegmentedSelectorFps);
             _activeInteractionField.SyncFromValue(_settings.ActiveInteractionFps);
             _followDisplayRefreshField.SyncFromValue(_settings.UseDisplayRefreshRateAsMaxFps);
             _manualMaxField.SyncFromValue(_settings.ManualMaxFps);

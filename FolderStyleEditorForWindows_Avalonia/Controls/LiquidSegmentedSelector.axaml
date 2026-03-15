@@ -1,0 +1,108 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
+             mc:Ignorable="d"
+             x:Class="FolderStyleEditorForWindows.Controls.LiquidSegmentedSelector"
+             ClipToBounds="False"
+             d:DesignWidth="360"
+             d:DesignHeight="52">
+  <UserControl.Styles>
+    <Style Selector="Button.LiquidSegmentButton">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="999"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="Height" Value="42"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource Fg2Brush}"/>
+      <Setter Property="Opacity" Value="0.82"/>
+      <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
+      <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.04"/>
+      <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="0.94"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="1.3"/>
+      <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="1.1"/>
+      <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.18"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{TemplateBinding CornerRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Content="{TemplateBinding Content}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"/>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+
+    <Style Selector="Button.LiquidSegmentButton:pointerover">
+      <Setter Property="Opacity" Value="0.96"/>
+    </Style>
+
+    <Style Selector="Button.LiquidSegmentButton.selected">
+      <Setter Property="Foreground" Value="{StaticResource Fg1Brush}"/>
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+
+    <Style Selector="Button.LiquidSegmentButton.preview">
+      <Setter Property="Foreground" Value="{StaticResource Fg1Brush}"/>
+      <Setter Property="Opacity" Value="0.94"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ClipToBounds="False">
+    <Border Name="TrackBorder"
+            Background="#7CFFFFFF"
+            BorderBrush="#1AFFFFFF"
+            BorderThickness="1"
+            CornerRadius="999"
+            Padding="4"
+            ClipToBounds="False"
+            behaviors:HoverFloatBehavior.IsEnabled="True"
+            behaviors:HoverFloatBehavior.HoverScale="1.01"
+            behaviors:HoverFloatBehavior.PressScale="0.992"
+            behaviors:HoverFloatBehavior.MaxOffsetX="0.8"
+            behaviors:HoverFloatBehavior.MaxOffsetY="0.4"
+            behaviors:HoverFloatBehavior.LerpFactor="0.16"
+            BoxShadow="{StaticResource Shadow1}">
+      <Grid Name="TrackGrid"
+            ClipToBounds="False">
+        <Border Name="SelectionHighlight"
+                Width="0"
+                Margin="1"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Stretch"
+                CornerRadius="999"
+                Background="#ECFFFFFF"
+                BorderBrush="#20FFFFFF"
+                BorderThickness="1"
+                IsHitTestVisible="False"
+                ClipToBounds="False"
+                BoxShadow="{StaticResource Shadow1}">
+          <Border.RenderTransform>
+            <TransformGroup>
+              <ScaleTransform ScaleX="1"
+                              ScaleY="1"/>
+              <TranslateTransform X="0"
+                                  Y="0"/>
+            </TransformGroup>
+          </Border.RenderTransform>
+        </Border>
+
+        <Border CornerRadius="999"
+                Background="Transparent"
+                ClipToBounds="True">
+          <Grid Name="SegmentsGrid"
+                ColumnSpacing="0"/>
+        </Border>
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>

@@ -25,23 +25,32 @@ namespace FolderStyleEditorForWindows
 
     public class IconFinderService
     {
+        private const int IncrementalScanReportIntervalMs = 180;
+
         [SupportedOSPlatform("windows")]
         public Task<List<string>> FindIconsAsync(string folderPath)
         {
             return Task.Run(() =>
             {
                 var iconPaths = new List<string>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 if (!Directory.Exists(folderPath))
                 {
                     return iconPaths;
                 }
 
                 // 1. Scan root directory
-                var rootFiles = Directory.GetFiles(folderPath)
+                var rootFiles = Directory.EnumerateFiles(folderPath)
                     .Where(f => SafeHasIcon(f))
                     .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                     .ThenBy(f => f.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
-                iconPaths.AddRange(rootFiles);
+                foreach (var file in rootFiles)
+                {
+                    if (seen.Add(file))
+                    {
+                        iconPaths.Add(file);
+                    }
+                }
 
                 if (iconPaths.Count >= 4)
                 {
@@ -51,14 +60,20 @@ namespace FolderStyleEditorForWindows
                 // 2. Scan second-level directories
                 try
                 {
-                    var subDirs = Directory.GetDirectories(folderPath);
+                    var subDirs = Directory.EnumerateDirectories(folderPath);
                     foreach (var dir in subDirs)
                     {
-                        var subFiles = Directory.GetFiles(dir)
+                        var subFiles = Directory.EnumerateFiles(dir)
                             .Where(f => SafeHasIcon(f))
                             .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                             .ThenBy(f => f.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
-                        iconPaths.AddRange(subFiles);
+                        foreach (var file in subFiles)
+                        {
+                            if (seen.Add(file))
+                            {
+                                iconPaths.Add(file);
+                            }
+                        }
 
                         if (iconPaths.Count >= 4)
                         {
@@ -76,11 +91,17 @@ namespace FolderStyleEditorForWindows
                 {
                     try
                     {
-                        var allFiles = Directory.GetFiles(folderPath, "*.*", SearchOption.AllDirectories)
-                            .Where(f => SafeHasIcon(f) && !iconPaths.Contains(f))
-                             .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        var allFiles = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
+                            .Where(SafeHasIcon)
+                            .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                             .ThenBy(f => f.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
-                        iconPaths.AddRange(allFiles);
+                        foreach (var file in allFiles)
+                        {
+                            if (seen.Add(file))
+                            {
+                                iconPaths.Add(file);
+                            }
+                        }
                     }
                     catch (UnauthorizedAccessException)
                     {
@@ -88,7 +109,7 @@ namespace FolderStyleEditorForWindows
                     }
                 }
 
-                return iconPaths.Distinct().ToList();
+                return iconPaths;
             });
         }
 
@@ -99,6 +120,8 @@ namespace FolderStyleEditorForWindows
         public async Task<List<string>> FindIconsIncrementalAsync(string folderPath, IProgress<IconScanProgress>? progress, CancellationToken cancellationToken)
         {
             var found = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var hasReportedFirstResult = false;
             if (!Directory.Exists(folderPath)) return found;
 
             var stopwatch = new Stopwatch();
@@ -108,7 +131,7 @@ namespace FolderStyleEditorForWindows
             {
                 progress?.Report(new IconScanProgress
                 {
-                    Found = found.Distinct().ToList(),
+                    Found = new List<string>(found),
                     IsCompleted = isCompleted
                 });
                 stopwatch.Restart();
@@ -127,15 +150,20 @@ namespace FolderStyleEditorForWindows
 
                     try
                     {
-                        var files = Directory.GetFiles(current);
+                        var files = Directory.EnumerateFiles(current);
                         foreach (var file in files)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
                             try
                             {
-                                if (SafeHasIcon(file) && !found.Contains(file))
+                                if (SafeHasIcon(file) && seen.Add(file))
                                 {
                                     found.Add(file);
+                                    if (!hasReportedFirstResult)
+                                    {
+                                        Report();
+                                        hasReportedFirstResult = true;
+                                    }
                                 }
                             }
                             catch
@@ -143,7 +171,7 @@ namespace FolderStyleEditorForWindows
                                 // 鏌愪簺鏂囦欢鍦ㄦ鏌ュ浘鏍囨椂鍙兘鎶涘紓甯革紝蹇界暐浠ヤ繚璇佹壂鎻忎笉涓柇
                             }
 
-                            if (stopwatch.ElapsedMilliseconds >= 1000)
+                            if (stopwatch.ElapsedMilliseconds >= IncrementalScanReportIntervalMs)
                             {
                                 Report();
                             }
@@ -151,7 +179,7 @@ namespace FolderStyleEditorForWindows
 
                         if (depth < maxDepth)
                         {
-                            foreach (var dir in Directory.GetDirectories(current))
+                            foreach (var dir in Directory.EnumerateDirectories(current))
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
                                 try
@@ -182,7 +210,7 @@ namespace FolderStyleEditorForWindows
             }, cancellationToken);
 
             Report(isCompleted: true);
-            return found.Distinct().ToList();
+            return found;
         }
 
         /// <summary>
@@ -232,7 +260,7 @@ namespace FolderStyleEditorForWindows
             IProgress<IconExtractionProgress>? progress,
             CancellationToken cancellationToken)
         {
-            return Task.Run(async () =>
+            return Task.Run(() =>
             {
                 var extension = Path.GetExtension(filePath).ToLowerInvariant();
 
@@ -264,20 +292,22 @@ namespace FolderStyleEditorForWindows
 
                 var batch = new List<IconViewModel>();
                 const int batchSize = 15;
+                var flushStopwatch = Stopwatch.StartNew();
 
-                async Task FlushAsync(bool isCompleted)
+                void Flush(bool isCompleted)
                 {
+                    if (batch.Count == 0 && !isCompleted)
+                    {
+                        return;
+                    }
+
                     progress?.Report(new IconExtractionProgress
                     {
-                        Batch = batch,
+                        Batch = batch.Count == 0 ? new List<IconViewModel>() : batch,
                         IsCompleted = isCompleted
                     });
                     batch = new List<IconViewModel>();
-
-                    if (!isCompleted)
-                    {
-                        await Task.Delay(16, cancellationToken);
-                    }
+                    flushStopwatch.Restart();
                 }
 
                 ShellHelper.ExtractIconsForPreviewIncremental(
@@ -286,14 +316,14 @@ namespace FolderStyleEditorForWindows
                     {
                         cancellationToken.ThrowIfCancellationRequested();
                         batch.Add(new IconViewModel(bitmap, filePath, index));
-                        if (batch.Count >= batchSize)
+                        if (batch.Count >= batchSize || flushStopwatch.ElapsedMilliseconds >= 24)
                         {
-                            FlushAsync(isCompleted: false).GetAwaiter().GetResult();
+                            Flush(isCompleted: false);
                         }
                     },
                     cancellationToken);
 
-                await FlushAsync(isCompleted: true);
+                Flush(isCompleted: true);
             }, cancellationToken);
         }
 

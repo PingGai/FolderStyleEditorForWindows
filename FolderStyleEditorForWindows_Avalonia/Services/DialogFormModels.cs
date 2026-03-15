@@ -703,9 +703,7 @@ namespace FolderStyleEditorForWindows.Services
         {
             SelectionSummary = string.Format(
                     CultureInfo.InvariantCulture,
-                    "X {0:P0} | Y {1:P0} | W {2:P0} | H {3:P0} | R {4:P0}",
-                    SelectionX,
-                    SelectionY,
+                    "W {0:P0} | H {1:P0} | R {2:P0}",
                     SelectionWidth,
                     SelectionHeight,
                     CornerRadiusNormalized * 2d);

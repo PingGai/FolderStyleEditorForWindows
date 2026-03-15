@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Management;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,8 @@ namespace FolderStyleEditorForWindows.Services
         private readonly Dictionary<string, PerformanceCounter> _gpuCounters = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, PerformanceCounter> _appGpuCounters = new(StringComparer.OrdinalIgnoreCase);
         private PerformanceCounter? _systemCpuCounter;
+        private GpuTelemetryBackend _gpuTelemetryBackend = GpuTelemetryBackend.Unknown;
+        private DateTime _lastGpuBackendProbeUtc = DateTime.MinValue;
         private DateTime _sampleWindowStartedUtc = DateTime.UtcNow;
         private DateTime _lastCpuSampleUtc = DateTime.UtcNow;
         private DateTime _lastMetricsSampleUtc = DateTime.MinValue;
@@ -32,6 +35,7 @@ namespace FolderStyleEditorForWindows.Services
         private bool _isDebugSessionActive;
         private bool _isMemoryProfilingActive;
         private bool _disposed;
+        private bool _isGpuTelemetryPending;
         private long _foregroundFrames;
         private long _staticFrames;
         private long _backgroundAmbientFrames;
@@ -51,6 +55,20 @@ namespace FolderStyleEditorForWindows.Services
         private double _telemetrySampleOverheadPercent;
         private bool _isAppGpuAvailable;
         private bool _isSystemGpuAvailable;
+
+        private const string GpuWmiQuery = "SELECT Name, UtilizationPercentage FROM Win32_PerfFormattedData_GPUPerformanceCounters_GPUEngine";
+        private static readonly TimeSpan GpuBackendRetryInterval = TimeSpan.FromMinutes(3);
+        private static readonly TimeSpan CpuMetricsInterval = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan GpuMetricsInterval = TimeSpan.FromSeconds(2);
+        private static readonly WaitCallback QueueProcessMetricsSampleCallback = static state =>
+            ((PerformanceTelemetryService)state!).RunQueuedProcessMetricsSample();
+        private static readonly WaitCallback DisposeProcessMetricResourcesCallback = static state =>
+        {
+            var tuple = ((PerformanceTelemetryService Service, bool Force))state!;
+            tuple.Service.DisposeProcessMetricResources(tuple.Force);
+        };
+        private DateTime _queuedMetricsSampleUtc;
+        private bool _queuedMetricsIncludeGpu;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -86,6 +104,7 @@ namespace FolderStyleEditorForWindows.Services
         public double TelemetrySampleOverheadPercent { get => _telemetrySampleOverheadPercent; private set => SetField(ref _telemetrySampleOverheadPercent, value); }
         public bool IsAppGpuAvailable { get => _isAppGpuAvailable; private set => SetField(ref _isAppGpuAvailable, value); }
         public bool IsSystemGpuAvailable { get => _isSystemGpuAvailable; private set => SetField(ref _isSystemGpuAvailable, value); }
+        public bool IsGpuTelemetryPending { get => _isGpuTelemetryPending; private set => SetField(ref _isGpuTelemetryPending, value); }
 
         public void RecordForegroundFrame()
         {
@@ -186,13 +205,13 @@ namespace FolderStyleEditorForWindows.Services
                 return;
             }
 
-            if (now - _lastMetricsSampleUtc < TimeSpan.FromSeconds(1))
+            if (now - _lastMetricsSampleUtc < CpuMetricsInterval)
             {
                 return;
             }
 
             _lastMetricsSampleUtc = now;
-            var includeGpuMetrics = now - _lastGpuMetricsSampleUtc >= TimeSpan.FromSeconds(4);
+            var includeGpuMetrics = now - _lastGpuMetricsSampleUtc >= GpuMetricsInterval;
             if (includeGpuMetrics)
             {
                 _lastGpuMetricsSampleUtc = now;
@@ -250,39 +269,17 @@ namespace FolderStyleEditorForWindows.Services
 
             if (includeGpuMetrics)
             {
-                if (now - _lastGpuCounterRefreshUtc >= TimeSpan.FromSeconds(20))
+                if (_gpuTelemetryBackend is GpuTelemetryBackend.Unknown or GpuTelemetryBackend.PerformanceCounter &&
+                    now - _lastGpuCounterRefreshUtc >= TimeSpan.FromSeconds(20))
                 {
                     RefreshGpuCounters();
                 }
 
-                systemGpuMax = 0.0;
-                appGpuMax = 0.0;
-                appAvailable = _appGpuCounters.Count > 0;
-                systemAvailable = _gpuCounters.Count > 0;
-
-                foreach (var counter in _gpuCounters.Values.ToArray())
-                {
-                    try
-                    {
-                        systemGpuMax = Math.Max(systemGpuMax, counter.NextValue());
-                    }
-                    catch
-                    {
-                        systemAvailable = false;
-                    }
-                }
-
-                foreach (var counter in _appGpuCounters.Values.ToArray())
-                {
-                    try
-                    {
-                        appGpuMax = Math.Max(appGpuMax, counter.NextValue());
-                    }
-                    catch
-                    {
-                        appAvailable = false;
-                    }
-                }
+                var gpuSnapshot = CollectGpuUsageSnapshot(now);
+                systemGpuMax = gpuSnapshot.SystemGpuPercent;
+                appGpuMax = gpuSnapshot.AppGpuPercent;
+                appAvailable = gpuSnapshot.IsAppGpuAvailable;
+                systemAvailable = gpuSnapshot.IsSystemGpuAvailable;
             }
 
             return new ProcessMetricsSnapshot(
@@ -301,6 +298,188 @@ namespace FolderStyleEditorForWindows.Services
             _lastGpuCounterRefreshUtc = DateTime.UtcNow;
             ReplaceCounters(_gpuCounters, EnumerateGpuCounters(instanceName => true));
             ReplaceCounters(_appGpuCounters, EnumerateGpuCounters(instanceName => instanceName.Contains($"pid_{_currentProcess.Id}_", StringComparison.OrdinalIgnoreCase)));
+            _gpuTelemetryBackend = _appGpuCounters.Count > 0 || _gpuCounters.Count > 0
+                ? GpuTelemetryBackend.PerformanceCounter
+                : GpuTelemetryBackend.Unknown;
+            _lastGpuBackendProbeUtc = _lastGpuCounterRefreshUtc;
+        }
+
+        private GpuUsageSnapshot CollectGpuUsageSnapshot(DateTime now)
+        {
+            if (_gpuTelemetryBackend == GpuTelemetryBackend.PerformanceCounter)
+            {
+                var snapshot = CollectPerformanceCounterGpuUsageSnapshot();
+                if (snapshot.IsAppGpuAvailable || snapshot.IsSystemGpuAvailable)
+                {
+                    return snapshot;
+                }
+
+                _gpuTelemetryBackend = GpuTelemetryBackend.Unknown;
+            }
+
+            if (_gpuTelemetryBackend == GpuTelemetryBackend.Wmi)
+            {
+                var snapshot = CollectWmiGpuUsageSnapshot();
+                if (snapshot.IsAppGpuAvailable || snapshot.IsSystemGpuAvailable)
+                {
+                    return snapshot;
+                }
+
+                _gpuTelemetryBackend = GpuTelemetryBackend.Unsupported;
+                _lastGpuBackendProbeUtc = now;
+                return GpuUsageSnapshot.Empty;
+            }
+
+            if (_gpuTelemetryBackend == GpuTelemetryBackend.Unsupported &&
+                now - _lastGpuBackendProbeUtc < GpuBackendRetryInterval)
+            {
+                return GpuUsageSnapshot.Empty;
+            }
+
+            var wmiSnapshot = CollectWmiGpuUsageSnapshot();
+            if (wmiSnapshot.IsAppGpuAvailable || wmiSnapshot.IsSystemGpuAvailable)
+            {
+                _gpuTelemetryBackend = GpuTelemetryBackend.Wmi;
+                _lastGpuBackendProbeUtc = now;
+                return wmiSnapshot;
+            }
+
+            _gpuTelemetryBackend = GpuTelemetryBackend.Unsupported;
+            _lastGpuBackendProbeUtc = now;
+            return GpuUsageSnapshot.Empty;
+        }
+
+        private GpuUsageSnapshot CollectPerformanceCounterGpuUsageSnapshot()
+        {
+            var systemGpuMax = 0.0;
+            var appGpuMax = 0.0;
+            var appAvailable = _appGpuCounters.Count > 0;
+            var systemAvailable = _gpuCounters.Count > 0;
+
+            foreach (var counter in _gpuCounters.Values.ToArray())
+            {
+                try
+                {
+                    systemGpuMax = Math.Max(systemGpuMax, counter.NextValue());
+                }
+                catch
+                {
+                    systemAvailable = false;
+                }
+            }
+
+            foreach (var counter in _appGpuCounters.Values.ToArray())
+            {
+                try
+                {
+                    appGpuMax = Math.Max(appGpuMax, counter.NextValue());
+                }
+                catch
+                {
+                    appAvailable = false;
+                }
+            }
+
+            return new GpuUsageSnapshot(
+                appAvailable ? Math.Clamp(appGpuMax, 0, 100) : 0,
+                systemAvailable ? Math.Clamp(systemGpuMax, 0, 100) : 0,
+                appAvailable,
+                systemAvailable);
+        }
+
+        private GpuUsageSnapshot CollectWmiGpuUsageSnapshot()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return GpuUsageSnapshot.Empty;
+            }
+
+            try
+            {
+                using var searcher = new ManagementObjectSearcher(GpuWmiQuery);
+                using var results = searcher.Get();
+                var appMarker = $"pid_{_currentProcess.Id}_";
+                var appGpuMax = 0.0;
+                var systemGpuMax = 0.0;
+                var appAvailable = false;
+                var systemAvailable = false;
+
+                foreach (var instance in results.Cast<ManagementObject>())
+                {
+                    var name = instance["Name"] as string;
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        continue;
+                    }
+
+                    if (!TryReadGpuPercentage(instance["UtilizationPercentage"], out var percent))
+                    {
+                        continue;
+                    }
+
+                    systemGpuMax = Math.Max(systemGpuMax, percent);
+                    systemAvailable = true;
+
+                    if (name.Contains(appMarker, StringComparison.OrdinalIgnoreCase))
+                    {
+                        appGpuMax = Math.Max(appGpuMax, percent);
+                        appAvailable = true;
+                    }
+                }
+
+                return new GpuUsageSnapshot(
+                    appAvailable ? Math.Clamp(appGpuMax, 0, 100) : 0,
+                    systemAvailable ? Math.Clamp(systemGpuMax, 0, 100) : 0,
+                    appAvailable,
+                    systemAvailable);
+            }
+            catch
+            {
+                return GpuUsageSnapshot.Empty;
+            }
+        }
+
+        private static bool TryReadGpuPercentage(object? value, out double percent)
+        {
+            percent = 0;
+            switch (value)
+            {
+                case byte b:
+                    percent = b;
+                    return true;
+                case ushort us:
+                    percent = us;
+                    return true;
+                case uint ui:
+                    percent = ui;
+                    return true;
+                case ulong ul:
+                    percent = ul;
+                    return true;
+                case short s:
+                    percent = s;
+                    return true;
+                case int i:
+                    percent = i;
+                    return true;
+                case long l:
+                    percent = l;
+                    return true;
+                case float f:
+                    percent = f;
+                    return true;
+                case double d:
+                    percent = d;
+                    return true;
+                case decimal m:
+                    percent = (double)m;
+                    return true;
+                case string text when double.TryParse(text, out var parsed):
+                    percent = parsed;
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private IEnumerable<KeyValuePair<string, PerformanceCounter>> EnumerateGpuCounters(Func<string, bool> predicate)
@@ -377,12 +556,14 @@ namespace FolderStyleEditorForWindows.Services
                 RefreshPublishTimerState();
                 if (ShouldSampleProcessMetrics())
                 {
+                    IsGpuTelemetryPending = true;
                     _lastMetricsSampleUtc = DateTime.MinValue;
                     _lastGpuMetricsSampleUtc = DateTime.MinValue;
                     QueueProcessMetricsSample(DateTime.UtcNow, includeGpuMetrics: true);
                 }
                 else
                 {
+                    IsGpuTelemetryPending = false;
                     StopProcessMetricSamplingAsync(clearValues: true);
                 }
 
@@ -432,6 +613,7 @@ namespace FolderStyleEditorForWindows.Services
             _lastCpuSampleUtc = DateTime.UtcNow;
             _lastMetricsSampleUtc = DateTime.MinValue;
             _lastGpuMetricsSampleUtc = DateTime.MinValue;
+            IsGpuTelemetryPending = ShouldSampleProcessMetrics();
             Interlocked.Exchange(ref _foregroundFrames, 0);
             Interlocked.Exchange(ref _staticFrames, 0);
             Interlocked.Exchange(ref _backgroundAmbientFrames, 0);
@@ -446,70 +628,76 @@ namespace FolderStyleEditorForWindows.Services
                 return;
             }
 
-            _ = Task.Run(() =>
+            _queuedMetricsSampleUtc = now;
+            _queuedMetricsIncludeGpu = includeGpuMetrics;
+            ThreadPool.UnsafeQueueUserWorkItem(QueueProcessMetricsSampleCallback, this);
+        }
+
+        private void RunQueuedProcessMetricsSample()
+        {
+            try
             {
-                try
+                ProcessMetricsSnapshot snapshot;
+                var sampleStopwatch = Stopwatch.StartNew();
+                lock (_metricsSync)
                 {
-                    ProcessMetricsSnapshot snapshot;
-                    var sampleStopwatch = Stopwatch.StartNew();
-                    lock (_metricsSync)
+                    if (_disposed || !ShouldSampleProcessMetrics())
                     {
-                        if (_disposed || !ShouldSampleProcessMetrics())
-                        {
-                            snapshot = ProcessMetricsSnapshot.Empty;
-                        }
-                        else
-                        {
-                            EnsureProcessMetricSamplingStartedCore();
-                            snapshot = CollectProcessMetricsSnapshot(now, includeGpuMetrics);
-                        }
+                        snapshot = ProcessMetricsSnapshot.Empty;
                     }
-                    sampleStopwatch.Stop();
-                    var sampleOverheadPercent = Math.Clamp(
-                        sampleStopwatch.Elapsed.TotalMilliseconds / 1000.0 / _processorCount * 100.0,
-                        0,
-                        100);
-                    snapshot = snapshot with { TelemetrySampleOverheadPercent = sampleOverheadPercent };
-
-                    Dispatcher.UIThread.Post(() =>
+                    else
                     {
-                        if (_disposed)
-                        {
-                            return;
-                        }
-
-                        if (!ShouldSampleProcessMetrics())
-                        {
-                            StopProcessMetricSamplingAsync(clearValues: true);
-                            return;
-                        }
-
-                        ApplyProcessMetricsSnapshot(snapshot);
-                    });
+                        EnsureProcessMetricSamplingStartedCore();
+                        snapshot = CollectProcessMetricsSnapshot(_queuedMetricsSampleUtc, _queuedMetricsIncludeGpu);
+                    }
                 }
-                catch
+
+                sampleStopwatch.Stop();
+                var sampleOverheadPercent = Math.Clamp(
+                    sampleStopwatch.Elapsed.TotalMilliseconds / 1000.0 / _processorCount * 100.0,
+                    0,
+                    100);
+                snapshot = snapshot with { TelemetrySampleOverheadPercent = sampleOverheadPercent };
+
+                Dispatcher.UIThread.Post(() =>
                 {
-                    Dispatcher.UIThread.Post(() =>
+                    if (_disposed)
                     {
-                        if (_disposed)
-                        {
-                            return;
-                        }
+                        return;
+                    }
 
-                        AppCpuUsagePercent = 0;
-                        SystemCpuUsagePercent = 0;
-                        AppGpuUsagePercent = 0;
-                        SystemGpuUsagePercent = 0;
-                        TelemetrySampleOverheadPercent = 0;
-                        IsAppGpuAvailable = false;
-                        IsSystemGpuAvailable = false;
-                    });
-                }
-                finally
+                    if (!ShouldSampleProcessMetrics())
+                    {
+                        StopProcessMetricSamplingAsync(clearValues: true);
+                        return;
+                    }
+
+                    ApplyProcessMetricsSnapshot(snapshot);
+                });
+            }
+            catch
+            {
+                Dispatcher.UIThread.Post(() =>
                 {
-                    Interlocked.Exchange(ref _metricsSamplingState, 0);
-                }
-            });
+                    if (_disposed)
+                    {
+                        return;
+                    }
+
+                    AppCpuUsagePercent = 0;
+                    SystemCpuUsagePercent = 0;
+                    AppGpuUsagePercent = 0;
+                    SystemGpuUsagePercent = 0;
+                    TelemetrySampleOverheadPercent = 0;
+                    IsAppGpuAvailable = false;
+                    IsSystemGpuAvailable = false;
+                    IsGpuTelemetryPending = false;
+                });
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _metricsSamplingState, 0);
+            }
         }
 
         private void EnsureProcessMetricSamplingStartedCore()
@@ -553,7 +741,7 @@ namespace FolderStyleEditorForWindows.Services
                 ClearProcessMetricValues();
             }
 
-            _ = Task.Run(() => DisposeProcessMetricResources(force: false));
+            ThreadPool.UnsafeQueueUserWorkItem(DisposeProcessMetricResourcesCallback, (this, false));
         }
 
         private void DisposeProcessMetricResources(bool force)
@@ -582,6 +770,8 @@ namespace FolderStyleEditorForWindows.Services
                 _appGpuCounters.Clear();
                 _lastGpuCounterRefreshUtc = DateTime.MinValue;
                 _lastMetricsSampleUtc = DateTime.MinValue;
+                _gpuTelemetryBackend = GpuTelemetryBackend.Unknown;
+                _lastGpuBackendProbeUtc = DateTime.MinValue;
             }
         }
 
@@ -594,6 +784,7 @@ namespace FolderStyleEditorForWindows.Services
             TelemetrySampleOverheadPercent = 0;
             IsAppGpuAvailable = false;
             IsSystemGpuAvailable = false;
+            IsGpuTelemetryPending = false;
         }
 
         private void ApplyProcessMetricsSnapshot(ProcessMetricsSnapshot snapshot)
@@ -603,6 +794,7 @@ namespace FolderStyleEditorForWindows.Services
             SystemCpuUsagePercent = snapshot.SystemCpuUsagePercent;
             if (snapshot.HasGpuUpdate)
             {
+                IsGpuTelemetryPending = false;
                 AppGpuUsagePercent = snapshot.AppGpuUsagePercent;
                 SystemGpuUsagePercent = snapshot.SystemGpuUsagePercent;
                 IsAppGpuAvailable = snapshot.IsAppGpuAvailable;
@@ -688,6 +880,23 @@ namespace FolderStyleEditorForWindows.Services
             bool HasGpuUpdate)
         {
             public static ProcessMetricsSnapshot Empty => new(0, 0, 0, 0, 0, false, false, false);
+        }
+
+        private readonly record struct GpuUsageSnapshot(
+            double AppGpuPercent,
+            double SystemGpuPercent,
+            bool IsAppGpuAvailable,
+            bool IsSystemGpuAvailable)
+        {
+            public static GpuUsageSnapshot Empty => new(0, 0, false, false);
+        }
+
+        private enum GpuTelemetryBackend
+        {
+            Unknown,
+            PerformanceCounter,
+            Wmi,
+            Unsupported
         }
     }
 
@@ -846,8 +1055,16 @@ namespace FolderStyleEditorForWindows.Services
         public int WindowApproxFps => _telemetry.WindowApproxFps;
         public string AppCpuDisplay => FormatPercent(_telemetry.AppCpuUsagePercent);
         public string SystemCpuDisplay => FormatPercent(_telemetry.SystemCpuUsagePercent);
-        public string AppGpuDisplay => _telemetry.IsAppGpuAvailable ? FormatPercent(_telemetry.AppGpuUsagePercent) : LocalizationManager.Instance["PerformanceMonitor_Value_Unavailable"];
-        public string SystemGpuDisplay => _telemetry.IsSystemGpuAvailable ? FormatPercent(_telemetry.SystemGpuUsagePercent) : LocalizationManager.Instance["PerformanceMonitor_Value_Unavailable"];
+        public string AppGpuDisplay => _telemetry.IsGpuTelemetryPending
+            ? LocalizationManager.Instance["PerformanceMonitor_Value_Detecting"]
+            : _telemetry.IsAppGpuAvailable
+                ? FormatPercent(_telemetry.AppGpuUsagePercent)
+                : LocalizationManager.Instance["PerformanceMonitor_Value_Unavailable"];
+        public string SystemGpuDisplay => _telemetry.IsGpuTelemetryPending
+            ? LocalizationManager.Instance["PerformanceMonitor_Value_Detecting"]
+            : _telemetry.IsSystemGpuAvailable
+                ? FormatPercent(_telemetry.SystemGpuUsagePercent)
+                : LocalizationManager.Instance["PerformanceMonitor_Value_Unavailable"];
         public string ForegroundDisplay => FormatFps(_telemetry.ForegroundFps);
         public string StaticDisplay => FormatFps(_telemetry.StaticFps);
         public string BackgroundAmbientDisplay => FormatFps(_telemetry.BackgroundAmbientFps);
@@ -949,7 +1166,9 @@ namespace FolderStyleEditorForWindows.Services
                     break;
                 case nameof(PerformanceTelemetryService.AppGpuUsagePercent):
                 case nameof(PerformanceTelemetryService.IsAppGpuAvailable):
+                case nameof(PerformanceTelemetryService.IsGpuTelemetryPending):
                     OnPropertyChanged(nameof(AppGpuDisplay));
+                    OnPropertyChanged(nameof(SystemGpuDisplay));
                     break;
                 case nameof(PerformanceTelemetryService.SystemGpuUsagePercent):
                 case nameof(PerformanceTelemetryService.IsSystemGpuAvailable):

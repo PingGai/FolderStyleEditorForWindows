@@ -79,7 +79,7 @@
                       ZIndex="13000">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel Spacing="6"/>
+                    <StackPanel Spacing="0"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
@@ -249,6 +249,7 @@
         <Grid x:Name="PerformanceBadgeLayer"
               HorizontalAlignment="Stretch"
               VerticalAlignment="Stretch"
+              ClipToBounds="False"
               ZIndex="9040"
               IsHitTestVisible="True">
             <views:PerformanceBadge HorizontalAlignment="Left"

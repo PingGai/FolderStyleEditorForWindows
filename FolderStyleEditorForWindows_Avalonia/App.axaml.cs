@@ -49,6 +49,7 @@ public partial class App : Application
         services.AddSingleton<FolderStyleMutationEngine>();
         services.AddSingleton<ElevatedHelperController>();
         services.AddSingleton<FolderStyleSaveCoordinator>();
+        services.AddSingleton<ExplorerHiddenVisibilityService>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<MemoryProfileService>();
         Services = services.BuildServiceProvider();
@@ -106,10 +107,6 @@ public partial class App : Application
                 }
             };
 
-            desktop.MainWindow.Loaded += (sender, args) =>
-            {
-                var editSessionManager = new EditSessionManager(mainViewModel);
-            };
         }
 
         base.OnFrameworkInitializationCompleted();

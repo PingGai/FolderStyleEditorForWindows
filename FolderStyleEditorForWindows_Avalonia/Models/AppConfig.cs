@@ -19,6 +19,7 @@ namespace FolderStyleEditorForWindows.Models
         public AppPathConfig Paths { get; set; } = new AppPathConfig();
         public PermissionBehaviorConfig Permissions { get; set; } = new PermissionBehaviorConfig();
         public FrameRateBehaviorConfig FrameRate { get; set; } = new FrameRateBehaviorConfig();
+        public EditHintCarouselConfig EditHintCarousel { get; set; } = new EditHintCarouselConfig();
     }
 
     public class LanguageDefaultsConfig
@@ -63,9 +64,11 @@ namespace FolderStyleEditorForWindows.Models
     public class FrameRateBehaviorConfig
     {
         public int StaticContentRefreshFps { get; set; } = 0;
-        public int BackgroundAmbientFps { get; set; } = 8;
-        public int HomeTitleAmbientFps { get; set; } = 15;
-        public int AdminTitleAmbientFps { get; set; } = 15;
+        public int BackgroundAmbientFps { get; set; } = 6;
+        public int HomeTitleAmbientFps { get; set; } = 12;
+        public int AdminTitleAmbientFps { get; set; } = 12;
+        public int EditHintCarouselFps { get; set; } = 16;
+        public int LiquidSegmentedSelectorFps { get; set; } = 120;
         public int ActiveInteractionFps { get; set; } = 60;
         public bool UseDisplayRefreshRateAsMaxFps { get; set; } = true;
         public int ManualMaxFps { get; set; } = 120;
@@ -82,5 +85,19 @@ namespace FolderStyleEditorForWindows.Models
         public bool DisableEditScrollAnimations { get; set; } = false;
         public bool ShowFrameRateOverlay { get; set; } = false;
         public bool ShowDetailedFrameRateOverlay { get; set; } = false;
+    }
+
+    public class EditHintCarouselConfig
+    {
+        public double RotationIntervalSeconds { get; set; } = 3.0;
+        public string[] EnabledItems { get; set; } = new[] { "folder", "icon", "image", "alias" };
+        public string FolderGradientStart { get; set; } = "#F6D365";
+        public string FolderGradientEnd { get; set; } = "#FDA085";
+        public string IconGradientStart { get; set; } = "#A8E063";
+        public string IconGradientEnd { get; set; } = "#96E6A1";
+        public string ImageGradientStart { get; set; } = "#5EE7DF";
+        public string ImageGradientEnd { get; set; } = "#66A6FF";
+        public string AliasGradientStart { get; set; } = "#F9A8D4";
+        public string AliasGradientEnd { get; set; } = "#C084FC";
     }
 }

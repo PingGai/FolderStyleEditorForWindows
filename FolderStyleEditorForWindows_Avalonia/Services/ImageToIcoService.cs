@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -99,31 +100,68 @@ namespace FolderStyleEditorForWindows.Services
             return await Task.Run(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var outputDirectory = Path.Combine(request.TargetFolderPath, ".ICON");
-                EnsureHiddenIconDirectory(outputDirectory);
+                var outputDirectory = ResolveOutputDirectory(request.TargetFolderPath);
 
                 var outputPath = BuildOutputPath(outputDirectory, request.SourcePath, request.FitMode, request.CropSelection);
                 var icoBytes = BuildIcoBytes(request.SourcePath, request.FitMode, request.CropSelection, cancellationToken);
                 await File.WriteAllBytesAsync(outputPath, icoBytes, cancellationToken).ConfigureAwait(false);
+                var relativeOutputPath = outputPath.StartsWith(request.TargetFolderPath, StringComparison.OrdinalIgnoreCase)
+                    ? PathHelper.GetRelativePath(request.TargetFolderPath, outputPath)
+                    : outputPath;
 
                 return new IcoGenerationResult
                 {
                     OutputPath = outputPath,
-                    RelativeOutputPath = PathHelper.GetRelativePath(request.TargetFolderPath, outputPath),
+                    RelativeOutputPath = relativeOutputPath,
                     Sizes = IconSizes
                 };
             }, cancellationToken).ConfigureAwait(false);
         }
 
-        private static void EnsureHiddenIconDirectory(string path)
+        private static string ResolveOutputDirectory(string targetFolderPath)
         {
-            if (Directory.Exists(path))
+            var preferredPath = Path.Combine(targetFolderPath, ".ICON");
+            if (TryEnsureHiddenIconDirectory(preferredPath))
             {
-                return;
+                return preferredPath;
             }
 
-            var directory = Directory.CreateDirectory(path);
-            directory.Attributes |= FileAttributes.Hidden | FileAttributes.System;
+            var fallbackRoot = Path.Combine(ConfigManager.AppDataDirectory, "generated-icons");
+            var targetHash = BuildDirectoryHash(targetFolderPath);
+            var fallbackPath = Path.Combine(fallbackRoot, targetHash);
+            if (!TryEnsureHiddenIconDirectory(fallbackPath))
+            {
+                throw new IOException($"无法创建图标输出目录：{fallbackPath}");
+            }
+
+            return fallbackPath;
+        }
+
+        private static bool TryEnsureHiddenIconDirectory(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    return true;
+                }
+
+                var directory = Directory.CreateDirectory(path);
+                directory.Attributes |= FileAttributes.Hidden | FileAttributes.System;
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (SecurityException)
+            {
+                return false;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
         }
 
         private static string BuildOutputPath(string outputDirectory, string sourcePath, ImageFitMode fitMode, ImageCropSelection? cropSelection)
@@ -169,6 +207,15 @@ namespace FolderStyleEditorForWindows.Services
                 normalized.Height) + "|" + normalized.CornerRadius.ToString("F4", CultureInfo.InvariantCulture);
             var hash = SHA1.HashData(Encoding.UTF8.GetBytes(raw));
             return Convert.ToHexString(hash).Substring(0, 8).ToLowerInvariant();
+        }
+
+        private static string BuildDirectoryHash(string targetFolderPath)
+        {
+            var normalized = string.IsNullOrWhiteSpace(targetFolderPath)
+                ? "unknown"
+                : Path.GetFullPath(targetFolderPath).TrimEnd(Path.DirectorySeparatorChar);
+            var hash = SHA1.HashData(Encoding.UTF8.GetBytes(normalized));
+            return Convert.ToHexString(hash).Substring(0, 12).ToLowerInvariant();
         }
 
         private static byte[] BuildIcoBytes(string sourcePath, ImageFitMode fitMode, ImageCropSelection? cropSelection, CancellationToken cancellationToken)

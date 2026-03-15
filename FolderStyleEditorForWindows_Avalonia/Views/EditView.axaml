@@ -14,6 +14,15 @@
             x:Class="FolderStyleEditorForWindows.Views.EditView"
             x:DataType="vm:MainViewModel">
    <UserControl.Styles>
+        <Style Selector="ScrollViewer#editScrollViewer">
+            <Setter Property="ClipToBounds" Value="False"/>
+        </Style>
+        <Style Selector="ScrollViewer#editScrollViewer /template/ ScrollContentPresenter">
+            <Setter Property="ClipToBounds" Value="False"/>
+        </Style>
+        <Style Selector="ScrollViewer#editScrollViewer /template/ ContentPresenter">
+            <Setter Property="ClipToBounds" Value="False"/>
+        </Style>
         <Style Selector="Button#btnOpenExplorer">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -43,17 +52,26 @@
         <Style Selector="Button#btnOpenExplorer:pointerover">
             <Setter Property="Opacity" Value="0.76"/>
         </Style>
-        <Style Selector="ListBox#iconListBox ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{StaticResource PreviewBrush}"/>
+        <Style Selector="Border.IconCellFrame">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Margin" Value="3"/>
         </Style>
-        <Style Selector="ListBox#iconListBox ListBoxItem.previewed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{StaticResource PreviewBrush}"/>
+        <Style Selector="Border.IconCellFrame:pointerover">
+            <Setter Property="Background" Value="#10606064"/>
         </Style>
-        <Style Selector="ListBox#iconListBox ListBoxItem:selected:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SystemAccentColorDark1}"/>
+        <Style Selector="Border.IconCellFrame.previewed">
+            <Setter Property="Background" Value="#10606064"/>
         </Style>
-        <Style Selector="ListBox#iconListBox ListBoxItem:selected.previewed /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource SystemAccentColorDark1}"/>
+        <Style Selector="Border.IconCellFrame.selected">
+            <Setter Property="Background" Value="{StaticResource IconSelectionFillBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource IconSelectionBorderBrush}"/>
+        </Style>
+        <Style Selector="Border.IconCellFrame.selected:pointerover">
+            <Setter Property="Background" Value="{StaticResource IconSelectionFillBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource IconSelectionBorderBrush}"/>
         </Style>
         <Style Selector="Button.AliasAutocompleteItem">
             <Setter Property="Background" Value="Transparent"/>
@@ -90,8 +108,27 @@
             <GradientStop Color="#FFD07A" Offset="0.8"/>
             <GradientStop Color="#FFB347" Offset="1"/>
         </LinearGradientBrush>
+        <LinearGradientBrush x:Key="EditDragTipCurrentBrush"
+                             StartPoint="0%,40%"
+                             EndPoint="100%,60%">
+            <GradientStop Color="#F6D365" Offset="0"/>
+            <GradientStop Color="#FDA085" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="EditDragTipNextBrush"
+                             StartPoint="0%,40%"
+                             EndPoint="100%,60%">
+            <GradientStop Color="#F6D365" Offset="0"/>
+            <GradientStop Color="#FDA085" Offset="1"/>
+        </LinearGradientBrush>
         <DataTemplate x:Key="IconDataTemplate" x:DataType="vm:IconViewModel">
-            <Border Classes="IcoCell"
+            <Border Classes="IconCellFrame"
+                    Classes.selected="{Binding IsSelected}"
+                    Classes.previewed="{Binding ShowPreviewOverlay}"
+                    Width="68"
+                    Height="64"
+                    Padding="8"
+                    PointerPressed="IconCellBorder_PointerPressed">
+                <Border Classes="IcoCell"
                     BorderThickness="1"
                     BorderBrush="{StaticResource LineBrush}"
                     Background="Transparent"
@@ -100,11 +137,22 @@
                 <ToolTip.Tip>
                     <TextBlock Text="{Binding Index, StringFormat='绱㈠紩: {0}'}"/>
                 </ToolTip.Tip>
-                <Grid RowDefinitions="*,Auto" Margin="2">
-                    <Image Source="{Binding Image}" Grid.Row="0" Width="32" Height="32" Margin="4"/>
-                    <TextBlock Text="{Binding Index}" Grid.Row="1" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Fg3Brush}"/>
-                </Grid>
+                    <Grid RowDefinitions="*,Auto" Margin="2">
+                        <Image Source="{Binding Image}" Grid.Row="0" Width="32" Height="32" Margin="4"/>
+                        <TextBlock Text="{Binding Index}" Grid.Row="1" FontSize="10" HorizontalAlignment="Center" Foreground="{StaticResource Fg3Brush}"/>
+                    </Grid>
+                </Border>
             </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="IconRowDataTemplate" x:DataType="vm:MainViewModel+IconRowViewModel">
+            <ItemsControl ItemsSource="{Binding Icons}"
+                          ItemTemplate="{StaticResource IconDataTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
         </DataTemplate>
     </UserControl.Resources>
    <Grid>
@@ -156,15 +204,20 @@
         </DockPanel>
 
         <!-- Main Scrollable Content -->
-     <ScrollViewer Margin="0,54,0,0" Name="editScrollViewer">
+     <ScrollViewer Margin="0,54,-10,0" Name="editScrollViewer"
+                   HorizontalContentAlignment="Stretch">
          <i:Interaction.Behaviors>
              <ia:VerticalScrollViewerAnimatedBehavior/>
              <behaviors:AutoHideScrollBehavior/>
          </i:Interaction.Behaviors>
-         <StackPanel Spacing="8" Margin="12,12,12,120">
+         <Grid Margin="12,12,22,120"
+               HorizontalAlignment="Stretch">
+             <StackPanel Spacing="8"
+                         HorizontalAlignment="Stretch">
              
-             <!-- Directory Card -->
-                <Border Classes="Card">
+                <!-- Directory Card -->
+                <Border Classes="Card"
+                        HorizontalAlignment="Stretch">
                     <StackPanel Spacing="10">
                      <Grid ColumnDefinitions="*,Auto">
                          <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Directory_Title]}" Classes="Subtitle" VerticalAlignment="Center"/>
@@ -184,10 +237,88 @@
                 </Border>
 
                 <!-- Drag Tip -->
-                <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_DragTip]}" Classes="Note" HorizontalAlignment="Center" Margin="0,10,0,8"/>
+                <Grid HorizontalAlignment="Center"
+                      Margin="0,10,0,8"
+                      ClipToBounds="False">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="0"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Name="EditDragTipLeadText"
+                                   Classes="Note"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_DragTip_Prefix]}"/>
+                        <Border Background="#10FFFFFF"
+                                BorderBrush="#16FFFFFF"
+                                BorderThickness="1"
+                                CornerRadius="999"
+                                Padding="4,1"
+                                Margin="1,0"
+                                VerticalAlignment="Center">
+                            <Grid Name="EditDragTipSlot"
+                                  ClipToBounds="True"
+                                  MinHeight="22"
+                                  Width="34">
+                                <TextBlock Name="EditDragTipCurrentText"
+                                           Classes="Note"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           FontWeight="Bold"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.Foreground>
+                                        <StaticResource ResourceKey="EditDragTipCurrentBrush"/>
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+                                <TextBlock Name="EditDragTipCurrentGhostText"
+                                           Classes="Note"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           FontWeight="Bold"
+                                           Opacity="0"
+                                           IsVisible="False"
+                                           IsHitTestVisible="False"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.Foreground>
+                                        <StaticResource ResourceKey="EditDragTipCurrentBrush"/>
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+                                <TextBlock Name="EditDragTipNextText"
+                                           Classes="Note"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           FontWeight="Bold"
+                                           Opacity="0"
+                                           IsVisible="False"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.Foreground>
+                                        <StaticResource ResourceKey="EditDragTipNextBrush"/>
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+                                <TextBlock Name="EditDragTipNextGhostText"
+                                           Classes="Note"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           FontWeight="Bold"
+                                           Opacity="0"
+                                           IsVisible="False"
+                                           IsHitTestVisible="False"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.Foreground>
+                                        <StaticResource ResourceKey="EditDragTipNextBrush"/>
+                                    </TextBlock.Foreground>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+                        <TextBlock Name="EditDragTipTrailText"
+                                   Classes="Note"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_DragTip_Suffix]}"/>
+                    </StackPanel>
+                </Grid>
 
                 <!-- Info Card -->
-                <Border Classes="Card">
+                <Border Classes="Card"
+                        HorizontalAlignment="Stretch">
                     <StackPanel Spacing="10">
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Info_Title]}" Classes="Subtitle"/>
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Alias_Label]}" Classes="Body"/>
@@ -275,25 +406,35 @@
 
                         <Border Classes="IconPicker" Margin="0,10,0,0">
                             <Grid>
-                                <ScrollViewer Name="iconListScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Height="182">
-                                    <i:Interaction.Behaviors>
-                                        <ia:VerticalScrollViewerAnimatedBehavior/>
-                                        <behaviors:AutoHideScrollBehavior/>
-                                    </i:Interaction.Behaviors>
-                                    <ListBox Name="iconListBox"
-                                             Focusable="True"
-                                             ItemsSource="{Binding Icons}"
-                                             ItemTemplate="{StaticResource IconDataTemplate}"
-                                             SelectedItem="{Binding SelectedIcon, Mode=TwoWay}"
-                                             Background="Transparent"
-                                             BorderThickness="0">
-                                        <ListBox.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel Orientation="Horizontal" />
-                                            </ItemsPanelTemplate>
-                                        </ListBox.ItemsPanel>
-                                    </ListBox>
-                                </ScrollViewer>
+                                <ListBox Name="iconRowListBox"
+                                         Height="182"
+                                         Focusable="True"
+                                         ItemsSource="{Binding IconRows}"
+                                         ItemTemplate="{StaticResource IconRowDataTemplate}"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         SelectionMode="Single">
+                                    <ListBox.Styles>
+                                        <Style Selector="ListBox#iconRowListBox ListBoxItem">
+                                            <Setter Property="Padding" Value="0"/>
+                                            <Setter Property="Margin" Value="0"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="Focusable" Value="False"/>
+                                        </Style>
+                                        <Style Selector="ListBox#iconRowListBox ListBoxItem:pointerover /template/ ContentPresenter">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                        <Style Selector="ListBox#iconRowListBox ListBoxItem:selected /template/ ContentPresenter">
+                                            <Setter Property="Background" Value="Transparent"/>
+                                        </Style>
+                                    </ListBox.Styles>
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <VirtualizingStackPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
 
                                 <!-- 加载指示器 -->
                                 <ProgressBar IsIndeterminate="{Binding IsLoadingIconsIndicatorVisible}"
@@ -326,9 +467,20 @@
                                        Padding="4,0"
                                        Background="Transparent"
                                        ToolTip.Tip="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}">
-                                   <Grid>
-                                       <TextBlock Name="iconCounterDisplay"
-                                                  Text="{Binding IconCounterNumerator}"
+                                     <Grid>
+                                        <TextBlock Name="iconCounterHintUp"
+                                                   IsVisible="False"
+                                                   Text="▲"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Top"
+                                                   Margin="0,-11,0,0"
+                                                   FontSize="9"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Fg3Brush}"
+                                                   Opacity="0.72"
+                                                   IsHitTestVisible="False"/>
+                                        <TextBlock Name="iconCounterDisplay"
+                                                   Text="{Binding IconCounterNumerator}"
                                                    VerticalAlignment="Center"
                                                    Foreground="{StaticResource Fg2Brush}"
                                                    FontWeight="SemiBold"
@@ -342,27 +494,39 @@
                                                <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}"/>
                                            </ToolTip.Tip>
                                        </TextBlock>
-                                       <TextBox Name="iconCounterInput"
-                                                Text="{Binding IconCounterNumerator}"
-                                                IsVisible="False"
+                                        <TextBox Name="iconCounterInput"
+                                                 IsVisible="False"
                                                 MinWidth="28"
                                                 MaxWidth="48"
                                                 Padding="0"
                                                 BorderThickness="0"
                                                 Background="Transparent"
                                                 HorizontalContentAlignment="Center"
-                                                VerticalContentAlignment="Center"
-                                                ToolTip.Tip="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}"
-                                                FontWeight="SemiBold"/>
-                                   </Grid>
-                               </Border>
+                                                 VerticalContentAlignment="Center"
+                                                 ToolTip.Tip="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_IconCounter_ScrollHint]}"
+                                                 FontWeight="SemiBold"/>
+                                        <TextBlock Name="iconCounterHintDown"
+                                                   IsVisible="False"
+                                                   Text="▼"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Bottom"
+                                                   Margin="0,0,0,-11"
+                                                   FontSize="9"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Fg3Brush}"
+                                                   Opacity="0.72"
+                                                   IsHitTestVisible="False"/>
+                                    </Grid>
+                                </Border>
                                <TextBlock Text="/"
                                           VerticalAlignment="Center"
                                           Foreground="{StaticResource Fg2Brush}"
+                                          Opacity="{Binding IconCounterProgressOpacity}"
                                           FontWeight="SemiBold"/>
                                <TextBlock Text="{Binding IconCounterDenominator}"
                                           VerticalAlignment="Center"
                                           Foreground="{StaticResource Fg2Brush}"
+                                          Opacity="{Binding IconCounterProgressOpacity}"
                                           FontWeight="SemiBold"/>
                            </StackPanel>
                        </Grid>
@@ -370,7 +534,8 @@
                 </Border>
 
                 <!-- Reset Card -->
-                <Border Classes="Card">
+                <Border Classes="Card"
+                        HorizontalAlignment="Stretch">
                     <StackPanel Spacing="10">
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Reset_Title]}" Classes="Subtitle"/>
                         <Grid ColumnDefinitions="*,12,*">
@@ -383,12 +548,28 @@
                                     Grid.Column="2"
                                     Content="{Binding IconCacheButtonText}"
                                     Classes="Btn BtnGhost"
+                                    MinWidth="164"
                                     Command="{Binding ClearIconCacheCommand}"/>
                         </Grid>
                     </StackPanel>
                 </Border>
+
+                <Border Classes="Card">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_System_Title]}" Classes="Subtitle"/>
+                        <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_System_HiddenLevel]}" Classes="Body"/>
+                        <TextBlock Text="{Binding ExplorerHiddenLevelDescription}"
+                                   Classes="Note"
+                                   TextWrapping="Wrap"/>
+                        <controls:LiquidSegmentedSelector Items="{Binding ExplorerHiddenLevelOptions}"
+                                                          SelectedKey="{Binding SelectedExplorerHiddenLevelKey}"
+                                                          Margin="6,4,6,6"
+                                                          IsEnabled="{Binding CanInteractWithExplorerHiddenVisibilityLevel}"/>
+                    </StackPanel>
+                </Border>
                 
-            </StackPanel>
+             </StackPanel>
+         </Grid>
         </ScrollViewer>
         
         <!-- Save Bar -->

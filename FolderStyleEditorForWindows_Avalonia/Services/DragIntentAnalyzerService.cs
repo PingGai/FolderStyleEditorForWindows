@@ -29,7 +29,7 @@ namespace FolderStyleEditorForWindows.Services
             DragContext context,
             string? currentFolderPath)
         {
-            var files = data.GetFiles()?.ToList() ?? new List<IStorageItem>();
+            var files = MaterializeStorageItems(data);
             var text = data.GetText();
 
             if (context == DragContext.Home)
@@ -48,7 +48,7 @@ namespace FolderStyleEditorForWindows.Services
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var files = data.GetFiles()?.ToList() ?? new List<IStorageItem>();
+            var files = MaterializeStorageItems(data);
             var text = data.GetText();
 
             if (context == DragContext.Home)
@@ -61,7 +61,7 @@ namespace FolderStyleEditorForWindows.Services
 
         private static DragIntentResult AnalyzeForHome(IReadOnlyList<IStorageItem> items)
         {
-            var folderCount = items.Count(x => x is IStorageFolder);
+            var folderCount = CountFolders(items);
             if (folderCount == 1 && items.Count == 1)
             {
                 return new DragIntentResult
@@ -95,7 +95,7 @@ namespace FolderStyleEditorForWindows.Services
             string? currentFolderPath,
             CancellationToken cancellationToken)
         {
-            var folderCount = items.Count(x => x is IStorageFolder);
+            var folderCount = CountFolders(items);
             if (folderCount == 1 && items.Count == 1)
             {
                 return new DragIntentResult
@@ -191,7 +191,7 @@ namespace FolderStyleEditorForWindows.Services
             string? text,
             string? currentFolderPath)
         {
-            var folderCount = items.Count(x => x is IStorageFolder);
+            var folderCount = CountFolders(items);
             if (folderCount == 1 && items.Count == 1)
             {
                 return new DragIntentResult
@@ -295,6 +295,41 @@ namespace FolderStyleEditorForWindows.Services
             var hasIcons = await Task.Run(() => ShellHelper.HasIcons(path), cancellationToken).ConfigureAwait(false);
             _hasIconsCache[path] = (hasIcons, DateTime.UtcNow);
             return hasIcons;
+        }
+
+        private static IReadOnlyList<IStorageItem> MaterializeStorageItems(IDataObject data)
+        {
+            if (data.GetFiles() is not { } files)
+            {
+                return Array.Empty<IStorageItem>();
+            }
+
+            if (files is IReadOnlyList<IStorageItem> readOnlyList)
+            {
+                return readOnlyList;
+            }
+
+            var materialized = new List<IStorageItem>();
+            foreach (var item in files)
+            {
+                materialized.Add(item);
+            }
+
+            return materialized;
+        }
+
+        private static int CountFolders(IReadOnlyList<IStorageItem> items)
+        {
+            var folderCount = 0;
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (items[i] is IStorageFolder)
+                {
+                    folderCount++;
+                }
+            }
+
+            return folderCount;
         }
 
         private static bool IsUnderFolder(string? filePath, string? folderPath)

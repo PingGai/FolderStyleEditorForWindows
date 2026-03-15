@@ -34,6 +34,12 @@ namespace FolderStyleEditorForWindows.Behaviors
         public static readonly AttachedProperty<double> LerpFactorProperty =
             AvaloniaProperty.RegisterAttached<Control, Control, double>("LerpFactor", 0.22);
 
+        public static readonly AttachedProperty<double> RenderOriginXProperty =
+            AvaloniaProperty.RegisterAttached<Control, Control, double>("RenderOriginX", 0.5);
+
+        public static readonly AttachedProperty<double> RenderOriginYProperty =
+            AvaloniaProperty.RegisterAttached<Control, Control, double>("RenderOriginY", 0.5);
+
         private static readonly Dictionary<Control, HoverFloatState> States = new();
 
         private static AnimationStateSource? AnimationStateSource =>
@@ -61,6 +67,12 @@ namespace FolderStyleEditorForWindows.Behaviors
 
         public static double GetLerpFactor(Control control) => control.GetValue(LerpFactorProperty);
         public static void SetLerpFactor(Control control, double value) => control.SetValue(LerpFactorProperty, value);
+
+        public static double GetRenderOriginX(Control control) => control.GetValue(RenderOriginXProperty);
+        public static void SetRenderOriginX(Control control, double value) => control.SetValue(RenderOriginXProperty, value);
+
+        public static double GetRenderOriginY(Control control) => control.GetValue(RenderOriginYProperty);
+        public static void SetRenderOriginY(Control control, double value) => control.SetValue(RenderOriginYProperty, value);
 
         private static void OnIsEnabledChanged(Control control, AvaloniaPropertyChangedEventArgs args)
         {
@@ -297,7 +309,10 @@ namespace FolderStyleEditorForWindows.Behaviors
                 _transformGroup.Children.Add(_scaleTransform);
                 _transformGroup.Children.Add(_translateTransform);
 
-                _transformTarget.RenderTransformOrigin = new RelativePoint(0.5, 0.5, RelativeUnit.Relative);
+                _transformTarget.RenderTransformOrigin = new RelativePoint(
+                    Math.Clamp(GetRenderOriginX(_control), 0, 1),
+                    Math.Clamp(GetRenderOriginY(_control), 0, 1),
+                    RelativeUnit.Relative);
                 _transformTarget.RenderTransform = _transformGroup;
 
                 ApplyCurrentTransform();
@@ -436,8 +451,6 @@ namespace FolderStyleEditorForWindows.Behaviors
                     return;
                 }
 
-                AnimationStateSource?.MarkHoverActivity();
-
                 if (_releasePending && DateTime.UtcNow >= _pendingReleaseAt)
                 {
                     _releasePending = false;
@@ -535,6 +548,8 @@ namespace FolderStyleEditorForWindows.Behaviors
                 _scaleTransform.ScaleY = _currentScale;
                 _translateTransform.X = _currentX;
                 _translateTransform.Y = _currentY;
+                _transformTarget?.InvalidateVisual();
+                _control.InvalidateVisual();
             }
         }
     }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.Versioning;
+using System.Security;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
@@ -172,6 +173,68 @@ namespace FolderStyleEditorForWindows.Services
                     Token = _token,
                     ProtocolVersion = 1,
                     Payload = request
+                };
+
+                await _writer.WriteLineAsync(JsonConvert.SerializeObject(payload));
+                var responseLine = await _reader.ReadLineAsync();
+                if (string.IsNullOrWhiteSpace(responseLine))
+                {
+                    await DisposeConnectionAsync();
+                    return new FolderStyleMutationResult
+                    {
+                        Status = FolderStyleMutationStatus.UnexpectedError,
+                        Message = LocalizationManager.Instance["Dialog_Elevation_ConnectFailed_Message"]
+                    };
+                }
+
+                var response = JsonConvert.DeserializeObject<ElevatedHelperResponse>(responseLine);
+                if (response?.Result == null)
+                {
+                    return new FolderStyleMutationResult
+                    {
+                        Status = FolderStyleMutationStatus.UnexpectedError,
+                        Message = response?.Message ?? LocalizationManager.Instance["Dialog_Elevation_ConnectFailed_Message"]
+                    };
+                }
+
+                return response.Result;
+            }
+            catch (Exception ex)
+            {
+                await DisposeConnectionAsync();
+                return new FolderStyleMutationResult
+                {
+                    Status = FolderStyleMutationStatus.UnexpectedError,
+                    Message = LocalizationManager.Instance["Dialog_Elevation_ConnectFailed_Message"],
+                    Details = ex.ToString()
+                };
+            }
+            finally
+            {
+                _sync.Release();
+            }
+        }
+
+        public async Task<FolderStyleMutationResult> DeleteDirectoryAsync(string directoryPath)
+        {
+            await _sync.WaitAsync();
+            try
+            {
+                if (!IsConnected || _writer == null || _reader == null || string.IsNullOrWhiteSpace(_token))
+                {
+                    return new FolderStyleMutationResult
+                    {
+                        Status = FolderStyleMutationStatus.UnexpectedError,
+                        Message = LocalizationManager.Instance["Dialog_Elevation_ConnectFailed_Message"]
+                    };
+                }
+
+                var payload = new ElevatedHelperRequest
+                {
+                    Command = ElevatedHelperCommand.DeleteDirectory,
+                    Token = _token,
+                    ProtocolVersion = 1,
+                    DirectoryPath = directoryPath
                 };
 
                 await _writer.WriteLineAsync(JsonConvert.SerializeObject(payload));

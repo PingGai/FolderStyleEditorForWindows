@@ -270,12 +270,30 @@ namespace FolderStyleEditorForWindows.Services
 
     public sealed class InterruptDialogState : INotifyPropertyChanged
     {
+        internal static readonly IBrush DefaultTitleForegroundBrush = new SolidColorBrush(Color.Parse("#303034"));
+        internal static readonly IBrush DefaultAccentForegroundBrush = new SolidColorBrush(Color.Parse("#E07167"));
+        internal static readonly IBrush TransparentOverlayBrush = new SolidColorBrush(Colors.Transparent);
+        internal static readonly IBrush DefaultPrimaryBackgroundBrush = new SolidColorBrush(Color.Parse("#FFEFD7"));
+        internal static readonly IBrush DefaultPrimaryForegroundBrush = new SolidColorBrush(Color.Parse("#303034"));
+        internal static readonly IBrush DefaultSecondaryBackgroundBrush = new SolidColorBrush(Color.Parse("#F8F9FB"));
+        internal static readonly IBrush DefaultSecondaryForegroundBrush = new SolidColorBrush(Color.Parse("#303034"));
+        internal static readonly IBrush DefaultSecondaryBorderBrush = new SolidColorBrush(Color.Parse("#E6E6EB"));
+        internal static readonly IBrush ButtonSecondaryBackgroundBrush = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
+        internal static readonly IBrush ButtonSecondaryForegroundBrush = new SolidColorBrush(Color.Parse("#303034"));
+        internal static readonly IBrush ButtonSecondaryBorderBrush = new SolidColorBrush(Color.Parse("#EEAAAAAA"));
+        internal static readonly IBrush DangerPrimaryBackgroundBrush = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
+        internal static readonly IBrush DangerPrimaryForegroundBrush = new SolidColorBrush(Color.Parse("#C73A22"));
+        internal static readonly IBrush DangerPrimaryBorderBrush = new SolidColorBrush(Color.Parse("#DAE4341D"));
+        internal static readonly IBrush NormalPrimaryBackgroundBrush = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
+        internal static readonly IBrush NormalPrimaryForegroundBrush = new SolidColorBrush(Color.Parse("#303034"));
+        internal static readonly IBrush NormalPrimaryBorderBrush = new SolidColorBrush(Color.Parse("#EEAAAAAA"));
+        internal static readonly IBrush PassiveOverlayActiveBrush = new SolidColorBrush(Color.Parse("#6D8F9999"));
         public event PropertyChangedEventHandler? PropertyChanged;
 
         private bool _isActive;
         private bool _isHitTestVisible;
         private string _title = string.Empty;
-        private IBrush _titleForeground = new SolidColorBrush(Color.Parse("#303034"));
+        private IBrush _titleForeground = DefaultTitleForegroundBrush;
         private string _content = string.Empty;
         private TextAlignment _contentTextAlignment = TextAlignment.Left;
         private HorizontalAlignment _contentHorizontalAlignment = HorizontalAlignment.Left;
@@ -283,9 +301,9 @@ namespace FolderStyleEditorForWindows.Services
         private string? _sectionTitle;
         private string? _centerIconPath;
         private string? _subText;
-        private IBrush _subTextForeground = new SolidColorBrush(Color.Parse("#E07167"));
+        private IBrush _subTextForeground = DefaultAccentForegroundBrush;
         private string? _emphasisText;
-        private IBrush _emphasisForeground = new SolidColorBrush(Color.Parse("#E07167"));
+        private IBrush _emphasisForeground = DefaultAccentForegroundBrush;
         private bool _showProgress;
         private bool _isProgressIndeterminate;
         private double _progressValue;
@@ -300,14 +318,14 @@ namespace FolderStyleEditorForWindows.Services
         private double _cardOpacity;
         private double _cardScale = 0.96;
         private double _dialogWidthRatio = 1.0;
-        private IBrush _overlayBrush = new SolidColorBrush(Colors.Transparent);
-        private IBrush _primaryBackground = new SolidColorBrush(Color.Parse("#FFEFD7"));
-        private IBrush _primaryForeground = new SolidColorBrush(Color.Parse("#303034"));
+        private IBrush _overlayBrush = TransparentOverlayBrush;
+        private IBrush _primaryBackground = DefaultPrimaryBackgroundBrush;
+        private IBrush _primaryForeground = DefaultPrimaryForegroundBrush;
         private IBrush? _primaryBorderBrush;
         private double _primaryBorderThickness;
-        private IBrush _secondaryBackground = new SolidColorBrush(Color.Parse("#F8F9FB"));
-        private IBrush _secondaryForeground = new SolidColorBrush(Color.Parse("#303034"));
-        private IBrush _secondaryBorderBrush = new SolidColorBrush(Color.Parse("#E6E6EB"));
+        private IBrush _secondaryBackground = DefaultSecondaryBackgroundBrush;
+        private IBrush _secondaryForeground = DefaultSecondaryForegroundBrush;
+        private IBrush _secondaryBorderBrush = DefaultSecondaryBorderBrush;
         private double _secondaryBorderThickness = 1;
         private double _cardOffsetX;
         private double _cardOffsetY;
@@ -332,9 +350,9 @@ namespace FolderStyleEditorForWindows.Services
             _primaryActionCommand = ConfirmCommand;
             _secondaryActionCommand = CancelCommand;
             ApplyPrimaryButtonKind(DialogPrimaryButtonKind.Normal);
-            SecondaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
-            SecondaryForeground = new SolidColorBrush(Color.Parse("#303034"));
-            SecondaryBorderBrush = new SolidColorBrush(Color.Parse("#EEAAAAAA"));
+            SecondaryBackground = ButtonSecondaryBackgroundBrush;
+            SecondaryForeground = ButtonSecondaryForegroundBrush;
+            SecondaryBorderBrush = ButtonSecondaryBorderBrush;
             SecondaryBorderThickness = 1;
         }
 
@@ -479,16 +497,16 @@ namespace FolderStyleEditorForWindows.Services
 
             if (IsPrimaryDanger)
             {
-                PrimaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
-                PrimaryForeground = new SolidColorBrush(Color.Parse("#C73A22"));
-                PrimaryBorderBrush = new SolidColorBrush(Color.Parse("#DAE4341D"));
+                PrimaryBackground = DangerPrimaryBackgroundBrush;
+                PrimaryForeground = DangerPrimaryForegroundBrush;
+                PrimaryBorderBrush = DangerPrimaryBorderBrush;
                 PrimaryBorderThickness = 1;
                 return;
             }
 
-            PrimaryBackground = new SolidColorBrush(Color.Parse("#FFFFFFFF"));
-            PrimaryForeground = new SolidColorBrush(Color.Parse("#303034"));
-            PrimaryBorderBrush = new SolidColorBrush(Color.Parse("#EEAAAAAA"));
+            PrimaryBackground = NormalPrimaryBackgroundBrush;
+            PrimaryForeground = NormalPrimaryForegroundBrush;
+            PrimaryBorderBrush = NormalPrimaryBorderBrush;
             PrimaryBorderThickness = 1;
         }
 
@@ -502,8 +520,8 @@ namespace FolderStyleEditorForWindows.Services
             CardOffsetX = isActive ? 0 : 6;
             CardOffsetY = 0;
             OverlayBrush = isActive
-                ? new SolidColorBrush(Color.Parse("#6D8F9999"))
-                : new SolidColorBrush(Colors.Transparent);
+                ? PassiveOverlayActiveBrush
+                : TransparentOverlayBrush;
         }
 
         internal void ApplyClosingVisualState(bool isPassiveOverlay)
@@ -552,6 +570,7 @@ namespace FolderStyleEditorForWindows.Services
         public DialogExpandableSectionItem BuildLicenseSection(string sectionTitle)
         {
             var configuredEntries = LoadConfiguredEntries();
+            var licenseFiles = GetLicenseFiles();
             var configuredItems = configuredEntries
                 .OrderBy(x => x.SortOrder)
                 .Select(BuildConfiguredItem)
@@ -569,7 +588,7 @@ namespace FolderStyleEditorForWindows.Services
                 }
             }
 
-            var automaticItems = ParseThirdPartyNotices(seenIds).ToList();
+            var automaticItems = ParseThirdPartyNotices(seenIds, licenseFiles).ToList();
             return new DialogExpandableSectionItem(sectionTitle, configuredItems.Concat(automaticItems));
         }
 
@@ -609,7 +628,7 @@ namespace FolderStyleEditorForWindows.Services
             return new DialogLicenseItem(title, summary, meta, entry.ProjectUrl, entry.LicenseUrl, fullText);
         }
 
-        private IEnumerable<DialogLicenseItem> ParseThirdPartyNotices(HashSet<string> seenIds)
+        private IEnumerable<DialogLicenseItem> ParseThirdPartyNotices(HashSet<string> seenIds, IReadOnlyList<string> licenseFiles)
         {
             var noticesPath = Path.Combine(_baseDirectory, "THIRD-PARTY-NOTICES.md");
             if (!File.Exists(noticesPath))
@@ -645,7 +664,7 @@ namespace FolderStyleEditorForWindows.Services
                 fields.TryGetValue("licenseUrl", out var licenseUrl);
                 fields.TryGetValue("license Type", out var licenseType);
 
-                var fullText = ResolveAutomaticFullText(packageName, licenseType);
+                var fullText = ResolveAutomaticFullText(packageName, licenseType, licenseFiles);
                 yield return new DialogLicenseItem(
                     packageName,
                     null,
@@ -656,19 +675,16 @@ namespace FolderStyleEditorForWindows.Services
             }
         }
 
-        private string? ResolveAutomaticFullText(string packageName, string? licenseType)
+        private string? ResolveAutomaticFullText(string packageName, string? licenseType, IReadOnlyList<string> licenseFiles)
         {
-            var licensesDir = ResolveLicensesDirectory();
-            if (licensesDir == null)
+            if (licenseFiles.Count == 0)
             {
                 return null;
             }
 
-            var packageCandidates = Directory.GetFiles(licensesDir)
-                .Where(path => NormalizeId(Path.GetFileNameWithoutExtension(path)).StartsWith(NormalizeId(packageName), StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            var packageMatch = packageCandidates.FirstOrDefault();
+            var normalizedPackageName = NormalizeId(packageName);
+            var packageMatch = licenseFiles.FirstOrDefault(path =>
+                NormalizeId(Path.GetFileNameWithoutExtension(path)).StartsWith(normalizedPackageName, StringComparison.OrdinalIgnoreCase));
             if (packageMatch != null)
             {
                 return LoadLocalText(Path.GetRelativePath(_baseDirectory, packageMatch));
@@ -676,10 +692,10 @@ namespace FolderStyleEditorForWindows.Services
 
             if (!string.IsNullOrWhiteSpace(licenseType))
             {
-                var licenseTypeMatch = Directory.GetFiles(licensesDir)
-                    .FirstOrDefault(path => string.Equals(
+                var normalizedLicenseType = NormalizeId(licenseType);
+                var licenseTypeMatch = licenseFiles.FirstOrDefault(path => string.Equals(
                         NormalizeId(Path.GetFileNameWithoutExtension(path)),
-                        NormalizeId(licenseType),
+                        normalizedLicenseType,
                         StringComparison.OrdinalIgnoreCase));
 
                 if (licenseTypeMatch != null)
@@ -689,6 +705,25 @@ namespace FolderStyleEditorForWindows.Services
             }
 
             return null;
+        }
+
+        private IReadOnlyList<string> GetLicenseFiles()
+        {
+            var licensesDir = ResolveLicensesDirectory();
+            if (licensesDir == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            try
+            {
+                return Directory.EnumerateFiles(licensesDir).ToArray();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to enumerate license files from {licensesDir}: {ex.Message}");
+                return Array.Empty<string>();
+            }
         }
 
         private string? LoadLocalText(string? sourcePath)
@@ -841,7 +876,7 @@ namespace FolderStyleEditorForWindows.Services
             {
                 State.IsPassiveOverlay = false;
                 State.Title = options.Title ?? string.Empty;
-                State.TitleForeground = options.TitleForeground ?? new SolidColorBrush(Color.Parse("#303034"));
+                State.TitleForeground = options.TitleForeground ?? InterruptDialogState.DefaultTitleForegroundBrush;
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
@@ -849,9 +884,9 @@ namespace FolderStyleEditorForWindows.Services
                 State.ContentHorizontalAlignment = options.ContentHorizontalAlignment;
                 State.CenterIconPath = options.CenterIconPath;
                 State.SubText = options.SubText;
-                State.SubTextForeground = options.SubTextForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
+                State.SubTextForeground = options.SubTextForeground ?? InterruptDialogState.DefaultAccentForegroundBrush;
                 State.EmphasisText = options.EmphasisText;
-                State.EmphasisForeground = options.EmphasisForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
+                State.EmphasisForeground = options.EmphasisForeground ?? InterruptDialogState.DefaultAccentForegroundBrush;
                 State.PrimaryButtonText = options.PrimaryButtonText ?? string.Empty;
                 State.SecondaryButtonText = options.SecondaryButtonText;
                 State.ShowPrimaryButton = options.ShowPrimaryButton;
@@ -917,7 +952,7 @@ namespace FolderStyleEditorForWindows.Services
             {
                 State.IsPassiveOverlay = true;
                 State.Title = options.Title ?? string.Empty;
-                State.TitleForeground = options.TitleForeground ?? new SolidColorBrush(Color.Parse("#303034"));
+                State.TitleForeground = options.TitleForeground ?? InterruptDialogState.DefaultTitleForegroundBrush;
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
                 State.Content = options.Content ?? string.Empty;
@@ -925,9 +960,9 @@ namespace FolderStyleEditorForWindows.Services
                 State.ContentHorizontalAlignment = options.ContentHorizontalAlignment;
                 State.CenterIconPath = options.CenterIconPath;
                 State.SubText = options.SubText;
-                State.SubTextForeground = options.SubTextForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
+                State.SubTextForeground = options.SubTextForeground ?? InterruptDialogState.DefaultAccentForegroundBrush;
                 State.EmphasisText = options.EmphasisText;
-                State.EmphasisForeground = options.EmphasisForeground ?? new SolidColorBrush(Color.Parse("#E07167"));
+                State.EmphasisForeground = options.EmphasisForeground ?? InterruptDialogState.DefaultAccentForegroundBrush;
                 State.PrimaryButtonText = options.PrimaryButtonText ?? string.Empty;
                 State.SecondaryButtonText = options.SecondaryButtonText;
                 State.ShowPrimaryButton = options.ShowPrimaryButton;
@@ -953,7 +988,7 @@ namespace FolderStyleEditorForWindows.Services
                 State.CardOpacity = 1.0;
                 State.CardScale = 1.0;
                 State.CardOffsetX = 0;
-                State.OverlayBrush = new SolidColorBrush(Color.Parse("#6D8F9999"));
+                State.OverlayBrush = PassiveOverlayBrush;
             });
         }
 
@@ -972,20 +1007,7 @@ namespace FolderStyleEditorForWindows.Services
                 State.ApplyClosingVisualState(isPassiveOverlay: true);
             });
 
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(135);
-                await _dispatcher.InvokeAsync(() =>
-                {
-                    if (_isPassiveOverlayActive || _pendingCompletion != null)
-                    {
-                        return;
-                    }
-
-                    State.ResetVisualState(false);
-                    State.IsPassiveOverlay = false;
-                });
-            });
+            _ = FinishPassiveOverlayHideAsync();
         }
 
         public void UpdatePassiveOverlayMotion(double pointerX, double pointerY, double viewportWidth, double viewportHeight)
@@ -1108,7 +1130,8 @@ namespace FolderStyleEditorForWindows.Services
         {
             var loc = LocalizationManager.Instance;
             var config = ConfigManager.Config.AppInfo;
-            var licenseSection = _licenseCatalogService.BuildLicenseSection(loc["Home_AboutDialog_LicenseSectionTitle"]);
+            var licenseSection = await Task.Run(() =>
+                _licenseCatalogService.BuildLicenseSection(loc["Home_AboutDialog_LicenseSectionTitle"]));
 
             await ShowAsync(new InterruptDialogOptions
             {
@@ -1216,12 +1239,31 @@ namespace FolderStyleEditorForWindows.Services
             _animationStateSource.MarkTransitionActivity(220);
             _dispatcher.Post(() => State.ApplyClosingVisualState(isPassiveOverlay: false));
 
-            _ = Task.Run(async () =>
+            _ = CompleteAfterCloseAnimationAsync(captured, response);
+        }
+
+        private static readonly IBrush PassiveOverlayBrush = new SolidColorBrush(Color.Parse("#6D8F9999"));
+
+        private async Task FinishPassiveOverlayHideAsync()
+        {
+            await Task.Delay(135).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(() =>
             {
-                await Task.Delay(200);
-                await _dispatcher.InvokeAsync(() => State.ResetVisualState(false));
-                captured.TrySetResult(response);
+                if (_isPassiveOverlayActive || _pendingCompletion != null)
+                {
+                    return;
+                }
+
+                State.ResetVisualState(false);
+                State.IsPassiveOverlay = false;
             });
+        }
+
+        private async Task CompleteAfterCloseAnimationAsync(TaskCompletionSource<InterruptDialogResponse> captured, InterruptDialogResponse response)
+        {
+            await Task.Delay(200).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(() => State.ResetVisualState(false));
+            captured.TrySetResult(response);
         }
 
         private void PrimaryCountdownTimer_Tick(object? sender, EventArgs e)
