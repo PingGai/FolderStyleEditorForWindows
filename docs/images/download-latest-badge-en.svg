@@ -1,0 +1,6 @@
+<svg width="420" height="52" viewBox="0 0 420 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="2" width="416" height="48" rx="24" fill="#4CAF50"/>
+  <rect x="2" y="2" width="416" height="48" rx="24" stroke="#7AD77E" stroke-width="2"/>
+  <path d="M74 16C75.1046 16 76 16.8954 76 18V26.1716L78.5858 23.5858C79.3668 22.8047 80.6332 22.8047 81.4142 23.5858C82.1953 24.3668 82.1953 25.6332 81.4142 26.4142L75.4142 32.4142C74.6332 33.1953 73.3668 33.1953 72.5858 32.4142L66.5858 26.4142C65.8047 25.6332 65.8047 24.3668 66.5858 23.5858C67.3668 22.8047 68.6332 22.8047 69.4142 23.5858L72 26.1716V18C72 16.8954 72.8954 16 74 16Z" fill="white"/>
+  <text x="240" y="32" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="17" font-weight="700" fill="white">Click to Download the Latest Version</text>
+</svg>

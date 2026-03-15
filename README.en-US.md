@@ -43,6 +43,12 @@ This is a tool to quickly modify folder aliases on Windows systems, and to quick
 - **Modify Alias**: Change its display name without modifying the path name, based on the Windows Desktop.ini configuration.
 - **Modify Icon**: Use a relative path to call the icon of a file within the folder. If an icon or a file with an icon is selected from outside the folder, the icon will be extracted and placed under the `.ICON` directory in the current folder.
 
+<div align="center">
+  <a href="https://github.com/PingGai/FolderStyleEditorForWindows/releases/latest">
+    <img alt="Click to Download the Latest Version" src="docs/images/download-latest-badge-en.svg">
+  </a>
+</div>
+
 ## Quick Overview
 
 ### Project Description
@@ -64,8 +70,8 @@ FolderStyleEditorForWindows is a desktop application developed with the Avalonia
 
 ### Roadmap
 
-*   **One-Click & Batch Operations**: Instantly apply an app's icon by dragging its executable; support for batch processing multiple folders.
-*   **Automatic Image Conversion**: Convert images like `.png` and `.jpg` to `.ico` format automatically.
+*   **Multi-Folder Batch Editing**: Add more complete multi-folder batch processing and unified editing workflows.
+*   **More Detailed Settings**: Expand system options, icon workflows, and additional visual controls.
 
 ### Tech Stack
 - **C# / .NET 9.0**: For building high-performance Windows desktop applications.
@@ -203,12 +209,11 @@ This is an **experimental project** with two goals:
 
 ## Current Status / Future Plans
 
-Editing directories that require administrator privileges is now supported. A separate elevated helper process is used so the main process can keep drag-and-drop working without running the whole UI as administrator.
+Editing directories that require administrator privileges is now supported. A separate elevated helper process is used so the main process can keep drag-and-drop working without running the whole UI as administrator. The app also already supports converting images directly into `.ico` files and applying them to folder icons.
 
 The following areas are still planned:
 
-- One-click and batch operations
-- Automatic conversion of images to `.ico`
+- Multi-folder batch editing
 - More detailed settings and visual options
 
 ## Contribution Guide

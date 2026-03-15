@@ -1,0 +1,6 @@
+<svg width="300" height="52" viewBox="0 0 300 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="2" width="296" height="48" rx="24" fill="#4CAF50"/>
+  <rect x="2" y="2" width="296" height="48" rx="24" stroke="#7AD77E" stroke-width="2"/>
+  <path d="M58 16C59.1046 16 60 16.8954 60 18V26.1716L62.5858 23.5858C63.3668 22.8047 64.6332 22.8047 65.4142 23.5858C66.1953 24.3668 66.1953 25.6332 65.4142 26.4142L59.4142 32.4142C58.6332 33.1953 57.3668 33.1953 56.5858 32.4142L50.5858 26.4142C49.8047 25.6332 49.8047 24.3668 50.5858 23.5858C51.3668 22.8047 52.6332 22.8047 53.4142 23.5858L56 26.1716V18C56 16.8954 56.8954 16 58 16Z" fill="white"/>
+  <text x="172" y="32" text-anchor="middle" font-family="'Microsoft YaHei', 'PingFang SC', sans-serif" font-size="18" font-weight="700" fill="white">点击下载最新版本</text>
+</svg>
