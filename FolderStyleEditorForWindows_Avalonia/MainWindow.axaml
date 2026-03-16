@@ -51,6 +51,13 @@
             </Border.Background>
         </Border>
 
+        <Border x:Name="ChromeStrokeLayer"
+                CornerRadius="{StaticResource RadiusXl}"
+                BorderThickness="1"
+                BorderBrush="#22000000"
+                IsHitTestVisible="False"
+                ZIndex="2"/>
+
         <!-- Main Content Grid -->
         <Grid x:Name="CardsLayer">
             <views:HomeView Name="HomeView" ZIndex="1" />

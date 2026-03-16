@@ -14,15 +14,6 @@
             x:Class="FolderStyleEditorForWindows.Views.EditView"
             x:DataType="vm:MainViewModel">
    <UserControl.Styles>
-        <Style Selector="ScrollViewer#editScrollViewer">
-            <Setter Property="ClipToBounds" Value="False"/>
-        </Style>
-        <Style Selector="ScrollViewer#editScrollViewer /template/ ScrollContentPresenter">
-            <Setter Property="ClipToBounds" Value="False"/>
-        </Style>
-        <Style Selector="ScrollViewer#editScrollViewer /template/ ContentPresenter">
-            <Setter Property="ClipToBounds" Value="False"/>
-        </Style>
         <Style Selector="Button#btnOpenExplorer">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
@@ -157,7 +148,7 @@
     </UserControl.Resources>
    <Grid>
         <!-- Title Bar -->
-        <DockPanel VerticalAlignment="Top" Height="54">
+        <DockPanel VerticalAlignment="Top" Height="54" ZIndex="20">
             <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
                <controls:TitleBarButtons Grid.Column="0"
                                          Grid.ColumnSpan="3"
@@ -205,7 +196,8 @@
 
         <!-- Main Scrollable Content -->
      <ScrollViewer Margin="0,54,-10,0" Name="editScrollViewer"
-                   HorizontalContentAlignment="Stretch">
+                   HorizontalContentAlignment="Stretch"
+                   ZIndex="0">
          <i:Interaction.Behaviors>
              <ia:VerticalScrollViewerAnimatedBehavior/>
              <behaviors:AutoHideScrollBehavior/>
@@ -573,7 +565,7 @@
         </ScrollViewer>
         
         <!-- Save Bar -->
-        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,18">
+        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,18" ZIndex="18">
             <Button Name="btnSave" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_SaveButton]}" Classes="Btn BtnPill" MinWidth="220" Command="{Binding SaveCommand}"/>
         </Border>
         

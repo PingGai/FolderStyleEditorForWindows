@@ -112,6 +112,8 @@ namespace FolderStyleEditorForWindows
         private static readonly IBrush ActiveWindowBackground = Brushes.Transparent;
         private static readonly IBrush LowCostWindowBackground = new ImmutableSolidColorBrush(Colors.White);
         private static readonly SolidColorBrush AccentToastBrush = new(Color.Parse("#EBB762"));
+        private static readonly bool SupportsDynamicTransparencyHintSwitching =
+            OperatingSystem.IsWindows() && OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
         private static readonly SolidColorBrush PinButtonPinnedBackgroundBrush = new(Color.Parse("#7CDDDDDD"));
         private static readonly SolidColorBrush PinButtonDefaultBackgroundBrush = new(Color.Parse("#50FFFFFF"));
         private static readonly SolidColorBrush DebugExcludedPlaceholderBackgroundBrush = new(Color.Parse("#14D56A61"));
@@ -134,6 +136,7 @@ namespace FolderStyleEditorForWindows
 //                 RendererDebugOverlays.Fps | RendererDebugOverlays.DirtyRects;
 // #endif
             InitializeComponent();
+            TransparencyLevelHint = GetWindowTransparencyHint(lowCost: false);
             
             // 启动时先设为 0，在 OnOpened 中再做渐入，避免窗口显示过程闪烁
             Opacity = 0;
@@ -1736,7 +1739,7 @@ namespace FolderStyleEditorForWindows
             // Hide all optional layers by default
             if (_flowLayer != null) _flowLayer.IsVisible = false;
             if (_cardsLayer != null) _cardsLayer.IsVisible = false;
-            this.TransparencyLevelHint = new[] { WindowTransparencyLevel.None };
+            TransparencyLevelHint = GetWindowTransparencyHint(lowCost: true);
 
             switch (layer.ToLower())
             {
@@ -1751,7 +1754,7 @@ namespace FolderStyleEditorForWindows
                     break;
 
                 case "blur":
-                    this.TransparencyLevelHint = new[] { WindowTransparencyLevel.AcrylicBlur };
+                    TransparencyLevelHint = GetWindowTransparencyHint(lowCost: false);
                     break;
 
                 case "flow":
@@ -1759,7 +1762,7 @@ namespace FolderStyleEditorForWindows
                     break;
 
                 case "blur + flow":
-                    this.TransparencyLevelHint = new[] { WindowTransparencyLevel.AcrylicBlur };
+                    TransparencyLevelHint = GetWindowTransparencyHint(lowCost: false);
                     if (_flowLayer != null) _flowLayer.IsVisible = true;
                     break;
 
@@ -1767,9 +1770,29 @@ namespace FolderStyleEditorForWindows
                 default:
                     if (_flowLayer != null) _flowLayer.IsVisible = true;
                     if (_cardsLayer != null) _cardsLayer.IsVisible = true;
-                    this.TransparencyLevelHint = new[] { WindowTransparencyLevel.AcrylicBlur };
+                    TransparencyLevelHint = GetWindowTransparencyHint(lowCost: false);
                     break;
             }
+        }
+
+        private static IReadOnlyList<WindowTransparencyLevel> GetWindowTransparencyHint(bool lowCost)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return lowCost
+                    ? new[] { WindowTransparencyLevel.None }
+                    : new[] { WindowTransparencyLevel.AcrylicBlur };
+            }
+
+            if (!SupportsDynamicTransparencyHintSwitching)
+            {
+                // Win10 上频繁切换透明级别会导致无边框窗口的边缘与圆角闪烁，固定宿主层更稳定。
+                return new[] { WindowTransparencyLevel.AcrylicBlur };
+            }
+
+            return lowCost
+                ? new[] { WindowTransparencyLevel.None }
+                : new[] { WindowTransparencyLevel.AcrylicBlur };
         }
         
         private void StartRenderLoop()
@@ -1891,9 +1914,7 @@ namespace FolderStyleEditorForWindows
 
             _isLowCostTransparencyActive = shouldUseLowCostTransparency;
             Background = shouldUseLowCostTransparency ? LowCostWindowBackground : ActiveWindowBackground;
-            this.TransparencyLevelHint = shouldUseLowCostTransparency
-                ? new[] { WindowTransparencyLevel.None }
-                : new[] { WindowTransparencyLevel.AcrylicBlur };
+            TransparencyLevelHint = GetWindowTransparencyHint(shouldUseLowCostTransparency);
         }
 
         private void SetWindowRuntimeSuspended(bool suspended)
@@ -1923,7 +1944,7 @@ namespace FolderStyleEditorForWindows
                 _isRenderFramePending = false;
                 _viewModel.RequestIdleMemoryTrim();
                 Background = LowCostWindowBackground;
-                TransparencyLevelHint = new[] { WindowTransparencyLevel.None };
+                TransparencyLevelHint = GetWindowTransparencyHint(lowCost: true);
                 return;
             }
 
@@ -1955,6 +1976,7 @@ namespace FolderStyleEditorForWindows
             ResetRootLayerPresentationState();
 
             Background = _isLowCostTransparencyActive ? LowCostWindowBackground : ActiveWindowBackground;
+            TransparencyLevelHint = GetWindowTransparencyHint(_isLowCostTransparencyActive);
         }
 
         private void ResetRootLayerPresentationState()
