@@ -19,6 +19,7 @@ using CommunityToolkit.Mvvm.Input;
 using Newtonsoft.Json;
 using FolderStyleEditorForWindows;
 using FolderStyleEditorForWindows.Controls;
+using FolderStyleEditorForWindows.Models;
 using FolderStyleEditorForWindows.Services;
 using static FolderStyleEditorForWindows.Services.ConfigManager;
 
@@ -33,6 +34,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly FolderStyleSaveCoordinator _saveCoordinator;
         private readonly ElevationSessionState _elevationSessionState;
         private readonly ExplorerHiddenVisibilityService _explorerHiddenVisibilityService;
+        private readonly FolderHiddenVisibilityService _folderHiddenVisibilityService;
         private List<string> _foundIconPaths = new List<string>();
         private int _currentIconIndex = -1;
         private bool _isScanningIcons = false;
@@ -46,6 +48,9 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly ObservableCollection<AliasAutocompleteItemViewModel> _aliasAutocompleteCandidates = new();
         private static readonly string AliasHistoryFilePath = Path.Combine(ConfigManager.AppDataDirectory, "alias-history.json");
         private string _aliasAutocompleteSeed = string.Empty;
+        private string _loadedAlias = string.Empty;
+        private bool _loadedIsAliasPlaceholder;
+        private string _loadedIconPath = string.Empty;
         private bool _suppressUndo = false;
         private bool _suppressAliasAutocomplete = false;
         private bool _suppressIconPathSyncFromSelection = false;
@@ -67,6 +72,44 @@ namespace FolderStyleEditorForWindows.ViewModels
         private const int AutoGetFirstResultWaitStepMs = 25;
         private const int AutoGetFirstResultWaitMaxMs = 1200;
         private static readonly SolidColorBrush ExplorerHiddenVisibilityErrorBrush = new(Color.Parse("#D56A61"));
+        private static readonly IReadOnlyList<SegmentedSelectorOptionDefinition<ExplorerHiddenVisibilityLevel>> ExplorerHiddenLevelDefinitions =
+        [
+            new(
+                ExplorerHiddenVisibilityLevel.HideAll,
+                "hide-all",
+                "Edit_System_HiddenLevel_HideAll",
+                "Edit_System_HiddenLevel_HideAll_Desc"),
+            new(
+                ExplorerHiddenVisibilityLevel.ShowHidden,
+                "show-hidden",
+                "Edit_System_HiddenLevel_ShowHidden",
+                "Edit_System_HiddenLevel_ShowHidden_Desc"),
+            new(
+                ExplorerHiddenVisibilityLevel.ShowSystemHidden,
+                "show-system-hidden",
+                "Edit_System_HiddenLevel_ShowSystemHidden",
+                "Edit_System_HiddenLevel_ShowSystemHidden_Desc",
+                "Edit_System_HiddenLevel_ShowSystemHidden_Tooltip")
+        ];
+        private static readonly IReadOnlyList<SegmentedSelectorOptionDefinition<FolderHiddenVisibilityLevel>> FolderHiddenLevelDefinitions =
+        [
+            new(
+                FolderHiddenVisibilityLevel.Visible,
+                "visible",
+                "Edit_Folder_HiddenLevel_Visible",
+                "Edit_Folder_HiddenLevel_Visible_Desc"),
+            new(
+                FolderHiddenVisibilityLevel.Hidden,
+                "hidden",
+                "Edit_Folder_HiddenLevel_Hidden",
+                "Edit_Folder_HiddenLevel_Hidden_Desc"),
+            new(
+                FolderHiddenVisibilityLevel.SystemHidden,
+                "system-hidden",
+                "Edit_Folder_HiddenLevel_SystemHidden",
+                "Edit_Folder_HiddenLevel_SystemHidden_Desc",
+                "Edit_Folder_HiddenLevel_SystemHidden_Tooltip")
+        ];
 
         [DllImport("psapi.dll", SetLastError = true)]
         private static extern bool EmptyWorkingSet(IntPtr hProcess);
@@ -244,7 +287,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
         }
 
-        private string _selectedExplorerHiddenLevelKey = ExplorerHiddenVisibilityLevel.HideAll.ToSelectorKey();
+        private string _selectedExplorerHiddenLevelKey = "hide-all";
         public string SelectedExplorerHiddenLevelKey
         {
             get => _selectedExplorerHiddenLevelKey;
@@ -271,20 +314,11 @@ namespace FolderStyleEditorForWindows.ViewModels
 
         public string ExplorerHiddenLevelDescription
         {
-            get
-            {
-                if (string.Equals(_selectedExplorerHiddenLevelKey, ExplorerHiddenVisibilityLevel.ShowSystemHidden.ToSelectorKey(), StringComparison.Ordinal))
-                {
-                    return LocalizationManager.Instance["Edit_System_HiddenLevel_ShowSystemHidden_Desc"];
-                }
-
-                if (string.Equals(_selectedExplorerHiddenLevelKey, ExplorerHiddenVisibilityLevel.ShowHidden.ToSelectorKey(), StringComparison.Ordinal))
-                {
-                    return LocalizationManager.Instance["Edit_System_HiddenLevel_ShowHidden_Desc"];
-                }
-
-                return LocalizationManager.Instance["Edit_System_HiddenLevel_HideAll_Desc"];
-            }
+            get => SegmentedSelectorOptionDefinition.ResolveDescription(
+                _selectedExplorerHiddenLevelKey,
+                ExplorerHiddenLevelDefinitions,
+                LocalizationManager.Instance,
+                "Edit_System_HiddenLevel_HideAll_Desc");
         }
 
         private bool _isApplyingExplorerHiddenVisibilityLevel;
@@ -303,6 +337,39 @@ namespace FolderStyleEditorForWindows.ViewModels
         public bool CanInteractWithExplorerHiddenVisibilityLevel => true;
         private bool _suppressExplorerHiddenVisibilitySync;
         private ExplorerHiddenVisibilityLevel _appliedExplorerHiddenVisibilityLevel = ExplorerHiddenVisibilityLevel.HideAll;
+        private ObservableCollection<LiquidSegmentedSelectorItem> _folderHiddenLevelOptions = new();
+        public ObservableCollection<LiquidSegmentedSelectorItem> FolderHiddenLevelOptions
+        {
+            get => _folderHiddenLevelOptions;
+            private set
+            {
+                if (ReferenceEquals(_folderHiddenLevelOptions, value)) return;
+                _folderHiddenLevelOptions = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _selectedFolderHiddenLevelKey = "visible";
+        public string SelectedFolderHiddenLevelKey
+        {
+            get => _selectedFolderHiddenLevelKey;
+            set
+            {
+                if (_selectedFolderHiddenLevelKey == value) return;
+                _selectedFolderHiddenLevelKey = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(FolderHiddenLevelDescription));
+            }
+        }
+
+        public string FolderHiddenLevelDescription
+        {
+            get => SegmentedSelectorOptionDefinition.ResolveDescription(
+                _selectedFolderHiddenLevelKey,
+                FolderHiddenLevelDefinitions,
+                LocalizationManager.Instance,
+                "Edit_Folder_HiddenLevel_Visible_Desc");
+        }
  
         private bool _isAliasAsPlaceholder;
         public bool IsAliasAsPlaceholder
@@ -501,6 +568,8 @@ namespace FolderStyleEditorForWindows.ViewModels
                     IconPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "shell32.dll,4");
                     _ = LoadIconsFromFileAsync(IconPath);
                 }
+
+                CaptureLoadedVisualStyleState();
             }
             finally
             {
@@ -516,11 +585,15 @@ namespace FolderStyleEditorForWindows.ViewModels
                 FolderPath = FolderPath,
                 Alias = Alias,
                 IsAliasPlaceholder = IsAliasAsPlaceholder,
-                IconPath = IconPath
+                ShouldUpdateAlias = HasAliasStyleChange(),
+                IconPath = IconPath,
+                ShouldUpdateIcon = HasIconStyleChange(),
+                FolderHiddenVisibilityLevel = GetSelectedFolderHiddenVisibilityLevel()
             });
 
             if (outcome.Result.IsSuccess)
             {
+                CaptureLoadedVisualStyleState();
                 RecordSavedAlias(FolderPath, Alias);
                 if (outcome.Result.HistoryShouldBeWritten)
                 {
@@ -749,6 +822,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 IconPath = iconSourcePath;
             }
             await RefreshExplorerHiddenVisibilityLevelAsync();
+            await RefreshFolderHiddenVisibilityLevelAsync();
             UpdateAliasAutocomplete();
             NavigateToEditView?.Invoke(folderPath, iconSourcePath);
         }
@@ -773,20 +847,23 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
 
             RebuildExplorerHiddenLevelOptions();
+            RebuildFolderHiddenLevelOptions();
         }
 
         private void RebuildExplorerHiddenLevelOptions()
         {
-            ExplorerHiddenLevelOptions = new ObservableCollection<LiquidSegmentedSelectorItem>
-            {
-                new(ExplorerHiddenVisibilityLevel.HideAll.ToSelectorKey(), LocalizationManager.Instance["Edit_System_HiddenLevel_HideAll"]),
-                new(ExplorerHiddenVisibilityLevel.ShowHidden.ToSelectorKey(), LocalizationManager.Instance["Edit_System_HiddenLevel_ShowHidden"]),
-                new(
-                    ExplorerHiddenVisibilityLevel.ShowSystemHidden.ToSelectorKey(),
-                    LocalizationManager.Instance["Edit_System_HiddenLevel_ShowSystemHidden"],
-                    LocalizationManager.Instance["Edit_System_HiddenLevel_ShowSystemHidden_Tooltip"])
-            };
+            ExplorerHiddenLevelOptions = SegmentedSelectorOptionDefinition.BuildItems(
+                ExplorerHiddenLevelDefinitions,
+                LocalizationManager.Instance);
             OnPropertyChanged(nameof(ExplorerHiddenLevelDescription));
+        }
+
+        private void RebuildFolderHiddenLevelOptions()
+        {
+            FolderHiddenLevelOptions = SegmentedSelectorOptionDefinition.BuildItems(
+                FolderHiddenLevelDefinitions,
+                LocalizationManager.Instance);
+            OnPropertyChanged(nameof(FolderHiddenLevelDescription));
         }
 
         public async Task RefreshExplorerHiddenVisibilityLevelAsync()
@@ -809,6 +886,19 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 _appliedExplorerHiddenVisibilityLevel = ExplorerHiddenVisibilityLevel.HideAll;
                 SetExplorerHiddenVisibilitySelection(_appliedExplorerHiddenVisibilityLevel);
+            }
+        }
+
+        public async Task RefreshFolderHiddenVisibilityLevelAsync()
+        {
+            try
+            {
+                var level = await _folderHiddenVisibilityService.GetCurrentLevelAsync(FolderPath);
+                SetFolderHiddenVisibilitySelection(level);
+            }
+            catch
+            {
+                SetFolderHiddenVisibilitySelection(FolderHiddenVisibilityLevel.Visible);
             }
         }
 
@@ -893,7 +983,10 @@ namespace FolderStyleEditorForWindows.ViewModels
             _suppressExplorerHiddenVisibilitySync = true;
             try
             {
-                SelectedExplorerHiddenLevelKey = level.ToSelectorKey();
+                SelectedExplorerHiddenLevelKey = SegmentedSelectorOptionDefinition.ResolveKey(
+                    level,
+                    ExplorerHiddenLevelDefinitions,
+                    "hide-all");
             }
             finally
             {
@@ -901,21 +994,48 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
         }
 
+        private void SetFolderHiddenVisibilitySelection(FolderHiddenVisibilityLevel level)
+        {
+            SelectedFolderHiddenLevelKey = SegmentedSelectorOptionDefinition.ResolveKey(
+                level,
+                FolderHiddenLevelDefinitions,
+                "visible");
+        }
+
         private static bool TryParseExplorerHiddenLevelKey(string? key, out ExplorerHiddenVisibilityLevel level)
         {
-            switch (key)
-            {
-                case "show-hidden":
-                    level = ExplorerHiddenVisibilityLevel.ShowHidden;
-                    return true;
-                case "show-system-hidden":
-                    level = ExplorerHiddenVisibilityLevel.ShowSystemHidden;
-                    return true;
-                case "hide-all":
-                default:
-                    level = ExplorerHiddenVisibilityLevel.HideAll;
-                    return key != null;
-            }
+            return SegmentedSelectorOptionDefinition.TryResolveValue(
+                key,
+                ExplorerHiddenLevelDefinitions,
+                out level);
+        }
+
+        private FolderHiddenVisibilityLevel GetSelectedFolderHiddenVisibilityLevel()
+        {
+            return SegmentedSelectorOptionDefinition.TryResolveValue(
+                SelectedFolderHiddenLevelKey,
+                FolderHiddenLevelDefinitions,
+                out FolderHiddenVisibilityLevel level)
+                ? level
+                : FolderHiddenVisibilityLevel.Visible;
+        }
+
+        private bool HasAliasStyleChange()
+        {
+            return !string.Equals(Alias, _loadedAlias, StringComparison.Ordinal)
+                || IsAliasAsPlaceholder != _loadedIsAliasPlaceholder;
+        }
+
+        private bool HasIconStyleChange()
+        {
+            return !string.Equals(IconPath, _loadedIconPath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void CaptureLoadedVisualStyleState()
+        {
+            _loadedAlias = Alias;
+            _loadedIsAliasPlaceholder = IsAliasAsPlaceholder;
+            _loadedIconPath = IconPath;
         }
 
         private void QueueIconLoad(string path)
@@ -957,7 +1077,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
  
         [SupportedOSPlatform("windows")]
-        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService, FolderStyleSaveCoordinator saveCoordinator, ElevationSessionState elevationSessionState, ExplorerHiddenVisibilityService explorerHiddenVisibilityService)
+        public MainViewModel(IToastService toastService, HoverIconService hoverIconService, InterruptDialogService interruptDialogService, FolderStyleSaveCoordinator saveCoordinator, ElevationSessionState elevationSessionState, ExplorerHiddenVisibilityService explorerHiddenVisibilityService, FolderHiddenVisibilityService folderHiddenVisibilityService)
         {
             _iconFinderService = new IconFinderService();
             _toastService = toastService;
@@ -966,6 +1086,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             _saveCoordinator = saveCoordinator;
             _elevationSessionState = elevationSessionState;
             _explorerHiddenVisibilityService = explorerHiddenVisibilityService;
+            _folderHiddenVisibilityService = folderHiddenVisibilityService;
             IsElevationSessionActive = _elevationSessionState.IsElevatedSessionActive;
             _elevationSessionState.PropertyChanged += (_, args) =>
             {
@@ -980,6 +1101,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
             LocalizationManager.Instance.PropertyChanged += LocalizationManager_PropertyChanged;
             RebuildExplorerHiddenLevelOptions();
+            RebuildFolderHiddenLevelOptions();
             
             SaveCommand = new RelayCommand(SaveFolderSettings);
             OpenFromHistoryCommand = new RelayCommand<string?>(async path => await OpenFromHistoryAsync(path));
@@ -993,6 +1115,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             IconCacheButtonText = LocalizationManager.Instance["Edit_Reset_ClearIconCacheButton"];
             _ = LoadPersistedDataAsync();
             _ = RefreshExplorerHiddenVisibilityLevelAsync();
+            _ = RefreshFolderHiddenVisibilityLevelAsync();
         }
 
         private async Task OpenFromHistoryAsync(string? path)
@@ -2415,17 +2538,4 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
     }
 
-    internal static class ExplorerHiddenVisibilityLevelExtensions
-    {
-        public static string ToSelectorKey(this ExplorerHiddenVisibilityLevel level)
-        {
-            return level switch
-            {
-                ExplorerHiddenVisibilityLevel.HideAll => "hide-all",
-                ExplorerHiddenVisibilityLevel.ShowHidden => "show-hidden",
-                ExplorerHiddenVisibilityLevel.ShowSystemHidden => "show-system-hidden",
-                _ => "hide-all"
-            };
-        }
-    }
 }

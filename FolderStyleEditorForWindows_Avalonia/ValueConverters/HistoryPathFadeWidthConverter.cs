@@ -43,7 +43,10 @@ namespace FolderStyleEditorForWindows.ValueConverters
                 rootPath.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase);
 
-            return isRootParent ? tagWidth * 0.5 : tagWidth;
+            // Keep a subtle, layout-only breathing gap that reacts to the tag width
+            // without recreating the bright fade overlay that caused a white seam.
+            var spacerWidth = isRootParent ? tagWidth * 0.28 : tagWidth * 0.42;
+            return Math.Clamp(spacerWidth, 10d, 34d);
         }
     }
 }

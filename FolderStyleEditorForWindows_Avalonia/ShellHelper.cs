@@ -44,9 +44,17 @@ namespace FolderStyleEditorForWindows
 
         [DllImport("shell32.dll", CharSet = CharSet.Auto)]
         private static extern uint ExtractIconEx(string szFileName, int nIconIndex, IntPtr[]? phiconLarge, IntPtr[]? phiconSmall, uint nIcons);
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        private static extern void SHChangeNotify(uint wEventId, uint uFlags, string? dwItem1, string? dwItem2);
         
         private const uint FCSM_ICONFILE = 0x00000010;
         private const uint FCS_FORCEWRITE = 0x00000002;
+        private const uint SHCNE_ATTRIBUTES = 0x00000800;
+        private const uint SHCNE_UPDATEDIR = 0x00001000;
+        private const uint SHCNE_UPDATEITEM = 0x00002000;
+        private const uint SHCNF_PATHW = 0x0005;
+        private const uint SHCNF_FLUSHNOWAIT = 0x2000;
         
         #endregion
 
@@ -179,6 +187,38 @@ namespace FolderStyleEditorForWindows
             catch (Exception ex)
             {
                 throw new IOException("移除文件夹只读属性失败。", ex);
+            }
+        }
+
+        public static void NotifyFolderStateChanged(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return;
+            }
+
+            try
+            {
+                SHChangeNotify(SHCNE_ATTRIBUTES, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath, null);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath, null);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath, null);
+            }
+            catch
+            {
             }
         }
 

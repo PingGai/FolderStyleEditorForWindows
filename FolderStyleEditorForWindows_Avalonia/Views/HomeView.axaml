@@ -257,7 +257,7 @@
                            <ia:VerticalScrollViewerAnimatedBehavior/>
                            <behaviors:AutoHideScrollBehavior VisibleOpacity="0.62"/>
                        </i:Interaction.Behaviors>
-                       <ListBox Name="historyList" ItemsSource="{Binding History}" Background="Transparent" BorderThickness="0" ClipToBounds="False" Padding="0,2,0,0">
+                       <ListBox Name="historyList" ItemsSource="{Binding History}" Background="Transparent" BorderThickness="0" ClipToBounds="False" Padding="0,2,0,0" UseLayoutRounding="True">
                            <ListBox.ItemContainerTheme>
                                <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                    <Setter Property="Padding" Value="0"/>
@@ -272,16 +272,22 @@
                                    <Style Selector="^:selected:focus /template/ ContentPresenter">
                                        <Setter Property="Background" Value="Transparent"/>
                                    </Style>
+                                   <Style Selector="^:pressed /template/ ContentPresenter">
+                                       <Setter Property="Background" Value="Transparent"/>
+                                   </Style>
                                </ControlTheme>
                            </ListBox.ItemContainerTheme>
                            <ListBox.ItemTemplate>
                                <DataTemplate>
                                    <Button Classes="Btn BtnHistory" Command="{Binding $parent[UserControl].DataContext.OpenFromHistoryCommand}" CommandParameter="{Binding}"
-                                           Height="30.8" HorizontalContentAlignment="Stretch"
+                                           Height="31" HorizontalContentAlignment="Stretch"
+                                           UseLayoutRounding="True"
                                            Background="Transparent" BorderThickness="0" Margin="14,0,0,0">
-                                       <Grid HorizontalAlignment="Stretch">
+                                       <Grid HorizontalAlignment="Stretch"
+                                             UseLayoutRounding="True">
                                            <Grid.ColumnDefinitions>
                                                <ColumnDefinition Width="*"/>
+                                               <ColumnDefinition Width="Auto"/>
                                                <ColumnDefinition Width="Auto"/>
                                            </Grid.ColumnDefinitions>
                                            
@@ -292,10 +298,21 @@
                                                       VerticalAlignment="Center"
                                                       FontWeight="SemiBold"
                                                       TextTrimming="CharacterEllipsis"
-                                                      Margin="0"/>
+                                                      Margin="0,0,6,0"/>
                                            
                                            <!-- 文件夹状态标签 -->
                                            <Border Grid.Column="1"
+                                                   Background="Transparent"
+                                                   IsHitTestVisible="False">
+                                               <Border.Width>
+                                                   <MultiBinding Converter="{StaticResource HistoryPathFadeWidthConverter}">
+                                                       <Binding />
+                                                       <Binding ElementName="folderTag" Path="Bounds.Width"/>
+                                                   </MultiBinding>
+                                               </Border.Width>
+                                           </Border>
+
+                                           <Border Grid.Column="2"
                                                    Name="folderTag"
                                                    Background="{StaticResource FolderTagBgLightBrush}"
                                                    BorderThickness="1"
@@ -320,24 +337,6 @@
                                            </Border>
                                            
                                            <!-- 娓愬彉閬僵 -->
-                                           <Border Grid.Column="0"
-                                                   ZIndex="1"
-                                                   HorizontalAlignment="Right"
-                                                   IsVisible="True">
-                                               <Border.Width>
-                                                   <MultiBinding Converter="{StaticResource HistoryPathFadeWidthConverter}">
-                                                       <Binding />
-                                                       <Binding Path="#folderTag.Bounds.Width"/>
-                                                   </MultiBinding>
-                                               </Border.Width>
-                                               <Border.Background>
-                                                   <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
-                                                       <GradientStop Color="#00FFFFFF" Offset="0"/>
-                                                       <GradientStop Color="#BFFFFFFF" Offset="0.7"/>
-                                                       <GradientStop Color="#FFFFFFFF" Offset="1"/>
-                                                   </LinearGradientBrush>
-                                               </Border.Background>
-                                           </Border>
                                        </Grid>
                                    </Button>
                                </DataTemplate>

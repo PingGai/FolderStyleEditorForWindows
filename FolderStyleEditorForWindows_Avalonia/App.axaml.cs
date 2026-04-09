@@ -46,6 +46,7 @@ public partial class App : Application
         services.AddSingleton<LicenseCatalogService>();
         services.AddSingleton<InterruptDialogService>();
         services.AddSingleton<ImageToIcoService>();
+        services.AddSingleton<FolderHiddenVisibilityService>();
         services.AddSingleton<FolderStyleMutationEngine>();
         services.AddSingleton<ElevatedHelperController>();
         services.AddSingleton<FolderStyleSaveCoordinator>();

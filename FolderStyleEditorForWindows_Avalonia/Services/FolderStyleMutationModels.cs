@@ -18,7 +18,10 @@ namespace FolderStyleEditorForWindows.Services
         public string FolderPath { get; init; } = string.Empty;
         public string Alias { get; init; } = string.Empty;
         public bool IsAliasPlaceholder { get; init; }
+        public bool ShouldUpdateAlias { get; init; } = true;
         public string IconPath { get; init; } = string.Empty;
+        public bool ShouldUpdateIcon { get; init; } = true;
+        public FolderHiddenVisibilityLevel FolderHiddenVisibilityLevel { get; init; } = FolderHiddenVisibilityLevel.Visible;
     }
 
     public sealed class FolderStyleMutationResult

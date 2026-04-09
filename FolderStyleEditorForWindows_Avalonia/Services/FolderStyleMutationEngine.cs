@@ -10,6 +10,18 @@ namespace FolderStyleEditorForWindows.Services
     [SupportedOSPlatform("windows")]
     public sealed class FolderStyleMutationEngine
     {
+        private readonly FolderHiddenVisibilityService _folderHiddenVisibilityService;
+
+        public FolderStyleMutationEngine()
+            : this(new FolderHiddenVisibilityService())
+        {
+        }
+
+        public FolderStyleMutationEngine(FolderHiddenVisibilityService folderHiddenVisibilityService)
+        {
+            _folderHiddenVisibilityService = folderHiddenVisibilityService;
+        }
+
         public async Task<FolderStyleMutationResult> SaveAsync(FolderStyleMutationRequest request)
         {
             DateTime? originalLastWriteTimeUtc = null;
@@ -27,39 +39,52 @@ namespace FolderStyleEditorForWindows.Services
 
                 originalLastWriteTimeUtc = Directory.GetLastWriteTimeUtc(request.FolderPath);
 
-                DesktopIniHelper.WriteValue(
+                var folderVisibilityChanged = await _folderHiddenVisibilityService.ApplyLevelAsync(
                     request.FolderPath,
-                    "LocalizedResourceName",
-                    request.IsAliasPlaceholder ? string.Empty : request.Alias);
-
-                if (!string.IsNullOrWhiteSpace(request.IconPath))
+                    request.FolderHiddenVisibilityLevel);
+                if (folderVisibilityChanged)
                 {
-                    var iconSettings = await PathHelper.ProcessIconPathAsync(request.FolderPath, request.IconPath);
+                    ShellHelper.NotifyFolderStateChanged(request.FolderPath);
+                }
 
-                    DesktopIniHelper.WriteValue(request.FolderPath, "IconResource", null);
-                    DesktopIniHelper.WriteValue(request.FolderPath, "IconFile", null);
-                    DesktopIniHelper.WriteValue(request.FolderPath, "IconIndex", null);
+                if (request.ShouldUpdateAlias)
+                {
+                    DesktopIniHelper.WriteValue(
+                        request.FolderPath,
+                        "LocalizedResourceName",
+                        request.IsAliasPlaceholder ? string.Empty : request.Alias);
+                }
 
-                    var finalIconPathForRefresh = string.Empty;
-                    foreach (var (key, value) in iconSettings)
+                if (request.ShouldUpdateIcon)
+                {
+                    if (!string.IsNullOrWhiteSpace(request.IconPath))
                     {
-                        DesktopIniHelper.WriteValue(request.FolderPath, key, value);
-                        if (key == "IconResource" || key == "IconFile")
+                        var iconSettings = await PathHelper.ProcessIconPathAsync(request.FolderPath, request.IconPath);
+
+                        DesktopIniHelper.WriteValue(request.FolderPath, "IconResource", null);
+                        DesktopIniHelper.WriteValue(request.FolderPath, "IconFile", null);
+                        DesktopIniHelper.WriteValue(request.FolderPath, "IconIndex", null);
+
+                        var finalIconPathForRefresh = string.Empty;
+                        foreach (var (key, value) in iconSettings)
                         {
-                            finalIconPathForRefresh = value;
+                            DesktopIniHelper.WriteValue(request.FolderPath, key, value);
+                            if (key == "IconResource" || key == "IconFile")
+                            {
+                                finalIconPathForRefresh = value;
+                            }
                         }
+
+                        ShellHelper.SetFolderIcon(request.FolderPath, finalIconPathForRefresh);
                     }
-
-                    ShellHelper.SetFolderIcon(request.FolderPath, finalIconPathForRefresh);
+                    else
+                    {
+                        DesktopIniHelper.WriteValue(request.FolderPath, "IconResource", null);
+                        DesktopIniHelper.WriteValue(request.FolderPath, "IconFile", null);
+                        DesktopIniHelper.WriteValue(request.FolderPath, "IconIndex", null);
+                        ShellHelper.RemoveFolderIcon(request.FolderPath);
+                    }
                 }
-                else
-                {
-                    DesktopIniHelper.WriteValue(request.FolderPath, "IconResource", null);
-                    DesktopIniHelper.WriteValue(request.FolderPath, "IconFile", null);
-                    DesktopIniHelper.WriteValue(request.FolderPath, "IconIndex", null);
-                    ShellHelper.RemoveFolderIcon(request.FolderPath);
-                }
-
                 RestoreFolderTimestamp(request.FolderPath, originalLastWriteTimeUtc);
 
                 return new FolderStyleMutationResult

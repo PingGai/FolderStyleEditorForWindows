@@ -148,64 +148,81 @@
     </UserControl.Resources>
    <Grid>
         <!-- Title Bar -->
-        <DockPanel VerticalAlignment="Top" Height="54" ZIndex="20">
-            <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
-               <controls:TitleBarButtons Grid.Column="0"
-                                         Grid.ColumnSpan="3"
-                                         ShowBack="True"
-                                         ShowMinimize="True"
-                                         ShowClose="True"
-                                         BackRequested="TitleBarButtons_BackRequested"/>
-               <Button Name="EditTitleButton"
-                       Grid.Column="0"
-                       Grid.ColumnSpan="3"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Background="Transparent"
-                       BorderBrush="Transparent"
-                       BorderThickness="0"
-                       Padding="6,2"
-                       Classes="HoverFloat"
-                       behaviors:HoverFloatBehavior.IsEnabled="True"
-                       behaviors:HoverFloatBehavior.HoverScale="1.04"
-                       behaviors:HoverFloatBehavior.PressScale="0.92"
-                       behaviors:HoverFloatBehavior.MaxOffsetX="1.5"
-                       behaviors:HoverFloatBehavior.MaxOffsetY="1"
-                       behaviors:HoverFloatBehavior.LerpFactor="0.2">
-                   <TextBlock Name="EditTitleText"
-                              Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Title]}"
-                              HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              Foreground="{StaticResource Fg1Brush}"
-                              Opacity="0.8"
-                              FontSize="16"
-                              FontWeight="SemiBold"/>
-               </Button>
-               <views:PerformanceBadge x:Name="AdminTitlePerformanceBadge"
-                                       x:DataType="services:ComponentFpsBadgeSource"
-                                       Grid.Column="0"
-                                       Grid.ColumnSpan="3"
-                                       HorizontalAlignment="Right"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,14,0"
-                                       Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_AdminTitle]}"
-                                       ValueText="{Binding AdminTitleDisplay}"
-                                       IsVisible="{Binding IsEnabled}"/>
-            </Grid>
-        </DockPanel>
+        <Grid VerticalAlignment="Top"
+              Height="72"
+              ZIndex="20">
+            <DockPanel Height="54"
+                       VerticalAlignment="Top">
+                <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0">
+                   <controls:TitleBarButtons Grid.Column="0"
+                                             Grid.ColumnSpan="3"
+                                             ShowBack="True"
+                                             ShowMinimize="True"
+                                             ShowClose="True"
+                                             BackRequested="TitleBarButtons_BackRequested"/>
+                   <Button Name="EditTitleButton"
+                           Grid.Column="0"
+                           Grid.ColumnSpan="3"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Background="Transparent"
+                           BorderBrush="Transparent"
+                           BorderThickness="0"
+                           Padding="6,2"
+                           Classes="HoverFloat"
+                           behaviors:HoverFloatBehavior.IsEnabled="True"
+                           behaviors:HoverFloatBehavior.HoverScale="1.04"
+                           behaviors:HoverFloatBehavior.PressScale="0.92"
+                           behaviors:HoverFloatBehavior.MaxOffsetX="1.5"
+                           behaviors:HoverFloatBehavior.MaxOffsetY="1"
+                           behaviors:HoverFloatBehavior.LerpFactor="0.2">
+                       <TextBlock Name="EditTitleText"
+                                  Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Title]}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Foreground="{StaticResource Fg1Brush}"
+                                  Opacity="0.8"
+                                  FontSize="16"
+                                  FontWeight="SemiBold"/>
+                   </Button>
+                   <views:PerformanceBadge x:Name="AdminTitlePerformanceBadge"
+                                           x:DataType="services:ComponentFpsBadgeSource"
+                                           Grid.Column="0"
+                                           Grid.ColumnSpan="3"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,14,0"
+                                           Label="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[PerformanceBadge_Label_AdminTitle]}"
+                                           ValueText="{Binding AdminTitleDisplay}"
+                                           IsVisible="{Binding IsEnabled}"/>
+                </Grid>
+            </DockPanel>
+        </Grid>
 
         <!-- Main Scrollable Content -->
-     <ScrollViewer Margin="0,54,-10,0" Name="editScrollViewer"
-                   HorizontalContentAlignment="Stretch"
-                   ZIndex="0">
-         <i:Interaction.Behaviors>
-             <ia:VerticalScrollViewerAnimatedBehavior/>
-             <behaviors:AutoHideScrollBehavior/>
-         </i:Interaction.Behaviors>
-         <Grid Margin="12,12,22,120"
-               HorizontalAlignment="Stretch">
-             <StackPanel Spacing="8"
-                         HorizontalAlignment="Stretch">
+        <ScrollViewer Margin="0,0,-10,0"
+                      Name="editScrollViewer"
+                      HorizontalContentAlignment="Stretch"
+                      ZIndex="0">
+            <ScrollViewer.OpacityMask>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                    <GradientStop Color="#00000000" Offset="0"/>
+                    <GradientStop Color="#00000000" Offset="0.018"/>
+                    <GradientStop Color="#44000000" Offset="0.038"/>
+                    <GradientStop Color="#A8000000" Offset="0.063"/>
+                    <GradientStop Color="#F0000000" Offset="0.09"/>
+                    <GradientStop Color="#FF000000" Offset="0.11"/>
+                    <GradientStop Color="#FF000000" Offset="1"/>
+                </LinearGradientBrush>
+            </ScrollViewer.OpacityMask>
+            <i:Interaction.Behaviors>
+                <ia:VerticalScrollViewerAnimatedBehavior/>
+                <behaviors:AutoHideScrollBehavior/>
+            </i:Interaction.Behaviors>
+            <Grid Margin="12,66,22,120"
+                  HorizontalAlignment="Stretch">
+                <StackPanel Spacing="8"
+                            HorizontalAlignment="Stretch">
              
                 <!-- Directory Card -->
                 <Border Classes="Card"
@@ -548,7 +565,25 @@
 
                 <Border Classes="Card">
                     <StackPanel Spacing="10">
+                        <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_Folder_HiddenLevel]}" Classes="Subtitle"/>
+                        <TextBlock Text="{Binding FolderHiddenLevelDescription}"
+                                   Classes="Note"
+                                   TextWrapping="Wrap"/>
+                        <controls:LiquidSegmentedSelector Items="{Binding FolderHiddenLevelOptions}"
+                                                          SelectedKey="{Binding SelectedFolderHiddenLevelKey}"
+                                                          Margin="6,4,6,6"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="Card">
+                    <StackPanel Spacing="10">
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_System_Title]}" Classes="Subtitle"/>
+                        <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_System_Warning]}"
+                                   Foreground="{StaticResource DangerBrush}"
+                                   Opacity="0.62"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Edit_System_HiddenLevel]}" Classes="Body"/>
                         <TextBlock Text="{Binding ExplorerHiddenLevelDescription}"
                                    Classes="Note"
@@ -560,8 +595,8 @@
                     </StackPanel>
                 </Border>
                 
-             </StackPanel>
-         </Grid>
+                </StackPanel>
+            </Grid>
         </ScrollViewer>
         
         <!-- Save Bar -->

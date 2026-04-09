@@ -213,8 +213,22 @@
     <Setter Property="BoxShadow" Value="{StaticResource ShadowHistory}"/>
 </Style>
 <Style Selector="Button.BtnHistory:pointerover">
-    <Setter Property="Background" Value="{Binding RelativeSource={RelativeSource Self}, Path=Background}"/>
-    <Setter Property="BorderBrush" Value="{Binding RelativeSource={RelativeSource Self}, Path=BorderBrush}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+</Style>
+<Style Selector="Button.BtnHistory:pointerover /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BoxShadow" Value="{StaticResource ShadowHistory}"/>
+</Style>
+<Style Selector="Button.BtnHistory:pressed">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+</Style>
+<Style Selector="Button.BtnHistory:pressed /template/ Border#PART_Border">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="BoxShadow" Value="{StaticResource ShadowHistory}"/>
 </Style>
    
    <!-- Icon Picker -->
