@@ -184,7 +184,10 @@ namespace FolderStyleEditorForWindows.Services
         private readonly FrameRateSettings _settings;
         private int _cachedRefreshRateHz = 60;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+        private const int CurrentDisplaySettings = -1;
+        private const uint MonitorDefaultToNearest = 2;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
         private struct DevMode
         {
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
@@ -221,8 +224,34 @@ namespace FolderStyleEditorForWindows.Services
             public int dmPanningHeight;
         }
 
-        [DllImport("user32.dll", CharSet = CharSet.Ansi)]
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct MonitorInfoEx
+        {
+            public int cbSize;
+            public NativeRect rcMonitor;
+            public NativeRect rcWork;
+            public int dwFlags;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+            public string szDevice;
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern bool EnumDisplaySettings(string? deviceName, int modeNum, ref DevMode devMode);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfoEx lpmi);
 
         public DisplayInfoService(FrameRateSettings settings)
         {
@@ -232,28 +261,59 @@ namespace FolderStyleEditorForWindows.Services
 
         public int CurrentRefreshRateHz => _cachedRefreshRateHz;
 
-        public void Refresh()
+        public void Refresh(IntPtr windowHandle = default)
         {
-            var hz = 60;
+            var hz = TryGetRefreshRate(windowHandle) ?? TryGetRefreshRate(default) ?? 60;
+            _cachedRefreshRateHz = Math.Max(30, Math.Min(500, hz));
+            _settings.DisplayRefreshRateHz = _cachedRefreshRateHz;
+        }
+
+        private static int? TryGetRefreshRate(IntPtr windowHandle)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return null;
+            }
+
             try
             {
+                var deviceName = TryGetMonitorDeviceName(windowHandle);
                 var mode = new DevMode
                 {
                     dmSize = (short)Marshal.SizeOf<DevMode>()
                 };
-                const int currentSettings = -1;
-                if (OperatingSystem.IsWindows() && EnumDisplaySettings(null, currentSettings, ref mode) && mode.dmDisplayFrequency > 0)
+                if (EnumDisplaySettings(deviceName, CurrentDisplaySettings, ref mode) && mode.dmDisplayFrequency > 0)
                 {
-                    hz = mode.dmDisplayFrequency;
+                    return mode.dmDisplayFrequency;
                 }
             }
             catch
             {
-                hz = 60;
             }
 
-            _cachedRefreshRateHz = Math.Max(30, Math.Min(500, hz));
-            _settings.DisplayRefreshRateHz = _cachedRefreshRateHz;
+            return null;
+        }
+
+        private static string? TryGetMonitorDeviceName(IntPtr windowHandle)
+        {
+            if (windowHandle == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            var monitor = MonitorFromWindow(windowHandle, MonitorDefaultToNearest);
+            if (monitor == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            var info = new MonitorInfoEx
+            {
+                cbSize = Marshal.SizeOf<MonitorInfoEx>()
+            };
+            return GetMonitorInfo(monitor, ref info) && !string.IsNullOrWhiteSpace(info.szDevice)
+                ? info.szDevice
+                : null;
         }
     }
 
@@ -500,7 +560,7 @@ namespace FolderStyleEditorForWindows.Services
         private long _lastForegroundTicks;
         private long _lastStaticTicks;
 
-        public RenderDecision Evaluate(int foregroundTargetFps, bool hasStaticDirtyRegion, int staticContentRefreshFps)
+        public RenderDecision Evaluate(int foregroundTargetFps, int displayRefreshRateHz, bool hasStaticDirtyRegion, int staticContentRefreshFps)
         {
             var now = Stopwatch.GetTimestamp();
             var shouldRenderForeground = false;
@@ -509,7 +569,8 @@ namespace FolderStyleEditorForWindows.Services
             {
                 var elapsed = now - _lastForegroundTicks;
                 var interval = Stopwatch.Frequency / (double)foregroundTargetFps;
-                if (_lastForegroundTicks == 0 || elapsed >= interval)
+                var isVsyncLimited = displayRefreshRateHz > 0 && foregroundTargetFps >= displayRefreshRateHz - 1;
+                if (_lastForegroundTicks == 0 || isVsyncLimited || elapsed >= interval)
                 {
                     _lastForegroundTicks = now;
                     shouldRenderForeground = true;

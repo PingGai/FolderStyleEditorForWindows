@@ -7,7 +7,6 @@
              xmlns:views="using:FolderStyleEditorForWindows.Views"
              xmlns:vc="using:FolderStyleEditorForWindows.ValueConverters"
              xmlns:controls="using:FolderStyleEditorForWindows.Controls"
-             xmlns:c="using:Avalonia.Controls"
              xmlns:i="using:Avalonia.Xaml.Interactivity"
              xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
              xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
@@ -103,8 +102,14 @@
         <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pointerover /template/ Thumb">
             <Setter Property="Background" Value="#F4C4C1BC"/>
         </Style>
-        <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pressed /template/ Thumb">
+       <Style Selector="ScrollViewer.HomeHistoryScrollHost ScrollBar:pressed /template/ Thumb">
             <Setter Property="Background" Value="#F8CFCCC7"/>
+        </Style>
+        <Style Selector="Button#btnClearHistory TextBlock">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button#btnClearHistory:pointerover TextBlock, Button#btnClearHistory:pressed TextBlock, Button#btnClearHistory:focus TextBlock">
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
    </UserControl.Styles>
    <UserControl.Resources>
@@ -239,12 +244,13 @@
                    BorderBrush="{StaticResource LineBrush}"
                    BorderThickness="1"
                    Padding="14"
-                   ClipToBounds="False"> <!-- 淇闃村奖瑁佸壀闂 -->
+                   ClipToBounds="False"> <!-- 修复阴影裁切问题 -->
                <StackPanel>
                   <Grid ColumnDefinitions="*,Auto" Margin="0 0 0 12">
                       <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Title]}" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Fg1Brush}" VerticalAlignment="Center" Margin="4,0,0,0"/>
                     <Button Name="btnClearHistory" Classes="Btn BtnGhost BtnDanger Light" Content="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Clear]}" Height="28" Padding="10,0"
                             Command="{Binding ClearHistoryCommand}" IsVisible="{Binding History.Count}" Grid.Column="1" Background="Transparent"
+                            Focusable="False"
                             Margin="0,-2,0,0"/>
                   </Grid>
                    <ScrollViewer MaxHeight="188.4"
@@ -257,31 +263,18 @@
                            <ia:VerticalScrollViewerAnimatedBehavior/>
                            <behaviors:AutoHideScrollBehavior VisibleOpacity="0.62"/>
                        </i:Interaction.Behaviors>
-                       <ListBox Name="historyList" ItemsSource="{Binding History}" Background="Transparent" BorderThickness="0" ClipToBounds="False" Padding="0,2,0,0" UseLayoutRounding="True">
-                           <ListBox.ItemContainerTheme>
-                               <ControlTheme TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-                                   <Setter Property="Padding" Value="0"/>
-                                   <Setter Property="Margin" Value="0,0,0,10"/>
-                                   <Setter Property="ClipToBounds" Value="False"/>
-                                   <Style Selector="^:pointerover /template/ ContentPresenter">
-                                       <Setter Property="Background" Value="Transparent"/>
-                                   </Style>
-                                   <Style Selector="^:selected /template/ ContentPresenter">
-                                       <Setter Property="Background" Value="Transparent"/>
-                                   </Style>
-                                   <Style Selector="^:selected:focus /template/ ContentPresenter">
-                                       <Setter Property="Background" Value="Transparent"/>
-                                   </Style>
-                                   <Style Selector="^:pressed /template/ ContentPresenter">
-                                       <Setter Property="Background" Value="Transparent"/>
-                                   </Style>
-                               </ControlTheme>
-                           </ListBox.ItemContainerTheme>
-                           <ListBox.ItemTemplate>
+                       <ItemsControl Name="historyList" ItemsSource="{Binding History}" ClipToBounds="False" UseLayoutRounding="True">
+                           <ItemsControl.ItemsPanel>
+                               <ItemsPanelTemplate>
+                                   <StackPanel Spacing="10"/>
+                               </ItemsPanelTemplate>
+                           </ItemsControl.ItemsPanel>
+                           <ItemsControl.ItemTemplate>
                                <DataTemplate>
                                    <Button Classes="Btn BtnHistory" Command="{Binding $parent[UserControl].DataContext.OpenFromHistoryCommand}" CommandParameter="{Binding}"
                                            Height="31" HorizontalContentAlignment="Stretch"
                                            UseLayoutRounding="True"
+                                           Focusable="False"
                                            Background="Transparent" BorderThickness="0" Margin="14,0,0,0">
                                        <Grid HorizontalAlignment="Stretch"
                                              UseLayoutRounding="True">
@@ -305,9 +298,10 @@
                                                    Background="Transparent"
                                                    IsHitTestVisible="False">
                                                <Border.Width>
-                                                   <MultiBinding Converter="{StaticResource HistoryPathFadeWidthConverter}">
+                                                   <MultiBinding Converter="{StaticResource HistoryPathSpacerWidthConverter}">
                                                        <Binding />
                                                        <Binding ElementName="folderTag" Path="Bounds.Width"/>
+                                                       <Binding ElementName="historyList" Path="Bounds.Width"/>
                                                    </MultiBinding>
                                                </Border.Width>
                                            </Border>
@@ -321,7 +315,7 @@
                                                    Padding="8,0"
                                                    VerticalAlignment="Center"
                                                    HorizontalAlignment="Right"
-                                                   Margin="0,-0,-14,0"> <!-- 璋冩暣Margin锛屾姷娑圔utton鐨勫彸渚у唴杈硅窛 -->
+                                                   Margin="0,-0,-14,0">
                                                <Border.BorderBrush>
                                                    <MultiBinding Converter="{StaticResource FolderTagBorderBrushConverter}">
                                                        <Binding />
@@ -336,12 +330,11 @@
                                                           TextTrimming="CharacterEllipsis"/>
                                            </Border>
                                            
-                                           <!-- 娓愬彉閬僵 -->
                                        </Grid>
                                    </Button>
                                </DataTemplate>
-                           </ListBox.ItemTemplate>
-                       </ListBox>
+                           </ItemsControl.ItemTemplate>
+                       </ItemsControl>
                    </ScrollViewer>
                     <TextBlock Text="{Binding Source={x:Static services:LocalizationManager.Instance}, Path=[Home_History_Empty]}" Foreground="{StaticResource Fg3Brush}" FontSize="12"
                                IsVisible="{Binding !History.Count}" HorizontalAlignment="Center" Margin="0,20"/>

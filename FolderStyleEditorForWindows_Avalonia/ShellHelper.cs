@@ -255,23 +255,6 @@ namespace FolderStyleEditorForWindows
             }
         }
         
-        public static void SaveIconToFile(string sourceFile, int iconIndex, string destinationPath)
-        {
-            if (string.IsNullOrEmpty(sourceFile) || !File.Exists(sourceFile))
-            {
-                throw new FileNotFoundException("源文件未找到。", sourceFile);
-            }
-
-            var icoBytes = IconExtractor.ExtractIconGroupAsIco(sourceFile, iconIndex);
-
-            if (icoBytes == null || icoBytes.Length == 0)
-            {
-                throw new Exception($"无法从 '{sourceFile}' 提取图标。");
-            }
-
-            File.WriteAllBytes(destinationPath, icoBytes);
-        }
-
         public static List<Avalonia.Media.Imaging.Bitmap> ExtractIconsForPreview(string filePath)
         {
             var extractedIcons = new List<Avalonia.Media.Imaging.Bitmap>();

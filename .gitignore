@@ -8,9 +8,6 @@
 .vscode/
 .vs/
 .kilocode/
-/TEMP/
-/temp/
-/old_publish/
 old_publish/
 TEMP/
 temp/
@@ -18,10 +15,9 @@ temp/
 desktop.ini
 《WindowsFolderStyleEditor》.txt
 history.json
-/openspec/
 openspec/
-/gpt-prompt.md
-/AGENTS.md
+gpt-prompt.md
+AGENTS.md
 
 # Rider & ReSharper
 *.sln.DotSettings
@@ -30,7 +26,6 @@ openspec/
 # Build scripts
 
 # Added rules (2026-03-05)
-/old_publish/
 /MySpec/
 /addons/
 

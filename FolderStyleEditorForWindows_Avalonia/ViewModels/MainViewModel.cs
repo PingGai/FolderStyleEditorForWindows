@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -65,6 +66,14 @@ namespace FolderStyleEditorForWindows.ViewModels
         private readonly object _explorerHiddenVisibilityApplySync = new();
         private CancellationTokenSource? _explorerHiddenVisibilityApplyDebounceCts;
         private CancellationTokenSource? _memoryTrimCts;
+        private readonly Task _persistedDataLoadTask;
+        private AsyncRelayCommand? _saveCommand;
+        private AsyncRelayCommand<string?>? _openFromHistoryCommand;
+        private AsyncRelayCommand? _clearHistoryCommand;
+        private AsyncRelayCommand? _autoGetIconCommand;
+        private AsyncRelayCommand<string?>? _loadIconsCommand;
+        private AsyncRelayCommand? _clearIconCacheCommand;
+        private bool _isOpeningFromHistory;
         private long _lastMemoryTrimTicksUtc;
         private DebugOverlayViewModel? _debugOverlay;
         private const int IconPreviewCacheCapacity = 3;
@@ -125,6 +134,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 // re-entering the edit view from history correctly reloads folder settings.
                 _folderPath = value;
                 OnPropertyChanged();
+                RefreshFolderScopedCommandStates();
                 EnsureUndoStackExists(_folderPath);
                 LoadFolderSettings();
                 _ = RefreshIconCacheButtonTextAsync();
@@ -330,11 +340,9 @@ namespace FolderStyleEditorForWindows.ViewModels
                 if (_isApplyingExplorerHiddenVisibilityLevel == value) return;
                 _isApplyingExplorerHiddenVisibilityLevel = value;
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(CanInteractWithExplorerHiddenVisibilityLevel));
             }
         }
 
-        public bool CanInteractWithExplorerHiddenVisibilityLevel => true;
         private bool _suppressExplorerHiddenVisibilitySync;
         private ExplorerHiddenVisibilityLevel _appliedExplorerHiddenVisibilityLevel = ExplorerHiddenVisibilityLevel.HideAll;
         private ObservableCollection<LiquidSegmentedSelectorItem> _folderHiddenLevelOptions = new();
@@ -508,6 +516,7 @@ namespace FolderStyleEditorForWindows.ViewModels
                 if (_isLoadingIcons == value) return;
                 _isLoadingIcons = value;
                 OnPropertyChanged();
+                RefreshIconCommandStates();
             }
         }
 
@@ -578,7 +587,7 @@ namespace FolderStyleEditorForWindows.ViewModels
         }
 
         [SupportedOSPlatform("windows")]
-        public async void SaveFolderSettings()
+        private async Task SaveFolderSettingsAsync()
         {
             var outcome = await _saveCoordinator.SaveAsync(new FolderStyleMutationRequest
             {
@@ -595,10 +604,7 @@ namespace FolderStyleEditorForWindows.ViewModels
             {
                 CaptureLoadedVisualStyleState();
                 RecordSavedAlias(FolderPath, Alias);
-                if (outcome.Result.HistoryShouldBeWritten)
-                {
-                    AddToHistory(FolderPath);
-                }
+                AddToHistory(FolderPath);
 
                 _toastService.Show(LocalizationManager.Instance["Toast_SaveSuccess"]);
             }
@@ -770,15 +776,14 @@ namespace FolderStyleEditorForWindows.ViewModels
             UpdateAliasAutocomplete();
         }
 
-        public ICommand SaveCommand { get; }
-        public ICommand OpenFromHistoryCommand { get; }
-        public ICommand ClearHistoryCommand { get; }
-        public ICommand AutoGetIconCommand { get; }
-        public ICommand LoadIconsCommand { get; }
-        public ICommand GoHomeCommand { get; }
+        public ICommand SaveCommand => _saveCommand!;
+        public ICommand OpenFromHistoryCommand => _openFromHistoryCommand!;
+        public ICommand ClearHistoryCommand => _clearHistoryCommand!;
+        public ICommand AutoGetIconCommand => _autoGetIconCommand!;
+        public ICommand LoadIconsCommand => _loadIconsCommand!;
         public ICommand ResetIconCommand { get; }
         public ICommand ClearAllStylesCommand { get; }
-        public ICommand ClearIconCacheCommand { get; }
+        public ICommand ClearIconCacheCommand => _clearIconCacheCommand!;
         public Action<string, string?>? NavigateToEditView { get; set; }
         public Action? NavigateToHomeView { get; set; }
         
@@ -804,6 +809,8 @@ namespace FolderStyleEditorForWindows.ViewModels
         
         public async Task StartEditSessionAsync(string folderPath, string? iconSourcePath = null)
         {
+            await _persistedDataLoadTask;
+
             var access = await _saveCoordinator.PrepareAccessForFolderAsync(folderPath);
             if (!access.CanContinue)
             {
@@ -1103,17 +1110,23 @@ namespace FolderStyleEditorForWindows.ViewModels
             RebuildExplorerHiddenLevelOptions();
             RebuildFolderHiddenLevelOptions();
             
-            SaveCommand = new RelayCommand(SaveFolderSettings);
-            OpenFromHistoryCommand = new RelayCommand<string?>(async path => await OpenFromHistoryAsync(path));
-            ClearHistoryCommand = new RelayCommand(async () => await ConfirmClearHistoryAsync());
-            AutoGetIconCommand = new RelayCommand(AutoGetIcon);
-            LoadIconsCommand = new RelayCommand<string?>(async (filePath) => await LoadIconsFromFileAsync(filePath));
-            GoHomeCommand = new RelayCommand(() => NavigateToHomeView?.Invoke());
+            _saveCommand = new AsyncRelayCommand(SaveFolderSettingsAsync, CanSaveFolderSettings);
+            _openFromHistoryCommand = new AsyncRelayCommand<string?>(
+                OpenFromHistoryAsync,
+                CanOpenFromHistory,
+                AsyncRelayCommandOptions.AllowConcurrentExecutions);
+            _clearHistoryCommand = new AsyncRelayCommand(
+                ConfirmClearHistoryAsync,
+                CanClearHistory,
+                AsyncRelayCommandOptions.AllowConcurrentExecutions);
+            _autoGetIconCommand = new AsyncRelayCommand(AutoGetIconAsync, CanAutoGetIcon);
+            _loadIconsCommand = new AsyncRelayCommand<string?>(LoadIconsFromFileAsync, CanLoadIconsFromFile);
+            _clearIconCacheCommand = new AsyncRelayCommand(ClearIconCacheAsync, CanClearIconCache);
             ResetIconCommand = new RelayCommand(ResetIcon);
             ClearAllStylesCommand = new RelayCommand(ClearAllStyles);
-            ClearIconCacheCommand = new AsyncRelayCommand(ClearIconCacheAsync);
             IconCacheButtonText = LocalizationManager.Instance["Edit_Reset_ClearIconCacheButton"];
-            _ = LoadPersistedDataAsync();
+            History.CollectionChanged += History_CollectionChanged;
+            _persistedDataLoadTask = LoadPersistedDataAsync();
             _ = RefreshExplorerHiddenVisibilityLevelAsync();
             _ = RefreshFolderHiddenVisibilityLevelAsync();
         }
@@ -1121,7 +1134,17 @@ namespace FolderStyleEditorForWindows.ViewModels
         private async Task OpenFromHistoryAsync(string? path)
         {
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
-            await StartEditSessionAsync(path);
+            if (_isOpeningFromHistory) return;
+
+            _isOpeningFromHistory = true;
+            try
+            {
+                await StartEditSessionAsync(path);
+            }
+            finally
+            {
+                _isOpeningFromHistory = false;
+            }
         }
 
         private async Task LoadPersistedDataAsync()
@@ -1267,6 +1290,54 @@ namespace FolderStyleEditorForWindows.ViewModels
             }
             
             _ = SaveHistoryAsync();
+        }
+
+        private bool CanSaveFolderSettings()
+        {
+            return !string.IsNullOrWhiteSpace(FolderPath) && Directory.Exists(FolderPath);
+        }
+
+        private static bool CanOpenFromHistory(string? path)
+        {
+            return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path);
+        }
+
+        private bool CanClearHistory()
+        {
+            return History.Count > 0;
+        }
+
+        private bool CanAutoGetIcon()
+        {
+            return !string.IsNullOrWhiteSpace(FolderPath) && Directory.Exists(FolderPath) && !IsLoadingIcons;
+        }
+
+        private bool CanLoadIconsFromFile(string? filePath)
+        {
+            return !string.IsNullOrWhiteSpace(filePath) && !IsLoadingIcons;
+        }
+
+        private bool CanClearIconCache()
+        {
+            return !string.IsNullOrWhiteSpace(FolderPath) && Directory.Exists(FolderPath);
+        }
+
+        private void History_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            _clearHistoryCommand?.NotifyCanExecuteChanged();
+        }
+
+        private void RefreshFolderScopedCommandStates()
+        {
+            _saveCommand?.NotifyCanExecuteChanged();
+            _autoGetIconCommand?.NotifyCanExecuteChanged();
+            _clearIconCacheCommand?.NotifyCanExecuteChanged();
+        }
+
+        private void RefreshIconCommandStates()
+        {
+            _autoGetIconCommand?.NotifyCanExecuteChanged();
+            _loadIconsCommand?.NotifyCanExecuteChanged();
         }
 
         private static string? ResolveReadablePath(string preferredPath, params string[] legacyPaths)
@@ -1495,7 +1566,7 @@ namespace FolderStyleEditorForWindows.ViewModels
        }
 
        [SupportedOSPlatform("windows")]
-       private async void AutoGetIcon()
+       private async Task AutoGetIconAsync()
        {
            try
            {

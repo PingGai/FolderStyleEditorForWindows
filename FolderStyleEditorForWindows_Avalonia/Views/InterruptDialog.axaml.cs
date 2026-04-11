@@ -66,6 +66,10 @@ namespace FolderStyleEditorForWindows.Views
             _codeBlockHost = this.FindControl<Border>("DialogCodeBlockHost");
             _codeBlockTextBox = this.FindControl<SelectableTextBlock>("DialogCodeBlockTextBox");
             _codeBlockScrollViewer = this.FindControl<ScrollViewer>("DialogCodeBlockScrollViewer");
+            if (_dialogCard != null)
+            {
+                _dialogCard.AddHandler(PointerPressedEvent, DialogCard_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            }
             if (_codeBlockHost != null)
             {
                 _codeBlockHost.AddHandler(PointerPressedEvent, CodeBlockHost_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -102,6 +106,8 @@ namespace FolderStyleEditorForWindows.Views
 
         private void OverlayMask_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            ClearCodeBlockSelection();
+
             if (DataContext is not InterruptDialogState { IsActive: true, AllowOverlayClickDismiss: true } state)
             {
                 return;
@@ -111,6 +117,14 @@ namespace FolderStyleEditorForWindows.Views
             {
                 state.CancelCommand.Execute(null);
                 e.Handled = true;
+            }
+        }
+
+        private void DialogCard_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (!IsPointerSourceInside(_codeBlockHost, e.Source))
+            {
+                ClearCodeBlockSelection();
             }
         }
 
@@ -470,18 +484,19 @@ namespace FolderStyleEditorForWindows.Views
             if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
             {
                 _codeBlockClickArmed = false;
-                if (_codeBlockScrollViewer?.ContextMenu != null)
-                {
-                    _codeBlockScrollViewer.ContextMenu.Open(_codeBlockScrollViewer);
-                    e.Handled = true;
-                }
                 return;
             }
 
+            var shouldOnlyClearSelection = HasCodeBlockSelection() && !IsPointerSourceInside(_codeBlockTextBox, e.Source);
             _codeBlockPointerPressedAt = DateTime.UtcNow;
             _codeBlockPointerMoved = false;
-            _codeBlockClickArmed = true;
+            _codeBlockClickArmed = !shouldOnlyClearSelection;
             _codeBlockPointerPressedPosition = e.GetPosition(_codeBlockScrollViewer);
+
+            if (shouldOnlyClearSelection)
+            {
+                ClearCodeBlockSelection();
+            }
         }
 
         private void CodeBlockHost_PointerMoved(object? sender, PointerEventArgs e)
@@ -619,7 +634,7 @@ namespace FolderStyleEditorForWindows.Views
         {
             if (_state?.CodeBlock is DialogCodeBlockItem codeBlock)
             {
-                await CopyCodeBlockContentAsync(codeBlock.Content);
+                await CopyCodeBlockContentAsync(GetCodeBlockCopyContent(codeBlock.Content));
             }
         }
 
@@ -639,6 +654,35 @@ namespace FolderStyleEditorForWindows.Views
             await desktop.MainWindow.Clipboard.SetTextAsync(content);
             var toastService = App.Services?.GetRequiredService<IToastService>();
             toastService?.Show(LocalizationManager.Instance["Toast_CopySuccess"], new SolidColorBrush(Color.Parse("#EBB762")));
+        }
+
+        private string GetCodeBlockCopyContent(string fallbackContent)
+        {
+            var selectedText = _codeBlockTextBox?.SelectedText;
+            return string.IsNullOrEmpty(selectedText) ? fallbackContent : selectedText;
+        }
+
+        private bool HasCodeBlockSelection()
+        {
+            return !string.IsNullOrEmpty(_codeBlockTextBox?.SelectedText);
+        }
+
+        private void ClearCodeBlockSelection()
+        {
+            if (HasCodeBlockSelection())
+            {
+                _codeBlockTextBox?.ClearSelection();
+            }
+        }
+
+        private static bool IsPointerSourceInside(Visual? ancestor, object? source)
+        {
+            if (ancestor == null || source is not Visual visual)
+            {
+                return false;
+            }
+
+            return ReferenceEquals(ancestor, visual) || ancestor.IsVisualAncestorOf(visual);
         }
 
         private void CropResetHint_PointerPressed(object? sender, PointerPressedEventArgs e)

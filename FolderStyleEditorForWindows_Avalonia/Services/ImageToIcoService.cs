@@ -66,14 +66,7 @@ namespace FolderStyleEditorForWindows.Services
 
     public sealed class ImageToIcoService
     {
-        private static readonly string[] SupportedExtensions = [".svg", ".png", ".jpg", ".jpeg", ".bmp", ".webp"];
         private static readonly int[] IconSizes = [16, 24, 32, 48, 64, 128, 256];
-
-        public bool IsSupportedImagePath(string path)
-        {
-            var extension = Path.GetExtension(path);
-            return SupportedExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase);
-        }
 
         public async Task<LoadedImageToIcoSource> LoadPreviewAsync(string sourcePath, CancellationToken cancellationToken)
         {

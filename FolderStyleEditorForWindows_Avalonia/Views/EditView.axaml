@@ -9,7 +9,6 @@
             xmlns:i="using:Avalonia.Xaml.Interactivity"
             xmlns:ia="using:Avalonia.Xaml.Interactions.Animated"
             xmlns:behaviors="using:FolderStyleEditorForWindows.Behaviors"
-            xmlns:sys="using:System"
             mc:Ignorable="d" d:DesignWidth="404" d:DesignHeight="762"
             x:Class="FolderStyleEditorForWindows.Views.EditView"
             x:DataType="vm:MainViewModel">
@@ -429,7 +428,11 @@
                                             <Setter Property="Margin" Value="0"/>
                                             <Setter Property="Background" Value="Transparent"/>
                                             <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="CornerRadius" Value="9,9,9,9"/>
                                             <Setter Property="Focusable" Value="False"/>
+                                        </Style>
+                                        <Style Selector="ListBox#iconRowListBox ListBoxItem:selected">
+                                            <Setter Property="CornerRadius" Value="9,9,9,9"/>
                                         </Style>
                                         <Style Selector="ListBox#iconRowListBox ListBoxItem:pointerover /template/ ContentPresenter">
                                             <Setter Property="Background" Value="Transparent"/>
@@ -590,8 +593,7 @@
                                    TextWrapping="Wrap"/>
                         <controls:LiquidSegmentedSelector Items="{Binding ExplorerHiddenLevelOptions}"
                                                           SelectedKey="{Binding SelectedExplorerHiddenLevelKey}"
-                                                          Margin="6,4,6,6"
-                                                          IsEnabled="{Binding CanInteractWithExplorerHiddenVisibilityLevel}"/>
+                                                          Margin="6,4,6,6"/>
                     </StackPanel>
                 </Border>
                 

@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace FolderStyleEditorForWindows.Behaviors
 {
-    public class AutoHideScrollBehavior : Behavior<ScrollViewer>
+    public sealed class AutoHideScrollBehavior : Behavior<ScrollViewer>
     {
         public static readonly StyledProperty<double> VisibleOpacityProperty =
             AvaloniaProperty.Register<AutoHideScrollBehavior, double>(nameof(VisibleOpacity), 1.0);

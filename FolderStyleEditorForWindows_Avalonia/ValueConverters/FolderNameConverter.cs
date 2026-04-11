@@ -1,16 +1,17 @@
 using System;
 using System.Globalization;
+using Avalonia;
 using Avalonia.Data.Converters;
 
 namespace FolderStyleEditorForWindows.ValueConverters
 {
-    public class FolderNameConverter : IValueConverter
+    public sealed class FolderNameConverter : IValueConverter
     {
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is string path)
             {
-                var (parentPath, folderName) = FolderStyleEditorForWindows.PathDisplayHelper.ParsePath(path);
+                var (_, folderName) = FolderStyleEditorForWindows.PathDisplayHelper.ParsePath(path);
                 return FolderStyleEditorForWindows.PathDisplayHelper.TruncateFolderName(folderName);
             }
             return string.Empty;
@@ -18,7 +19,7 @@ namespace FolderStyleEditorForWindows.ValueConverters
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            throw new NotImplementedException();
+            return AvaloniaProperty.UnsetValue;
         }
     }
 }

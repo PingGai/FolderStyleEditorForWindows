@@ -29,7 +29,6 @@ namespace FolderStyleEditorForWindows.Services
         public FolderStyleMutationStatus Status { get; init; }
         public string Message { get; init; } = string.Empty;
         public string? Details { get; init; }
-        public bool HistoryShouldBeWritten { get; init; }
 
         public bool IsSuccess => Status == FolderStyleMutationStatus.Success;
         public bool IsAccessDenied => Status == FolderStyleMutationStatus.AccessDenied;

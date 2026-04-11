@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace FolderStyleEditorForWindows.Models
 {
-    public class AppFeaturesConfig
+    public sealed class AppFeaturesConfig
     {
         public FeaturesConfig Features { get; set; } = new();
         public HoverIconConfig HoverIcon { get; set; } = new();
@@ -11,19 +11,19 @@ namespace FolderStyleEditorForWindows.Models
         public PermissionPromptConfig PermissionPrompt { get; set; } = new();
     }
 
-    public class FeaturesConfig
+    public sealed class FeaturesConfig
     {
         public int PinDoubleClickThreshold { get; set; } = 500;
     }
 
-    public class AppInfoConfig
+    public sealed class AppInfoConfig
     {
         public string HelpIcon { get; set; } = "";
         public string GitHubIcon { get; set; } = "";
         public string StarIcon { get; set; } = "";
     }
 
-    public class HoverIconConfig
+    public sealed class HoverIconConfig
     {
         public string DefaultIcon { get; set; } = "";
         public string ErrorIcon { get; set; } = "";
@@ -32,25 +32,25 @@ namespace FolderStyleEditorForWindows.Models
         public List<BadgeIconRule> BadgeIcons { get; set; } = new();
     }
 
-    public class FileTypesConfig
+    public sealed class FileTypesConfig
     {
         public List<string> Supported { get; set; } = new();
         public List<string> SupportedToConvert { get; set; } = new();
     }
 
-    public class MainIconRule
+    public sealed class MainIconRule
     {
         public List<string> Extensions { get; set; } = new();
         public string IconPath { get; set; } = "";
     }
 
-    public class BadgeIconRule
+    public sealed class BadgeIconRule
     {
         public string Status { get; set; } = "";
         public string IconPath { get; set; } = "";
     }
 
-    public class PinIconConfig
+    public sealed class PinIconConfig
     {
         public string MainIcon { get; set; } = "";
         public string PinnedIcon { get; set; } = "";
@@ -59,23 +59,23 @@ namespace FolderStyleEditorForWindows.Models
         public List<PinBadgeIconRule> BadgeIcons { get; set; } = new();
     }
 
-    public class PinBadgeIconRule
+    public sealed class PinBadgeIconRule
     {
         public string State { get; set; } = "";
         public string IconPath { get; set; } = "";
     }
 
-    public class AnimationsConfig
+    public sealed class AnimationsConfig
     {
         public int ToastAnimationDuration { get; set; } = 300; // in milliseconds
     }
 
-    public class PermissionPromptConfig
+    public sealed class PermissionPromptConfig
     {
         public bool SuppressElevationPrompt { get; set; }
     }
 
-    public class AppearanceConfig
+    public sealed class AppearanceConfig
     {
         public string? SvgDefaultColor { get; set; }
     }

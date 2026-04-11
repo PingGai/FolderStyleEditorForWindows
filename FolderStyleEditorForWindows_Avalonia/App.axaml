@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="using:FolderStyleEditorForWindows"
              xmlns:vc="using:FolderStyleEditorForWindows.ValueConverters"
-             xmlns:services="using:FolderStyleEditorForWindows.Services"
              x:Class="FolderStyleEditorForWindows.App"
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
@@ -16,12 +15,11 @@
             <vc:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
             <vc:PathDisplayConverter x:Key="PathDisplayConverter"/>
             <vc:FolderNameConverter x:Key="FolderNameConverter"/>
-            <vc:HistoryPathFadeWidthConverter x:Key="HistoryPathFadeWidthConverter"/>
+            <vc:HistoryPathSpacerWidthConverter x:Key="HistoryPathSpacerWidthConverter"/>
             <vc:DialogButtonWidthConverter x:Key="DialogButtonWidthConverter"/>
             <vc:DialogWidthRatioConverter x:Key="DialogWidthRatioConverter"/>
 
             <!-- Brushes -->
-            <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource Accent}" Opacity="0.2"/>
             <SolidColorBrush x:Key="PreviewBrush" Color="{StaticResource Fg2}" Opacity="0.14"/>
             <SolidColorBrush x:Key="IconSelectionBorderBrush" Color="{StaticResource Fg2}" Opacity="0.45"/>
             <SolidColorBrush x:Key="IconSelectionFillBrush" Color="{StaticResource Fg2}" Opacity="0.08"/>

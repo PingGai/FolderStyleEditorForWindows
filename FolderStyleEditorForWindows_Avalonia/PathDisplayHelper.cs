@@ -80,18 +80,5 @@ namespace FolderStyleEditorForWindows
             return folderName.Substring(folderName.Length - maxLength);
         }
 
-        /// <summary>
-        /// 计算路径显示需要的近似宽度（基于字符数估算）
-        /// </summary>
-        /// <param name="path">路径</param>
-        /// <param name="charWidth">单个字符的近似宽度（像素）</param>
-        /// <returns>近似宽度</returns>
-        public static double EstimatePathWidth(string path, double charWidth = 8.0)
-        {
-            if (string.IsNullOrEmpty(path))
-                return 0;
-
-            return path.Length * charWidth;
-        }
     }
 }

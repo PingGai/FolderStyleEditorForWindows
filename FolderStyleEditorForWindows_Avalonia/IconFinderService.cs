@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,95 +22,9 @@ namespace FolderStyleEditorForWindows
         public bool IsCompleted { get; init; }
     }
 
-    public class IconFinderService
+    public sealed class IconFinderService
     {
         private const int IncrementalScanReportIntervalMs = 180;
-
-        [SupportedOSPlatform("windows")]
-        public Task<List<string>> FindIconsAsync(string folderPath)
-        {
-            return Task.Run(() =>
-            {
-                var iconPaths = new List<string>();
-                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                if (!Directory.Exists(folderPath))
-                {
-                    return iconPaths;
-                }
-
-                // 1. Scan root directory
-                var rootFiles = Directory.EnumerateFiles(folderPath)
-                    .Where(f => SafeHasIcon(f))
-                    .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    .ThenBy(f => f.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
-                foreach (var file in rootFiles)
-                {
-                    if (seen.Add(file))
-                    {
-                        iconPaths.Add(file);
-                    }
-                }
-
-                if (iconPaths.Count >= 4)
-                {
-                    return iconPaths.Take(4).ToList();
-                }
-
-                // 2. Scan second-level directories
-                try
-                {
-                    var subDirs = Directory.EnumerateDirectories(folderPath);
-                    foreach (var dir in subDirs)
-                    {
-                        var subFiles = Directory.EnumerateFiles(dir)
-                            .Where(f => SafeHasIcon(f))
-                            .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                            .ThenBy(f => f.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
-                        foreach (var file in subFiles)
-                        {
-                            if (seen.Add(file))
-                            {
-                                iconPaths.Add(file);
-                            }
-                        }
-
-                        if (iconPaths.Count >= 4)
-                        {
-                            return iconPaths.Take(4).ToList();
-                        }
-                    }
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    // Ignore directories we can't access
-                }
-
-                // 3. If still not enough, scan all directories recursively
-                if (iconPaths.Count < 4)
-                {
-                    try
-                    {
-                        var allFiles = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
-                            .Where(SafeHasIcon)
-                            .OrderBy(f => !f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                            .ThenBy(f => f.Contains("uninstall", StringComparison.OrdinalIgnoreCase));
-                        foreach (var file in allFiles)
-                        {
-                            if (seen.Add(file))
-                            {
-                                iconPaths.Add(file);
-                            }
-                        }
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        // Ignore directories we can't access
-                    }
-                }
-
-                return iconPaths;
-            });
-        }
 
         /// <summary>
         /// 渐进式扫描：优先根目录与一层子目录，超时会提前上报已发现的图标路径。
@@ -168,7 +81,7 @@ namespace FolderStyleEditorForWindows
                             }
                             catch
                             {
-                                // 鏌愪簺鏂囦欢鍦ㄦ鏌ュ浘鏍囨椂鍙兘鎶涘紓甯革紝蹇界暐浠ヤ繚璇佹壂鎻忎笉涓柇
+                                // 部分文件在检查图标时可能抛异常，忽略以保证扫描不中断。
                             }
 
                             if (stopwatch.ElapsedMilliseconds >= IncrementalScanReportIntervalMs)

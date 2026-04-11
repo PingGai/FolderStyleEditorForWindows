@@ -8,7 +8,7 @@ using FolderStyleEditorForWindows.ViewModels;
 
 namespace FolderStyleEditorForWindows.Services
 {
-    public class HoverIconService
+    public sealed class HoverIconService
     {
         public HoverIconViewModel ViewModel { get; }
         private readonly AppConfig _config;

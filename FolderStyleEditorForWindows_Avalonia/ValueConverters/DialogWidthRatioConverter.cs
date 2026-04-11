@@ -5,7 +5,7 @@ using Avalonia.Data.Converters;
 
 namespace FolderStyleEditorForWindows.ValueConverters
 {
-    public class DialogWidthRatioConverter : IMultiValueConverter
+    public sealed class DialogWidthRatioConverter : IMultiValueConverter
     {
         private const double BaseWidthRatio = 0.64;
 

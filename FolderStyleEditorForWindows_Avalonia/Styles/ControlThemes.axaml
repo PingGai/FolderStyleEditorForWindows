@@ -84,20 +84,6 @@
             </Transitions>
         </Setter>
     </Style>
-    <Style Selector="ComboBox.Input">
-        <Setter Property="Background" Value="{StaticResource Bg1Brush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="{StaticResource RadiusMd}"/>
-        <Setter Property="Height" Value="44"/>
-        <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="Padding" Value="12,0"/>
-        <Setter Property="Transitions">
-            <Transitions>
-                <BrushTransition Property="BorderBrush" Duration="0.2"/>
-            </Transitions>
-        </Setter>
-    </Style>
     <Style Selector="TextBox.Input:focus">
         <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
         <!-- BoxShadow is not a direct property of TextBox, moved to template if needed -->
@@ -164,14 +150,6 @@
         <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
         <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
     </Style>
-    <Style Selector="TextBlock.HoverFloat">
-        <Setter Property="behaviors:HoverFloatBehavior.IsEnabled" Value="True"/>
-        <Setter Property="behaviors:HoverFloatBehavior.HoverScale" Value="1.08"/>
-        <Setter Property="behaviors:HoverFloatBehavior.PressScale" Value="1"/>
-        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetX" Value="2.4"/>
-        <Setter Property="behaviors:HoverFloatBehavior.MaxOffsetY" Value="2.4"/>
-        <Setter Property="behaviors:HoverFloatBehavior.LerpFactor" Value="0.22"/>
-    </Style>
    <!-- Button Variants -->
     <Style Selector="Button.BtnPill">
         <Setter Property="CornerRadius" Value="{StaticResource RadiusPill}"/>
@@ -190,25 +168,7 @@
       <Setter Property="Foreground" Value="{StaticResource DangerBrush}"/>
       <Setter Property="Opacity" Value="0.7"/>
  </Style>
- <Style Selector="Button.BtnClearHistory">
-     <Setter Property="Template">
-         <ControlTemplate>
-             <Border Name="PART_Border"
-                     Background="{TemplateBinding Background}"
-                     BorderBrush="{TemplateBinding BorderBrush}"
-                     BorderThickness="{TemplateBinding BorderThickness}"
-                     CornerRadius="{TemplateBinding CornerRadius}"
-                     Padding="{TemplateBinding Padding}">
-                 <ContentPresenter Name="PART_ContentPresenter"
-                               Content="{TemplateBinding Content}"
-                               ContentTemplate="{TemplateBinding ContentTemplate}"
-                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
-             </Border>
-         </ControlTemplate>
-     </Setter>
- </Style>
-<!-- 阻止BtnHistory按钮在悬停时变灰 -->
+ <!-- 阻止BtnHistory按钮在悬停时变灰 -->
 <Style Selector="Button.BtnHistory /template/ Border">
     <Setter Property="BoxShadow" Value="{StaticResource ShadowHistory}"/>
 </Style>
@@ -332,16 +292,6 @@
 
     <Style Selector="Button.TitleBarButton:pointerover /template/ Border#PART_Border">
         <Setter Property="Background" Value="#1A000000"/>
-    </Style>
-
-    <!-- Icon Picker ListBoxItem Style -->
-    <Style Selector="ListBoxItem">
-        <Setter Property="CornerRadius" Value="9,9,9,9"/>
-    </Style>
-
-    <!-- Icon Picker ListBoxItem Selected Style -->
-    <Style Selector="ListBoxItem:selected">
-        <Setter Property="CornerRadius" Value="9,9,9,9"/>
     </Style>
 
     <!-- ScrollBar Transition -->

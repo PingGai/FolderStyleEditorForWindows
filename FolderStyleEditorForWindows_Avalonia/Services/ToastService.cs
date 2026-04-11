@@ -7,7 +7,7 @@ using FolderStyleEditorForWindows.ViewModels;
 
 namespace FolderStyleEditorForWindows.Services
 {
-    public class ToastService : IToastService
+    public sealed class ToastService : IToastService
     {
         public ObservableCollection<ToastViewModel> Toasts { get; } = new();
 

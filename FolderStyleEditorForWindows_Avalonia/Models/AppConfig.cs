@@ -1,6 +1,6 @@
 namespace FolderStyleEditorForWindows.Models
 {
-    public class AppConfig
+    public sealed class AppConfig
     {
         public int ConfigSchemaVersion { get; set; } = 2;
         public string? Language { get; set; }
@@ -22,14 +22,14 @@ namespace FolderStyleEditorForWindows.Models
         public EditHintCarouselConfig EditHintCarousel { get; set; } = new EditHintCarouselConfig();
     }
 
-    public class LanguageDefaultsConfig
+    public sealed class LanguageDefaultsConfig
     {
         public string[] ChineseCultures { get; set; } = new[] { "zh-CN", "zh-Hans", "zh-Hant", "zh-TW", "zh-HK" };
         public string[] EnglishCultures { get; set; } = new[] { "en-US", "en-GB", "en" };
         public string DefaultCulture { get; set; } = "zh-CN";
     }
 
-    public class DragOverlayConfig
+    public sealed class DragOverlayConfig
     {
         public bool DismissOnEsc { get; set; } = false;
         public bool ShowPrimaryButton { get; set; } = false;
@@ -37,13 +37,13 @@ namespace FolderStyleEditorForWindows.Models
         public bool AllowOverlayClickDismiss { get; set; } = false;
     }
 
-    public class DialogBehaviorConfig
+    public sealed class DialogBehaviorConfig
     {
         public bool DefaultDismissOnEsc { get; set; } = true;
         public bool DefaultAllowOverlayClickDismiss { get; set; } = false;
     }
 
-    public class UiBehaviorConfig
+    public sealed class UiBehaviorConfig
     {
         public string DragIndicatorStrokeColor { get; set; } = "#AAB7C3";
         public double DragIndicatorStrokeOpacity { get; set; } = 0.86;
@@ -51,17 +51,17 @@ namespace FolderStyleEditorForWindows.Models
         public string DragOverlayWarningTextColor { get; set; } = "#E07167";
     }
 
-    public class AppPathConfig
+    public sealed class AppPathConfig
     {
         public string? PreferredDataRoot { get; set; }
     }
 
-    public class PermissionBehaviorConfig
+    public sealed class PermissionBehaviorConfig
     {
         public bool SuppressElevationPrompt { get; set; } = false;
     }
 
-    public class FrameRateBehaviorConfig
+    public sealed class FrameRateBehaviorConfig
     {
         public int StaticContentRefreshFps { get; set; } = 0;
         public int BackgroundAmbientFps { get; set; } = 6;
@@ -87,7 +87,7 @@ namespace FolderStyleEditorForWindows.Models
         public bool ShowDetailedFrameRateOverlay { get; set; } = false;
     }
 
-    public class EditHintCarouselConfig
+    public sealed class EditHintCarouselConfig
     {
         public double RotationIntervalSeconds { get; set; } = 3.0;
         public string[] EnabledItems { get; set; } = new[] { "folder", "icon", "image", "alias" };

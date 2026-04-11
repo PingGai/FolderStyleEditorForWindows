@@ -77,13 +77,6 @@ namespace FolderStyleEditorForWindows.Views
                 aboutInfoIcon.Path = ConfigManager.Config.AppInfo.HelpIcon;
             }
 
-            var historyList = this.FindControl<ListBox>("historyList");
-            if (historyList != null)
-            {
-                historyList.SelectionMode = SelectionMode.Single;
-                historyList.SelectionChanged += (s, e) => historyList.SelectedItem = null;
-            }
-
             _ambientScheduler = App.Services?.GetService<AmbientAnimationScheduler>();
             _frameRateSettings = App.Services?.GetService<FrameRateSettings>();
 

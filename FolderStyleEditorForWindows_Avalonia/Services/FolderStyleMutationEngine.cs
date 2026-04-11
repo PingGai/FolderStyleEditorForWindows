@@ -12,11 +12,6 @@ namespace FolderStyleEditorForWindows.Services
     {
         private readonly FolderHiddenVisibilityService _folderHiddenVisibilityService;
 
-        public FolderStyleMutationEngine()
-            : this(new FolderHiddenVisibilityService())
-        {
-        }
-
         public FolderStyleMutationEngine(FolderHiddenVisibilityService folderHiddenVisibilityService)
         {
             _folderHiddenVisibilityService = folderHiddenVisibilityService;
@@ -90,8 +85,7 @@ namespace FolderStyleEditorForWindows.Services
                 return new FolderStyleMutationResult
                 {
                     Status = FolderStyleMutationStatus.Success,
-                    Message = LocalizationManager.Instance["Toast_SaveSuccess"],
-                    HistoryShouldBeWritten = true
+                    Message = LocalizationManager.Instance["Toast_SaveSuccess"]
                 };
             }
             catch (UnauthorizedAccessException ex)

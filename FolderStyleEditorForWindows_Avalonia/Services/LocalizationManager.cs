@@ -254,8 +254,6 @@ namespace FolderStyleEditorForWindows.Services
         private bool IsLanguageAvailable(string culture) =>
             AvailableLanguages.Any(l => l.Culture.Equals(culture, StringComparison.OrdinalIgnoreCase));
 
-        public string GetCurrentCulture() => _currentCultureName;
-
         public string this[string key]
         {
             get

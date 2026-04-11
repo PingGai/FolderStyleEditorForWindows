@@ -7,8 +7,11 @@ using System.Globalization;
 
 namespace FolderStyleEditorForWindows.ValueConverters
 {
-    public class BoolToBrushConverter : IValueConverter
+    public sealed class BoolToBrushConverter : IValueConverter
     {
+        private static readonly IBrush FallbackSelectedBrush = new SolidColorBrush(Colors.LightGray);
+        private static readonly IBrush TransparentBrush = new SolidColorBrush(Colors.Transparent);
+
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is bool isSelected && isSelected)
@@ -19,10 +22,10 @@ namespace FolderStyleEditorForWindows.ValueConverters
                     return selectedBrush;
                 }
                 // 默认高亮颜色
-                return new SolidColorBrush(Colors.LightGray);
+                return FallbackSelectedBrush;
             }
             // 如果为 false，返回透明画刷
-            return new SolidColorBrush(Colors.Transparent);
+            return TransparentBrush;
         }
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

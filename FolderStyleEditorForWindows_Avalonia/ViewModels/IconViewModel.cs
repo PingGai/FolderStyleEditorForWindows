@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace FolderStyleEditorForWindows.ViewModels
 {
-    public class IconViewModel : INotifyPropertyChanged, IDisposable
+    public sealed class IconViewModel : INotifyPropertyChanged, IDisposable
     {
         private const int BitmapDisposeBatchSize = 16;
         private static readonly TimeSpan BitmapDisposeBatchDelay = TimeSpan.FromMilliseconds(24);

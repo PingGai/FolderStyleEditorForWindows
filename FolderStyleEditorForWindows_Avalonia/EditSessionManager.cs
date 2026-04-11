@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel;
 using System.IO;
-using System.Runtime.Versioning;
 using System.Threading;
 using System.Threading.Tasks;
 using FolderStyleEditorForWindows.ViewModels;
@@ -89,39 +88,6 @@ namespace FolderStyleEditorForWindows
             {
                 // Skip silently; session restore is non-critical.
             }
-        }
-
-        [SupportedOSPlatform("windows")]
-        public bool TryRestoreState()
-        {
-            if (!File.Exists(TempFilePath)) return false;
-
-            try
-            {
-                var json = File.ReadAllText(TempFilePath);
-                var state = JsonConvert.DeserializeObject<SessionState>(json);
-                if (state == null) return false;
-
-                if (string.IsNullOrWhiteSpace(state.FolderPath) || !Directory.Exists(state.FolderPath))
-                {
-                    ClearSession();
-                    return false;
-                }
-
-                _viewModel.FolderPath = state.FolderPath;
-                _viewModel.Alias = state.Alias ?? string.Empty;
-                _viewModel.IconPath = state.IconPath ?? string.Empty;
-                return true;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
-        }
-
-        public void ClearSession()
-        {
-            ClearPersistedSession();
         }
 
         public static void ClearPersistedSession()

@@ -383,9 +383,7 @@ namespace FolderStyleEditorForWindows.Services
             }
 #endif
 
-            _debugCodeBlock = new DialogCodeBlockItem(
-                _loc["Dialog_Debug_TestError_Details"],
-                Array.Empty<DialogContextMenuItem>());
+            _debugCodeBlock = new DialogCodeBlockItem(_loc["Dialog_Debug_TestError_Details"]);
 
             _settings.PropertyChanged += Settings_PropertyChanged;
             _telemetry.PropertyChanged += Telemetry_PropertyChanged;

@@ -55,9 +55,12 @@ namespace FolderStyleEditorForWindows.Views
         private ScrollViewer? _editScrollViewer;
         private ScrollViewer? _iconListScrollViewer;
         private ScrollViewer? _aliasAutocompleteScrollViewer;
+        private IBrush? _editScrollOpacityMask;
+        private readonly Dictionary<Border, BoxShadows> _scrollPerformanceBoxShadows = new();
         private VerticalScrollViewerAnimatedBehavior? _editScrollAnimatedBehavior;
         private VerticalScrollViewerAnimatedBehavior? _iconListScrollAnimatedBehavior;
         private VerticalScrollViewerAnimatedBehavior? _aliasAutocompleteScrollAnimatedBehavior;
+        private bool _isScrollPerformanceModeActive;
         private double _iconListTargetOffsetY;
         private int _iconCounterRepeatDelta;
         private Key? _iconCounterRepeatKey;
@@ -359,6 +362,7 @@ namespace FolderStyleEditorForWindows.Views
 
             var editScrollViewer = this.FindControl<ScrollViewer>("editScrollViewer");
             _editScrollViewer = editScrollViewer;
+            _editScrollOpacityMask = editScrollViewer?.OpacityMask;
             if (editScrollViewer != null && iconCounterHost != null)
             {
                 editScrollViewer.AddHandler(PointerWheelChangedEvent, (sender, e) =>
@@ -381,6 +385,7 @@ namespace FolderStyleEditorForWindows.Views
             }
 
             Dispatcher.UIThread.Post(AttachIconListInfrastructure, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(CacheScrollPerformanceVisuals, DispatcherPriority.Loaded);
             AttachWindowLifecycleHandlers();
             AddHandler(InputElement.PointerPressedEvent, EditView_PointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
             AddHandler(InputElement.PointerMovedEvent, EditView_PointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -429,6 +434,17 @@ namespace FolderStyleEditorForWindows.Views
             _isAmbientSuspended = suspended;
             UpdateAdminAmbientState();
             UpdateDragTipAmbientState();
+        }
+
+        public void SetScrollPerformanceMode(bool active)
+        {
+            if (_isScrollPerformanceModeActive == active)
+            {
+                return;
+            }
+
+            _isScrollPerformanceModeActive = active;
+            ApplyScrollPerformanceMode();
         }
 
         private void FrameRateSettings_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -2101,6 +2117,45 @@ namespace FolderStyleEditorForWindows.Views
             }
 
             _editScrollViewer.Offset = new Vector(_editScrollViewer.Offset.X, Math.Max(0, offsetY));
+        }
+
+        private void CacheScrollPerformanceVisuals()
+        {
+            if (_editScrollViewer != null)
+            {
+                _editScrollOpacityMask ??= _editScrollViewer.OpacityMask;
+            }
+
+            _scrollPerformanceBoxShadows.Clear();
+            foreach (var border in this.GetVisualDescendants().OfType<Border>())
+            {
+                if (!border.Classes.Contains("Card") && !border.Classes.Contains("IconPicker"))
+                {
+                    continue;
+                }
+
+                _scrollPerformanceBoxShadows[border] = border.BoxShadow;
+            }
+        }
+
+        private void ApplyScrollPerformanceMode()
+        {
+            CacheScrollPerformanceVisuals();
+
+            if (_editScrollViewer != null)
+            {
+                _editScrollViewer.OpacityMask = _isScrollPerformanceModeActive ? null : _editScrollOpacityMask;
+            }
+
+            foreach (var pair in _scrollPerformanceBoxShadows)
+            {
+                if (pair.Key.GetVisualRoot() == null)
+                {
+                    continue;
+                }
+
+                pair.Key.BoxShadow = _isScrollPerformanceModeActive ? default : pair.Value;
+            }
         }
 
         private void UpdateIconListScrollAnimatorFrameRate()

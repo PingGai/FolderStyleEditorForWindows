@@ -72,30 +72,14 @@ namespace FolderStyleEditorForWindows.Services
         }
     }
 
-    public sealed class DialogContextMenuItem
-    {
-        public DialogContextMenuItem(string text, ICommand command, bool showSeparatorBefore = false)
-        {
-            Text = text;
-            Command = command;
-            ShowSeparatorBefore = showSeparatorBefore;
-        }
-
-        public string Text { get; }
-        public ICommand Command { get; }
-        public bool ShowSeparatorBefore { get; }
-    }
-
     public sealed class DialogCodeBlockItem
     {
-        public DialogCodeBlockItem(string content, IEnumerable<DialogContextMenuItem> menuItems)
+        public DialogCodeBlockItem(string content)
         {
             Content = content;
-            MenuItems = new ObservableCollection<DialogContextMenuItem>(menuItems);
         }
 
         public string Content { get; }
-        public ObservableCollection<DialogContextMenuItem> MenuItems { get; }
     }
 
     public sealed class DialogActionLinkItem
@@ -1138,6 +1122,7 @@ namespace FolderStyleEditorForWindows.Services
                 Title = loc["Home_AboutDialog_Title"],
                 HeaderMeta = loc["Home_AboutDialog_Publisher"],
                 Content = loc["Home_AboutDialog_Content"],
+                WidthRatio = 1.10,
                 PrimaryButtonText = loc["Dialog_Primary_Acknowledge"],
                 ActionLinks = new[]
                 {
@@ -1182,22 +1167,7 @@ namespace FolderStyleEditorForWindows.Services
             DialogCodeBlockItem? codeBlock = null;
             if (!string.IsNullOrWhiteSpace(details))
             {
-                var copyCommand = new RelayCommand(async () =>
-                {
-                    if (Avalonia.Application.Current?.ApplicationLifetime is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop ||
-                        desktop.MainWindow?.Clipboard == null)
-                    {
-                        return;
-                    }
-
-                    await desktop.MainWindow.Clipboard.SetTextAsync(details);
-                    _toastService.Show(loc["Toast_CopySuccess"], new SolidColorBrush(Color.Parse("#EBB762")));
-                });
-
-                codeBlock = new DialogCodeBlockItem(details, new[]
-                {
-                    new DialogContextMenuItem(loc["Dialog_CodeBlock_Copy"], copyCommand)
-                });
+                codeBlock = new DialogCodeBlockItem(details);
             }
 
             return ShowAsync(new InterruptDialogOptions

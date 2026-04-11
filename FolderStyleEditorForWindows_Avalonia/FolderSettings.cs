@@ -1,13 +1,11 @@
 namespace FolderStyleEditorForWindows
 {
-    public class FolderSettings
+    public sealed class FolderSettings
     {
         public string FolderPath { get; set; } = string.Empty;
         public string Alias { get; set; } = string.Empty;
         public string IconResource { get; set; } = string.Empty;
         public int IconIndex { get; set; }
-
-        public FolderSettings() { }
 
         public FolderSettings(string folderPath)
         {

@@ -24,14 +24,10 @@
                 IsVisible="{Binding ShowBack, RelativeSource={RelativeSource AncestorType=local:TitleBarButtons}}">
             <Button Name="btnBack"
                     Classes="TitleBarButton"
-                    Padding="0"
-                    Width="38"
-                    Height="28"
                     Click="BackButton_Click">
                 <Path Data="{StaticResource BackIcon}"
                       HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      Margin="0,0,9,6"/>
+                      VerticalAlignment="Center"/>
             </Button>
         </Border>
 
@@ -52,14 +48,10 @@
                     IsVisible="{Binding ShowMinimize, RelativeSource={RelativeSource AncestorType=local:TitleBarButtons}}">
                 <Button Name="btnMin"
                         Classes="TitleBarButton"
-                        Padding="0"
-                        Width="38"
-                        Height="28"
                         Click="MinimizeButton_Click">
                     <Path Data="{StaticResource MinimizeIcon}"
                           HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          Margin="0,0,4,12"/>
+                          VerticalAlignment="Center"/>
                 </Button>
             </Border>
 
@@ -75,14 +67,10 @@
                     IsVisible="{Binding ShowClose, RelativeSource={RelativeSource AncestorType=local:TitleBarButtons}}">
                 <Button Name="btnClose"
                         Classes="TitleBarButton"
-                        Padding="0"
-                        Width="38"
-                        Height="28"
                         Click="CloseButton_Click">
                     <Path Data="{StaticResource CloseIcon}"
                           HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          Margin="0,0,5,4.6"/>
+                          VerticalAlignment="Center"/>
                 </Button>
             </Border>
         </StackPanel>

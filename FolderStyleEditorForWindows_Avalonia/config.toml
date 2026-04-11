@@ -101,9 +101,6 @@ DragOverlayWarningTextColor = "#E07167"
 [Paths]
 PreferredDataRoot = ""
 
-[Permissions]
-SuppressElevationPrompt = false
-
 [FrameRate]
 StaticContentRefreshFps = 0
 BackgroundAmbientFps = 6

@@ -276,7 +276,7 @@ namespace FolderStyleEditorForWindows
 
             this.Loaded += (_, _) =>
             {
-                _displayInfoService.Refresh();
+                RefreshDisplayInfoForCurrentWindow();
                 StartRenderLoop();
                 _idleMemoryTrimTimer.Start();
                 _animationStateSource.MarkStaticDirty();
@@ -313,7 +313,7 @@ namespace FolderStyleEditorForWindows
         private void MainWindow_Activated(object? sender, EventArgs e)
         {
             _performanceMonitorViewModel.SetHostActive(true);
-            _displayInfoService.Refresh();
+            RefreshDisplayInfoForCurrentWindow();
             if (_languagePopupDesiredOpen && _languagePopup is { IsOpen: true })
             {
                 _ = SetLanguagePopupOpenAsync(false);
@@ -339,8 +339,14 @@ namespace FolderStyleEditorForWindows
         {
             if (e.Property == BoundsProperty)
             {
+                RefreshDisplayInfoForCurrentWindow();
                 _animationStateSource.MarkStaticDirty();
             }
+        }
+
+        private void RefreshDisplayInfoForCurrentWindow()
+        {
+            _displayInfoService.Refresh(TryGetPlatformHandle()?.Handle ?? default);
         }
 
         private void FrameRateSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -591,7 +597,7 @@ namespace FolderStyleEditorForWindows
         {
             base.OnOpened(e);
 
-            // 绛変竴甯ф覆鏌撳啀鎾紙鏇村鏄撯€滆倝鐪煎彲瑙佲€濓級
+            // 等一帧渲染后再播放，避免窗口淡入时出现可见跳变。
             _ = Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 await AnimateFadeIn();
@@ -642,11 +648,11 @@ namespace FolderStyleEditorForWindows
                 {
                     try
                     {
-                        // 纭繚璧峰鍙
+                        // 确保淡出动画从可见状态开始。
                         Opacity = 1;
                         await AnimateFadeOut();
 
-                        // 鍔ㄧ敾缁撴潫鍚庡啀鐪熸鍏抽棴
+                        // 动画结束后再真正关闭窗口。
                         Close();
                     }
                     finally
@@ -1341,57 +1347,6 @@ namespace FolderStyleEditorForWindows
             _animationStateSource.MarkStaticDirty();
         }
 
-        public async Task AnimateMinimizeTransitionAsync()
-        {
-            if (_rootLayer == null || WindowState == WindowState.Minimized)
-            {
-                return;
-            }
-
-            _animationStateSource.MarkTransitionActivity(WindowTransitionDurationMs);
-            var token = ReplaceWindowRootAnimationToken();
-            var translate = EnsureRootLayerTranslateTransform();
-            _rootLayer.Opacity = 1;
-            translate.X = 0;
-            translate.Y = 0;
-
-            var animation = new Animation
-            {
-                Duration = TimeSpan.FromMilliseconds(180),
-                Easing = new CubicEaseOut(),
-                FillMode = FillMode.Forward,
-                Children =
-                {
-                    new KeyFrame
-                    {
-                        Cue = new Cue(0),
-                        Setters =
-                        {
-                            new Setter(Visual.OpacityProperty, 1.0),
-                            new Setter(Avalonia.Media.TranslateTransform.YProperty, 0.0)
-                        }
-                    },
-                    new KeyFrame
-                    {
-                        Cue = new Cue(1),
-                        Setters =
-                        {
-                            new Setter(Visual.OpacityProperty, 0.78),
-                            new Setter(Avalonia.Media.TranslateTransform.YProperty, 14.0)
-                        }
-                    }
-                }
-            };
-
-            try
-            {
-                await animation.RunAsync(_rootLayer, token);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
-
         public void BeginMinimizeFromTitleBar()
         {
             if (WindowState == WindowState.Minimized)
@@ -1479,7 +1434,7 @@ namespace FolderStyleEditorForWindows
             {
                 Duration = TimeSpan.FromMilliseconds(200),
                 Easing = new CubicEaseOut(),
-                FillMode = FillMode.Forward, // 鍏抽敭锛氬惁鍒欎細鍥炲脊
+                FillMode = FillMode.Forward, // 保持最后一帧，避免动画结束后回弹。
                 Children =
                 {
                     new KeyFrame
@@ -1858,18 +1813,23 @@ namespace FolderStyleEditorForWindows
             }
 
             var snapshot = _animationStateSource.Snapshot();
+            _editView?.SetScrollPerformanceMode(snapshot.IsScrolling && _editView.IsVisible);
             _frameRateGovernor.Update(snapshot, _displayInfoService.CurrentRefreshRateHz);
-            UpdateTransparencyModeForCurrentFrame();
+            UpdateTransparencyModeForCurrentFrame(snapshot);
             var decision = _renderScheduler.Evaluate(
                 _frameRateGovernor.ForegroundTargetFps,
+                _displayInfoService.CurrentRefreshRateHz,
                 snapshot.HasStaticDirtyRegion,
                 _frameRateSettings.StaticContentRefreshFps);
 
             if (decision.ShouldRenderForeground)
             {
                 _performanceTelemetryService.RecordForegroundFrame();
-                _layerInvalidationController.Invalidate(RenderLayer.Content);
-                _layerInvalidationController.Invalidate(RenderLayer.Overlay);
+                if (!snapshot.IsScrolling)
+                {
+                    _layerInvalidationController.Invalidate(RenderLayer.Content);
+                    _layerInvalidationController.Invalidate(RenderLayer.Overlay);
+                }
             }
 
             if (decision.ShouldRenderStatic)
@@ -1904,9 +1864,13 @@ namespace FolderStyleEditorForWindows
             _renderWakeTimer.Start();
         }
 
-        private void UpdateTransparencyModeForCurrentFrame()
+        private void UpdateTransparencyModeForCurrentFrame(FrameRateStateSnapshot snapshot)
         {
-            var shouldUseLowCostTransparency = _frameRateGovernor.ForegroundTargetFps <= 0 || _isWindowRuntimeSuspended;
+            var shouldUseLowCostTransparency =
+                snapshot.IsScrolling ||
+                snapshot.IsDragging ||
+                _frameRateGovernor.ForegroundTargetFps <= 0 ||
+                _isWindowRuntimeSuspended;
             if (_isLowCostTransparencyActive == shouldUseLowCostTransparency)
             {
                 return;

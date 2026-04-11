@@ -9,13 +9,6 @@ using Tomlyn;
 
 namespace FolderStyleEditorForWindows.Services
 {
-    public sealed class ConfigMigrationResult
-    {
-        public string? SourcePath { get; init; }
-        public bool Migrated { get; init; }
-        public bool WroteBack { get; init; }
-    }
-
     public static class ConfigManager
     {
         private const string ConfigFileName = "config.toml";
@@ -24,7 +17,6 @@ namespace FolderStyleEditorForWindows.Services
 
         public static string AppDataDirectory { get; }
         public static string ConfigPath => _configPath;
-        public static ConfigMigrationResult LastMigrationResult { get; private set; } = new();
 
         public static AppConfig Config { get; private set; } = new();
 
@@ -49,22 +41,18 @@ namespace FolderStyleEditorForWindows.Services
 
         private static void LoadConfig()
         {
-            string? sourcePath = null;
             string? sourceContent = null;
-            var migrated = false;
 
             if (File.Exists(_configPath))
             {
-                sourcePath = _configPath;
-                sourceContent = SafeReadUtf8(sourcePath);
+                sourceContent = SafeReadUtf8(_configPath);
             }
             else
             {
-                sourcePath = FindLatestLegacyConfigPath();
+                var sourcePath = FindLatestLegacyConfigPath();
                 if (!string.IsNullOrWhiteSpace(sourcePath))
                 {
                     sourceContent = SafeReadUtf8(sourcePath);
-                    migrated = true;
                 }
             }
 
@@ -72,13 +60,6 @@ namespace FolderStyleEditorForWindows.Services
             NormalizeAndPatch(Config);
 
             SaveConfigInternal(sourceContent);
-
-            LastMigrationResult = new ConfigMigrationResult
-            {
-                SourcePath = sourcePath,
-                Migrated = migrated,
-                WroteBack = true
-            };
         }
 
         public static void SaveConfig()
@@ -192,7 +173,6 @@ namespace FolderStyleEditorForWindows.Services
 
             text = UpsertSectionValue(text, "Paths", "PreferredDataRoot", QuoteString(cfg.Paths.PreferredDataRoot ?? AppDataDirectory));
 
-            text = UpsertSectionValue(text, "Permissions", "SuppressElevationPrompt", cfg.Permissions.SuppressElevationPrompt ? "true" : "false");
             text = UpsertSectionValue(text, "FrameRate", "StaticContentRefreshFps", cfg.FrameRate.StaticContentRefreshFps.ToString());
             text = UpsertSectionValue(text, "FrameRate", "BackgroundAmbientFps", cfg.FrameRate.BackgroundAmbientFps.ToString());
             text = UpsertSectionValue(text, "FrameRate", "HomeTitleAmbientFps", cfg.FrameRate.HomeTitleAmbientFps.ToString());
@@ -225,6 +205,7 @@ namespace FolderStyleEditorForWindows.Services
             text = UpsertSectionValue(text, "EditHintCarousel", "AliasGradientEnd", QuoteString(cfg.EditHintCarousel.AliasGradientEnd));
 
             text = UpsertSectionValue(text, "Appearance", "SvgDefaultColor", QuoteString(cfg.Appearance.SvgDefaultColor ?? "#ff606064"));
+            text = RemoveSection(text, "Permissions");
 
             return text;
         }
@@ -276,6 +257,35 @@ namespace FolderStyleEditorForWindows.Services
             return $"{prefix}{Environment.NewLine}{line}{Environment.NewLine}{suffix.TrimStart('\r', '\n')}";
         }
 
+        private static string RemoveSection(string text, string section)
+        {
+            var sectionPattern = $"(?m)^\\[{Regex.Escape(section)}\\]\\s*$";
+            var sectionMatch = Regex.Match(text, sectionPattern);
+            if (!sectionMatch.Success)
+            {
+                return text;
+            }
+
+            var sectionRegex = new Regex("(?m)^\\[.+\\]\\s*$");
+            var nextSectionMatch = sectionRegex.Match(text, sectionMatch.Index + sectionMatch.Length);
+            var sectionEnd = nextSectionMatch.Success ? nextSectionMatch.Index : text.Length;
+
+            var prefix = text.Substring(0, sectionMatch.Index).TrimEnd();
+            var suffix = text.Substring(sectionEnd).TrimStart('\r', '\n');
+
+            if (string.IsNullOrEmpty(prefix))
+            {
+                return string.IsNullOrEmpty(suffix) ? string.Empty : suffix;
+            }
+
+            if (string.IsNullOrEmpty(suffix))
+            {
+                return prefix + Environment.NewLine;
+            }
+
+            return $"{prefix}{Environment.NewLine}{Environment.NewLine}{suffix}";
+        }
+
         private static string QuoteString(string value)
         {
             var escaped = value.Replace("\\", "\\\\").Replace("\"", "\\\"");
@@ -322,9 +332,6 @@ DragOverlayWarningTextColor = ""#E07167""
 
 [Paths]
 PreferredDataRoot = """"
-
-[Permissions]
-SuppressElevationPrompt = false
 
 [FrameRate]
 StaticContentRefreshFps = 0
@@ -427,7 +434,6 @@ AliasGradientEnd = ""#C084FC""
             cfg.Permissions ??= new PermissionBehaviorConfig();
             cfg.Features.PermissionPrompt.SuppressElevationPrompt =
                 cfg.Features.PermissionPrompt.SuppressElevationPrompt || cfg.Permissions.SuppressElevationPrompt;
-            cfg.Permissions.SuppressElevationPrompt = cfg.Features.PermissionPrompt.SuppressElevationPrompt;
             cfg.FrameRate ??= new FrameRateBehaviorConfig();
             cfg.EditHintCarousel ??= new EditHintCarouselConfig();
             cfg.FrameRate.StaticContentRefreshFps = Math.Clamp(cfg.FrameRate.StaticContentRefreshFps, 0, 240);

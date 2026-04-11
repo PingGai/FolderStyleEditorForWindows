@@ -1,8 +1,0 @@
-# 默认构建 x64 + x86（Both x64 + x86）
-powershell ./build/build.ps1
-
-# 只构建 x64（Only x64）
-powershell ./build/build.ps1 -Runtime win-x64
-
-# 只构建 x86 （Only x86）
-powershell ./build/build.ps1 -Runtime win-x86

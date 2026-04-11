@@ -8,7 +8,7 @@ namespace FolderStyleEditorForWindows.ValueConverters
     /// <summary>
     /// 根据是否存在第二个按钮，返回主按钮/次按钮宽度。
     /// </summary>
-    public class DialogButtonWidthConverter : IMultiValueConverter
+    public sealed class DialogButtonWidthConverter : IMultiValueConverter
     {
         public object? Convert(IList<object?> values, Type targetType, object? parameter, CultureInfo culture)
         {

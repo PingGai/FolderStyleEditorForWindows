@@ -5,7 +5,7 @@ using FolderStyleEditorForWindows.Services;
 
 namespace FolderStyleEditorForWindows.ViewModels
 {
-    public class LanguageMenuViewModel
+    public sealed class LanguageMenuViewModel
     {
         public ObservableCollection<LanguageInfo> AvailableLanguages => LocalizationManager.Instance.AvailableLanguages;
 

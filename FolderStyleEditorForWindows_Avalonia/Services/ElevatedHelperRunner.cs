@@ -27,7 +27,7 @@ namespace FolderStyleEditorForWindows.Services
                     AutoFlush = true
                 };
 
-                var engine = new FolderStyleMutationEngine();
+                var engine = new FolderStyleMutationEngine(new FolderHiddenVisibilityService());
 
                 await writer.WriteLineAsync(JsonConvert.SerializeObject(new ElevatedHelperResponse
                 {
