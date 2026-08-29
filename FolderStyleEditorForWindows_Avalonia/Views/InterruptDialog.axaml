@@ -327,12 +327,30 @@
         <Grid RowDefinitions="Auto,*,Auto">
           <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12" IsVisible="{Binding IsStandardOverlay}">
             <TextBlock Text="{Binding Title}"
+                       IsVisible="{Binding HasNoVersionText}"
                        FontSize="18"
                        FontWeight="Bold"
                        Foreground="{Binding TitleForeground}"
                        Opacity="0.92"
                        TextAlignment="Center"
                        TextWrapping="Wrap"/>
+            <StackPanel HorizontalAlignment="Center"
+                        Spacing="1"
+                        IsVisible="{Binding HasVersionText}">
+              <TextBlock Text="{Binding Title}"
+                         FontSize="18"
+                         FontWeight="Bold"
+                         Foreground="{Binding TitleForeground}"
+                         Opacity="0.92"
+                         TextAlignment="Center"
+                         TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding VersionText}"
+                         FontSize="9"
+                         HorizontalAlignment="Center"
+                         Foreground="{StaticResource Fg2Brush}"
+                         Opacity="0.58"
+                         TextWrapping="NoWrap"/>
+            </StackPanel>
             <TextBlock Text="{Binding HeaderMeta}"
                        x:Name="DialogHeaderMetaText"
                        IsVisible="{Binding HasHeaderMeta}"

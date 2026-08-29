@@ -147,6 +147,7 @@ ImageToIco_Error_Content: "Please check whether the file format is valid or whet
 # Home Dialog
 Home_FolderPicker_Title: "Select Folder"
 Home_AboutDialog_Title: "About FolderStyleEditor"
+Home_AboutDialog_VersionPrefix: "V"
 Home_AboutDialog_SectionTitle: "About"
 Home_AboutDialog_Content: "A tool that can quickly modify folder aliases on Windows and easily set a folder representing an application to use the application's internal icon."
 Home_AboutDialog_Publisher: "By PING"

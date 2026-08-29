@@ -28,6 +28,7 @@ public partial class App : Application
             settings.LoadFromConfig(ConfigManager.Config);
             return settings;
         });
+        services.AddSingleton<AppVersionService>();
         services.AddSingleton<DisplayInfoService>();
         services.AddSingleton<AnimationStateSource>();
         services.AddSingleton<FrameRateGovernor>();
@@ -42,6 +43,7 @@ public partial class App : Application
         services.AddSingleton<HoverIconViewModel>();
         services.AddSingleton<HoverIconService>();
         services.AddSingleton<DragIntentAnalyzerService>();
+        services.AddSingleton<ExplorerSnapService>();
         services.AddSingleton<ElevationSessionState>();
         services.AddSingleton<LicenseCatalogService>();
         services.AddSingleton<InterruptDialogService>();

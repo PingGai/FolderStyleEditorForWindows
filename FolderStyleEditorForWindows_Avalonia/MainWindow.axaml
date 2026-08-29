@@ -76,6 +76,125 @@
             </Rectangle.Stroke>
         </Rectangle>
 
+        <Grid x:Name="SnapPreviewLayer"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              ClipToBounds="True"
+              IsHitTestVisible="False"
+              ZIndex="11000">
+            <Border x:Name="SnapPreviewLeftEdge"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Stretch"
+                    Width="92"
+                    Opacity="0">
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Border.Transitions>
+                <Border.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="0.96" ScaleY="0.96">
+                            <ScaleTransform.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="ScaleX" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                    <DoubleTransition Property="ScaleY" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </ScaleTransform.Transitions>
+                        </ScaleTransform>
+                        <TranslateTransform X="-12">
+                            <TranslateTransform.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="X" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </TranslateTransform.Transitions>
+                        </TranslateTransform>
+                    </TransformGroup>
+                </Border.RenderTransform>
+                <Grid ClipToBounds="True">
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                <GradientStop Color="#D8FFFFFF" Offset="0"/>
+                                <GradientStop Color="#92FFFFFF" Offset="0.36"/>
+                                <GradientStop Color="#00FFFFFF" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <svg:Svg x:Name="SnapPreviewLeftIcon"
+                             Width="26"
+                             Height="26"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Opacity="0"
+                             Path="avares://FolderStyleEditorForWindows/Resources/SVG/arrow-left-to-line.svg"
+                             Css="{DynamicResource SvgCss}">
+                        <svg:Svg.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut"/>
+                            </Transitions>
+                        </svg:Svg.Transitions>
+                    </svg:Svg>
+                </Grid>
+            </Border>
+
+            <Border x:Name="SnapPreviewRightEdge"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch"
+                    Width="92"
+                    Opacity="0">
+                <Border.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut"/>
+                    </Transitions>
+                </Border.Transitions>
+                <Border.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform ScaleX="0.96" ScaleY="0.96">
+                            <ScaleTransform.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="ScaleX" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                    <DoubleTransition Property="ScaleY" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </ScaleTransform.Transitions>
+                        </ScaleTransform>
+                        <TranslateTransform X="12">
+                            <TranslateTransform.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="X" Duration="0:0:0.2" Easing="CubicEaseOut"/>
+                                </Transitions>
+                            </TranslateTransform.Transitions>
+                        </TranslateTransform>
+                    </TransformGroup>
+                </Border.RenderTransform>
+                <Grid ClipToBounds="True">
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="100%,0%" EndPoint="0%,0%">
+                                <GradientStop Color="#D8FFFFFF" Offset="0"/>
+                                <GradientStop Color="#92FFFFFF" Offset="0.36"/>
+                                <GradientStop Color="#00FFFFFF" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <svg:Svg x:Name="SnapPreviewRightIcon"
+                             Width="26"
+                             Height="26"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Opacity="0"
+                             Path="avares://FolderStyleEditorForWindows/Resources/SVG/arrow-right-to-line.svg"
+                             Css="{DynamicResource SvgCss}">
+                        <svg:Svg.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut"/>
+                            </Transitions>
+                        </svg:Svg.Transitions>
+                    </svg:Svg>
+                </Grid>
+            </Border>
+        </Grid>
+
         <views:HoverIconAdorner DataContext="{Binding HoverIcon}" ZIndex="1000"/>
         <ItemsControl ItemsSource="{Binding Toasts}"
                       VerticalAlignment="Top"

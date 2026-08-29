@@ -53,8 +53,10 @@ namespace FolderStyleEditorForWindows
         private const uint SHCNE_ATTRIBUTES = 0x00000800;
         private const uint SHCNE_UPDATEDIR = 0x00001000;
         private const uint SHCNE_UPDATEITEM = 0x00002000;
+        private const uint SHCNE_RENAMEFOLDER = 0x00020000;
         private const uint SHCNF_PATHW = 0x0005;
         private const uint SHCNF_FLUSHNOWAIT = 0x2000;
+        private const string DefaultFolderIconResource = "%SystemRoot%\\System32\\shell32.dll,4";
         
         #endregion
 
@@ -143,6 +145,14 @@ namespace FolderStyleEditorForWindows
             };
 
             ThrowIfShellFailure(SHGetSetFolderCustomSettings(ref settings, folderPath, FCS_FORCEWRITE), folderPath, "set-folder-icon");
+            EnsureFolderCustomizationAttributes(folderPath);
+        }
+
+        public static void EnsureAliasShellState(string folderPath)
+        {
+            EnsureFolderCustomizationAttributes(folderPath);
+
+            SetFolderIcon(folderPath, GetCurrentFolderIconResourceOrDefault(folderPath));
         }
 
         /// <summary>
@@ -178,8 +188,13 @@ namespace FolderStyleEditorForWindows
             
             try
             {
+                var hasAlias = !string.IsNullOrWhiteSpace(DesktopIniHelper.ReadValue(folderPath, "LocalizedResourceName"));
                 var dirInfo = new DirectoryInfo(folderPath);
-                if ((dirInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+                if (hasAlias)
+                {
+                    EnsureFolderCustomizationAttributes(folderPath);
+                }
+                else if ((dirInfo.Attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
                 {
                     dirInfo.Attributes &= ~FileAttributes.ReadOnly;
                 }
@@ -190,6 +205,51 @@ namespace FolderStyleEditorForWindows
             }
         }
 
+        private static string GetCurrentFolderIconResourceOrDefault(string folderPath)
+        {
+            var iconResource = DesktopIniHelper.ReadValue(folderPath, "IconResource");
+            if (!string.IsNullOrWhiteSpace(iconResource))
+            {
+                return iconResource;
+            }
+
+            var iconFile = DesktopIniHelper.ReadValue(folderPath, "IconFile");
+            if (!string.IsNullOrWhiteSpace(iconFile))
+            {
+                var iconIndex = DesktopIniHelper.ReadValue(folderPath, "IconIndex");
+                return string.IsNullOrWhiteSpace(iconIndex)
+                    ? iconFile
+                    : $"{iconFile},{iconIndex}";
+            }
+
+            return DefaultFolderIconResource;
+        }
+
+        private static void EnsureFolderCustomizationAttributes(string folderPath)
+        {
+            var dirInfo = new DirectoryInfo(folderPath);
+            if (!dirInfo.Exists)
+            {
+                return;
+            }
+
+            if ((dirInfo.Attributes & FileAttributes.ReadOnly) != FileAttributes.ReadOnly)
+            {
+                dirInfo.Attributes |= FileAttributes.ReadOnly;
+            }
+
+            var desktopIniPath = Path.Combine(folderPath, "desktop.ini");
+            if (File.Exists(desktopIniPath))
+            {
+                var attributes = File.GetAttributes(desktopIniPath);
+                var desiredAttributes = attributes | FileAttributes.Hidden | FileAttributes.System;
+                if (attributes != desiredAttributes)
+                {
+                    File.SetAttributes(desktopIniPath, desiredAttributes);
+                }
+            }
+        }
+
         public static void NotifyFolderStateChanged(string folderPath)
         {
             if (string.IsNullOrWhiteSpace(folderPath))
@@ -197,25 +257,32 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
-            try
+            var desktopIniPath = Path.Combine(folderPath, "desktop.ini");
+            var parentPath = Directory.GetParent(folderPath)?.FullName;
+
+            SafeChangeNotify(SHCNE_ATTRIBUTES, folderPath, null);
+            SafeChangeNotify(SHCNE_UPDATEITEM, folderPath, null);
+            SafeChangeNotify(SHCNE_RENAMEFOLDER, folderPath, folderPath);
+            SafeChangeNotify(SHCNE_UPDATEDIR, folderPath, null);
+
+            if (File.Exists(desktopIniPath))
             {
-                SHChangeNotify(SHCNE_ATTRIBUTES, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath, null);
-            }
-            catch
-            {
+                SafeChangeNotify(SHCNE_UPDATEITEM, desktopIniPath, null);
+                SafeChangeNotify(SHCNE_ATTRIBUTES, desktopIniPath, null);
             }
 
-            try
+            if (!string.IsNullOrWhiteSpace(parentPath))
             {
-                SHChangeNotify(SHCNE_UPDATEITEM, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath, null);
+                SafeChangeNotify(SHCNE_UPDATEDIR, parentPath, null);
+                SafeChangeNotify(SHCNE_UPDATEITEM, parentPath, null);
             }
-            catch
-            {
-            }
+        }
 
+        private static void SafeChangeNotify(uint eventId, string? item1, string? item2)
+        {
             try
             {
-                SHChangeNotify(SHCNE_UPDATEDIR, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, folderPath, null);
+                SHChangeNotify(eventId, SHCNF_PATHW | SHCNF_FLUSHNOWAIT, item1, item2);
             }
             catch
             {

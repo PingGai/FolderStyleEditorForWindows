@@ -1113,7 +1113,6 @@ namespace FolderStyleEditorForWindows.ViewModels
             _saveCommand = new AsyncRelayCommand(SaveFolderSettingsAsync, CanSaveFolderSettings);
             _openFromHistoryCommand = new AsyncRelayCommand<string?>(
                 OpenFromHistoryAsync,
-                CanOpenFromHistory,
                 AsyncRelayCommandOptions.AllowConcurrentExecutions);
             _clearHistoryCommand = new AsyncRelayCommand(
                 ConfirmClearHistoryAsync,
@@ -1295,11 +1294,6 @@ namespace FolderStyleEditorForWindows.ViewModels
         private bool CanSaveFolderSettings()
         {
             return !string.IsNullOrWhiteSpace(FolderPath) && Directory.Exists(FolderPath);
-        }
-
-        private static bool CanOpenFromHistory(string? path)
-        {
-            return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path);
         }
 
         private bool CanClearHistory()

@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Threading.Tasks;
 using System.Threading;
@@ -41,6 +42,7 @@ namespace FolderStyleEditorForWindows
         private MainViewModel _viewModel;
         private EditSessionManager _sessionManager;
         private readonly DragIntentAnalyzerService _dragIntentAnalyzerService;
+        private readonly ExplorerSnapService _explorerSnapService;
         private readonly InterruptDialogService _interruptDialogService;
         private readonly ImageToIcoService _imageToIcoService;
         private readonly IToastService _toastService;
@@ -70,9 +72,24 @@ namespace FolderStyleEditorForWindows
         private bool _pendingWindowTapCandidate;
         private bool _dragStartedForCurrentPress;
         private Point _pressPointInWindow;
+        private PixelPoint _lastSnapProbePositionPx;
+        private long _lastSnapProbeTimestamp;
+        private PixelSize _dragWindowSizePx;
+        private PixelSize _lastKnownWindowPixelSize;
         private DateTime _pressStartedUtc = DateTime.MinValue;
         private PointerPressedEventArgs? _pressEventForMoveDrag;
+        private IPointer? _windowDragPointer;
+        private bool _isNativeWindowMoveDragActive;
+        private ExplorerSnapCandidate? _currentExplorerSnapCandidate;
         private Avalonia.Svg.Skia.Svg? _pinButtonIcon;
+        private Border? _snapPreviewLeftEdge;
+        private Border? _snapPreviewRightEdge;
+        private Avalonia.Svg.Skia.Svg? _snapPreviewLeftIcon;
+        private Avalonia.Svg.Skia.Svg? _snapPreviewRightIcon;
+        private ScaleTransform? _snapPreviewLeftScale;
+        private ScaleTransform? _snapPreviewRightScale;
+        private TranslateTransform? _snapPreviewLeftTranslate;
+        private TranslateTransform? _snapPreviewRightTranslate;
         private Button? _pinButton;
         private Button? _languageButton;
         private StackPanel? _actionButtonsPanel;
@@ -91,6 +108,8 @@ namespace FolderStyleEditorForWindows
         private GradientStop? _backgroundFlowStartStop;
         private GradientStop? _backgroundFlowEndStop;
         private double _backgroundFlowPhase;
+        private double _snapPreviewFlowPhase;
+        private ExplorerSnapPreviewEdge? _activeSnapPreviewEdge;
         private bool _isLowCostTransparencyActive;
         private bool _isWindowRuntimeSuspended;
         private bool _debugPinnedVisualState;
@@ -101,11 +120,15 @@ namespace FolderStyleEditorForWindows
         private readonly Dictionary<string, SolidColorBrush> _dragOverlayBrushCache = new(StringComparer.OrdinalIgnoreCase);
         private readonly DispatcherTimer _renderWakeTimer;
         private readonly DispatcherTimer _idleMemoryTrimTimer;
+        private readonly DispatcherTimer _nativeMoveDragWatchdogTimer;
         private CancellationTokenSource? _windowRootAnimationCts;
         private bool _closingAnimating;
+        private IAmbientAnimationHandle? _snapPreviewAmbientHandle;
         private const double DragStartThresholdPx = 7.0;
         private const double TapMaxMoveThresholdPx = 10.0;
         private const int TapMaxDurationMs = 220;
+        private const int SnapCandidateProbeMinIntervalMs = 32;
+        private const int SnapCandidateProbeMinMovePx = 6;
         private const int ViewTransitionDurationMs = 380;
         private const int WindowTransitionDurationMs = 240;
         private const int PopupTransitionDurationMs = 320;
@@ -144,6 +167,7 @@ namespace FolderStyleEditorForWindows
             _viewModel = App.Services!.GetRequiredService<MainViewModel>();
             _sessionManager = new EditSessionManager(_viewModel);
             _dragIntentAnalyzerService = App.Services!.GetRequiredService<DragIntentAnalyzerService>();
+            _explorerSnapService = App.Services!.GetRequiredService<ExplorerSnapService>();
             _interruptDialogService = App.Services!.GetRequiredService<InterruptDialogService>();
             _imageToIcoService = App.Services!.GetRequiredService<ImageToIcoService>();
             _toastService = App.Services!.GetRequiredService<IToastService>();
@@ -175,6 +199,11 @@ namespace FolderStyleEditorForWindows
                 Interval = TimeSpan.FromSeconds(18)
             };
             _idleMemoryTrimTimer.Tick += IdleMemoryTrimTimer_Tick;
+            _nativeMoveDragWatchdogTimer = new DispatcherTimer(DispatcherPriority.Input)
+            {
+                Interval = TimeSpan.FromMilliseconds(8)
+            };
+            _nativeMoveDragWatchdogTimer.Tick += NativeMoveDragWatchdogTimer_Tick;
             
             _homeView = this.FindControl<HomeView>("HomeView");
             _editView = this.FindControl<EditView>("EditView");
@@ -183,6 +212,10 @@ namespace FolderStyleEditorForWindows
             _pinButton = this.FindControl<Button>("PinButton");
             _languageButton = this.FindControl<Button>("LanguageButton");
             _actionButtonsPanel = this.FindControl<StackPanel>("ActionButtonsPanel");
+            _snapPreviewLeftEdge = this.FindControl<Border>("SnapPreviewLeftEdge");
+            _snapPreviewRightEdge = this.FindControl<Border>("SnapPreviewRightEdge");
+            _snapPreviewLeftIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("SnapPreviewLeftIcon");
+            _snapPreviewRightIcon = this.FindControl<Avalonia.Svg.Skia.Svg>("SnapPreviewRightIcon");
             if (_pinButton != null)
             {
                 _pinButton.TemplateApplied += PinButton_TemplateApplied;
@@ -208,6 +241,10 @@ namespace FolderStyleEditorForWindows
             _rootLayer = this.FindControl<Grid>("RootLayer");
             _flowLayer = this.FindControl<Border>("FlowLayer");
             _cardsLayer = this.FindControl<Grid>("CardsLayer");
+            _snapPreviewLeftScale = FindNamedTransform<ScaleTransform>(_snapPreviewLeftEdge?.RenderTransform, "SnapPreviewLeftScale");
+            _snapPreviewRightScale = FindNamedTransform<ScaleTransform>(_snapPreviewRightEdge?.RenderTransform, "SnapPreviewRightScale");
+            _snapPreviewLeftTranslate = FindNamedTransform<TranslateTransform>(_snapPreviewLeftEdge?.RenderTransform, "SnapPreviewLeftTranslate");
+            _snapPreviewRightTranslate = FindNamedTransform<TranslateTransform>(_snapPreviewRightEdge?.RenderTransform, "SnapPreviewRightTranslate");
             EnsureBackgroundFlowBrush();
             _layerInvalidationController.Bind(RenderLayer.Background, () => _baseLayer?.InvalidateVisual());
             _layerInvalidationController.Bind(RenderLayer.Ambient, () => _flowLayer?.InvalidateVisual());
@@ -256,6 +293,7 @@ namespace FolderStyleEditorForWindows
             this.AddHandler(DragDrop.DropEvent, DragAndDropTarget_Drop, RoutingStrategies.Bubble, handledEventsToo: true);
             this.AddHandler(InputElement.PointerWheelChangedEvent, MainWindow_PointerWheelChanged, RoutingStrategies.Tunnel, handledEventsToo: true);
             this.AddHandler(InputElement.PointerPressedEvent, MainWindow_TunnelPointerPressed, RoutingStrategies.Tunnel, handledEventsToo: true);
+            this.AddHandler(InputElement.PointerCaptureLostEvent, MainWindow_PointerCaptureLost, RoutingStrategies.Tunnel, handledEventsToo: true);
 
             if (_viewModel.Toasts is INotifyCollectionChanged notifyCollection)
             {
@@ -273,18 +311,38 @@ namespace FolderStyleEditorForWindows
                 () => _frameRateSettings.HomeTitleAmbientFps,
                 TickPinGlowAmbient);
             _pinGlowAmbientHandle.SetEnabled(false);
+            _snapPreviewAmbientHandle = _ambientAnimationScheduler.Register(
+                "window-snap-preview",
+                () => Math.Clamp(Math.Min(_frameRateSettings.ActiveInteractionFps, 36), 12, 36),
+                TickSnapPreviewAmbient);
+            _snapPreviewAmbientHandle.SetEnabled(false);
 
             this.Loaded += (_, _) =>
             {
                 RefreshDisplayInfoForCurrentWindow();
+                UpdateExplorerSnapHostSize();
+                _dragWindowSizePx = _lastKnownWindowPixelSize;
                 StartRenderLoop();
                 _idleMemoryTrimTimer.Start();
                 _animationStateSource.MarkStaticDirty();
             };
-            Closed += (_, _) => _sessionManager.Dispose();
+            _explorerSnapService.ActivityChanged += ExplorerSnapService_ActivityChanged;
+            SetSnapPreviewVisual(null);
+            Closed += (_, _) =>
+            {
+                CancelWindowTapAndDragState(releaseCapture: false);
+                _explorerSnapService.ActivityChanged -= ExplorerSnapService_ActivityChanged;
+                _explorerSnapService.StopSnap();
+                PositionChanged -= MainWindow_PositionChanged;
+                _nativeMoveDragWatchdogTimer.Stop();
+                _nativeMoveDragWatchdogTimer.Tick -= NativeMoveDragWatchdogTimer_Tick;
+                _snapPreviewAmbientHandle?.SetEnabled(false);
+                _sessionManager.Dispose();
+            };
             Activated += MainWindow_Activated;
             Deactivated += MainWindow_Deactivated;
             PropertyChanged += MainWindow_PropertyChanged;
+            PositionChanged += MainWindow_PositionChanged;
             
             ApplyDebugExclusions();
             UpdatePinButtonIcon();
@@ -294,6 +352,7 @@ namespace FolderStyleEditorForWindows
 
         private void MainWindow_Deactivated(object? sender, EventArgs e)
         {
+            CancelWindowTapAndDragState(releaseCapture: false);
             _performanceMonitorViewModel.SetHostActive(false);
             DismissTransientPopupUi();
             _animationStateSource.SetDragging(false);
@@ -340,13 +399,241 @@ namespace FolderStyleEditorForWindows
             if (e.Property == BoundsProperty)
             {
                 RefreshDisplayInfoForCurrentWindow();
+                UpdateExplorerSnapHostSize();
                 _animationStateSource.MarkStaticDirty();
             }
+        }
+
+        private void MainWindow_PositionChanged(object? sender, PixelPointEventArgs e)
+        {
+            if (!_isNativeWindowMoveDragActive)
+            {
+                return;
+            }
+
+            UpdateNativeWindowMoveDragCandidate(e.Point);
+        }
+
+        private void ExplorerSnapService_ActivityChanged(object? sender, ExplorerSnapActivityChangedEventArgs e)
+        {
+            _animationStateSource.SetTransitionAnimating(e.IsAnimating);
+            if (!e.IsSnapped)
+            {
+                SetSnapPreviewVisual(null);
+            }
+
+            _animationStateSource.MarkStaticDirty();
+        }
+
+        private void MainWindow_PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+        {
+            if (_windowDragPointer != e.Pointer)
+            {
+                return;
+            }
+
+            CancelWindowTapAndDragState(releaseCapture: false);
+            _animationStateSource.MarkStaticDirty();
         }
 
         private void RefreshDisplayInfoForCurrentWindow()
         {
             _displayInfoService.Refresh(TryGetPlatformHandle()?.Handle ?? default);
+        }
+
+        private void UpdateExplorerSnapHostSize()
+        {
+            var currentWindowPixelSize = GetCurrentWindowPixelSize();
+            if (currentWindowPixelSize == _lastKnownWindowPixelSize)
+            {
+                return;
+            }
+
+            _lastKnownWindowPixelSize = currentWindowPixelSize;
+            _explorerSnapService.UpdateHostWindowSize(currentWindowPixelSize);
+        }
+
+        private PixelSize GetCurrentWindowPixelSize()
+        {
+            var width = Math.Max(1, (int)Math.Round(Bounds.Width * DesktopScaling));
+            var height = Math.Max(1, (int)Math.Round(Bounds.Height * DesktopScaling));
+            return new PixelSize(width, height);
+        }
+
+        private void SetSnapPreviewVisual(ExplorerSnapCandidate? candidate)
+        {
+            var targetEdge = candidate?.PreviewEdge;
+            if (_activeSnapPreviewEdge == targetEdge)
+            {
+                return;
+            }
+
+            _activeSnapPreviewEdge = targetEdge;
+            var showLeft = targetEdge == ExplorerSnapPreviewEdge.Left;
+            var showRight = targetEdge == ExplorerSnapPreviewEdge.Right;
+            ApplySnapPreviewEdgeVisual(_snapPreviewLeftEdge, _snapPreviewLeftIcon, _snapPreviewLeftScale, _snapPreviewLeftTranslate, showLeft, isLeftEdge: true);
+            ApplySnapPreviewEdgeVisual(_snapPreviewRightEdge, _snapPreviewRightIcon, _snapPreviewRightScale, _snapPreviewRightTranslate, showRight, isLeftEdge: false);
+            if (_activeSnapPreviewEdge == null)
+            {
+                _snapPreviewAmbientHandle?.SetEnabled(false);
+                _snapPreviewFlowPhase = 0d;
+                ResetSnapPreviewFlowVisual();
+                return;
+            }
+
+            _snapPreviewFlowPhase = 0d;
+            _snapPreviewAmbientHandle?.SetEnabled(true);
+            TickSnapPreviewAmbient(0d);
+        }
+
+        private void ApplySnapPreviewEdgeVisual(
+            Border? edgeBorder,
+            Avalonia.Svg.Skia.Svg? edgeIcon,
+            ScaleTransform? edgeScale,
+            TranslateTransform? edgeTranslate,
+            bool isVisible,
+            bool isLeftEdge)
+        {
+            if (edgeBorder != null)
+            {
+                edgeBorder.Opacity = isVisible ? 1d : 0d;
+            }
+
+            if (edgeScale != null)
+            {
+                const double scale = 1d;
+                edgeScale.ScaleX = scale;
+                edgeScale.ScaleY = scale;
+            }
+
+            if (edgeTranslate != null)
+            {
+                edgeTranslate.X = 0d;
+            }
+
+            if (edgeIcon != null)
+            {
+                edgeIcon.Opacity = isVisible ? 0.78d : 0d;
+            }
+        }
+
+        private void TickSnapPreviewAmbient(double deltaSeconds)
+        {
+            if (_activeSnapPreviewEdge == null)
+            {
+                return;
+            }
+
+            _snapPreviewFlowPhase += deltaSeconds * 0.55d;
+            _snapPreviewFlowPhase -= Math.Floor(_snapPreviewFlowPhase);
+            ApplySnapPreviewBreathingVisual(
+                _activeSnapPreviewEdge == ExplorerSnapPreviewEdge.Left ? _snapPreviewLeftEdge : _snapPreviewRightEdge,
+                _activeSnapPreviewEdge == ExplorerSnapPreviewEdge.Left ? _snapPreviewLeftScale : _snapPreviewRightScale,
+                _activeSnapPreviewEdge == ExplorerSnapPreviewEdge.Left ? _snapPreviewLeftIcon : _snapPreviewRightIcon,
+                _snapPreviewFlowPhase);
+        }
+
+        private void ApplySnapPreviewBreathingVisual(
+            Border? edgeBorder,
+            ScaleTransform? edgeScale,
+            Avalonia.Svg.Skia.Svg? edgeIcon,
+            double flowPhase)
+        {
+            if (edgeBorder == null)
+            {
+                return;
+            }
+
+            var pulse = (Math.Sin(flowPhase * Math.PI * 2d) + 1d) * 0.5d;
+            edgeBorder.Opacity = 0.78d + (pulse * 0.18d);
+            if (edgeScale != null)
+            {
+                var scale = 0.985d + (pulse * 0.02d);
+                edgeScale.ScaleX = scale;
+                edgeScale.ScaleY = scale;
+            }
+
+            if (edgeIcon != null)
+            {
+                edgeIcon.Opacity = 0.68d + (pulse * 0.2d);
+            }
+        }
+
+        private void ResetSnapPreviewFlowVisual()
+        {
+            if (_snapPreviewLeftEdge != null)
+            {
+                _snapPreviewLeftEdge.Opacity = 0d;
+            }
+
+            if (_snapPreviewRightEdge != null)
+            {
+                _snapPreviewRightEdge.Opacity = 0d;
+            }
+
+            if (_snapPreviewLeftIcon != null)
+            {
+                _snapPreviewLeftIcon.Opacity = 0d;
+            }
+
+            if (_snapPreviewRightIcon != null)
+            {
+                _snapPreviewRightIcon.Opacity = 0d;
+            }
+        }
+
+        private void ResetSnapCandidateProbe()
+        {
+            _lastSnapProbeTimestamp = 0;
+            _lastSnapProbePositionPx = default;
+        }
+
+        private bool ShouldRefreshSnapCandidate(PixelPoint positionPx)
+        {
+            var now = Stopwatch.GetTimestamp();
+            if (_lastSnapProbeTimestamp == 0)
+            {
+                _lastSnapProbeTimestamp = now;
+                _lastSnapProbePositionPx = positionPx;
+                return true;
+            }
+
+            var dx = positionPx.X - _lastSnapProbePositionPx.X;
+            var dy = positionPx.Y - _lastSnapProbePositionPx.Y;
+            var movedDistanceSq = (dx * dx) + (dy * dy);
+            var elapsedMilliseconds = (now - _lastSnapProbeTimestamp) * 1000d / Stopwatch.Frequency;
+            if (elapsedMilliseconds < SnapCandidateProbeMinIntervalMs &&
+                movedDistanceSq < SnapCandidateProbeMinMovePx * SnapCandidateProbeMinMovePx)
+            {
+                return false;
+            }
+
+            _lastSnapProbeTimestamp = now;
+            _lastSnapProbePositionPx = positionPx;
+            return true;
+        }
+
+        private static T? FindNamedTransform<T>(object? transformRoot, string _ignoredName)
+            where T : class
+        {
+            if (transformRoot is T directMatch)
+            {
+                return directMatch;
+            }
+
+            if (transformRoot is TransformGroup transformGroup)
+            {
+                foreach (var child in transformGroup.Children)
+                {
+                    var nestedMatch = FindNamedTransform<T>(child, _ignoredName);
+                    if (nestedMatch != null)
+                    {
+                        return nestedMatch;
+                    }
+                }
+            }
+
+            return null;
         }
 
         private void FrameRateSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -496,13 +783,21 @@ namespace FolderStyleEditorForWindows
                 _dragStartedForCurrentPress = false;
                 _pressPointInWindow = e.GetPosition(this);
                 _pressStartedUtc = DateTime.UtcNow;
+                _dragWindowSizePx = _lastKnownWindowPixelSize == default ? GetCurrentWindowPixelSize() : _lastKnownWindowPixelSize;
+                ResetSnapCandidateProbe();
+                _windowDragPointer = e.Pointer;
                 _pressEventForMoveDrag = e;
+                _isNativeWindowMoveDragActive = false;
+                _currentExplorerSnapCandidate = null;
                 return;
             }
 
             _pendingWindowTapCandidate = false;
             _dragStartedForCurrentPress = false;
+            _windowDragPointer = null;
             _pressEventForMoveDrag = null;
+            _isNativeWindowMoveDragActive = false;
+            _currentExplorerSnapCandidate = null;
         }
 
         protected override void OnPointerMoved(PointerEventArgs e)
@@ -510,7 +805,7 @@ namespace FolderStyleEditorForWindows
             base.OnPointerMoved(e);
             _animationStateSource.MarkHoverActivity();
 
-            if (!_pendingWindowTapCandidate || _dragStartedForCurrentPress)
+            if (!_pendingWindowTapCandidate || _windowDragPointer != e.Pointer)
             {
                 return;
             }
@@ -529,25 +824,36 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
-            _dragStartedForCurrentPress = true;
-            _pendingWindowTapCandidate = false;
-            _lastQualifiedTapReleaseUtc = DateTime.MinValue;
-
-            var dragArgs = _pressEventForMoveDrag;
-            _pressEventForMoveDrag = null;
-            if (dragArgs != null)
+            if (!_dragStartedForCurrentPress)
             {
-                BeginMoveDrag(dragArgs);
+                _dragStartedForCurrentPress = true;
+                _pendingWindowTapCandidate = false;
+                _lastQualifiedTapReleaseUtc = DateTime.MinValue;
+                _explorerSnapService.StopSnap();
+                _animationStateSource.SetDragging(true);
+                StartNativeWindowMoveDrag();
+                _animationStateSource.MarkStaticDirty();
+                e.Handled = true;
+                return;
             }
+
+            e.Handled = true;
         }
 
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
             base.OnPointerReleased(e);
 
+            if (_dragStartedForCurrentPress && _windowDragPointer == e.Pointer)
+            {
+                CompleteWindowDragInteraction();
+                e.Handled = true;
+                return;
+            }
+
             if (!_pendingWindowTapCandidate)
             {
-                _pressEventForMoveDrag = null;
+                _windowDragPointer = null;
                 return;
             }
 
@@ -555,9 +861,7 @@ namespace FolderStyleEditorForWindows
             var isInteractiveControl = IsWindowTapInteractiveSource(source);
             if (isInteractiveControl)
             {
-                _pendingWindowTapCandidate = false;
-                _dragStartedForCurrentPress = false;
-                _pressEventForMoveDrag = null;
+                CancelWindowTapAndDragState(releaseCapture: false);
                 return;
             }
 
@@ -567,9 +871,7 @@ namespace FolderStyleEditorForWindows
             var movedDistanceSq = dx * dx + dy * dy;
             var pressDuration = DateTime.UtcNow - _pressStartedUtc;
 
-            _pendingWindowTapCandidate = false;
-            _dragStartedForCurrentPress = false;
-            _pressEventForMoveDrag = null;
+            CancelWindowTapAndDragState(releaseCapture: false);
 
             var isQuickTap =
                 pressDuration <= TimeSpan.FromMilliseconds(TapMaxDurationMs) &&
@@ -591,6 +893,43 @@ namespace FolderStyleEditorForWindows
             }
 
             _lastQualifiedTapReleaseUtc = now;
+        }
+
+        private void CompleteWindowDragInteraction()
+        {
+            UpdateNativeWindowMoveDragCandidate(forceCandidateRefresh: true);
+            var candidate = _currentExplorerSnapCandidate;
+            CancelWindowTapAndDragState(releaseCapture: false);
+            if (candidate is { } snapCandidate &&
+                _explorerSnapService.BeginSnap(this, _dragWindowSizePx == default ? GetCurrentWindowPixelSize() : _dragWindowSizePx, Position, snapCandidate))
+            {
+                _animationStateSource.SetTransitionAnimating(true);
+            }
+            else if (!_explorerSnapService.IsSnapped)
+            {
+                _animationStateSource.SetTransitionAnimating(false);
+            }
+
+            _animationStateSource.MarkStaticDirty();
+        }
+
+        private void CancelWindowTapAndDragState(bool releaseCapture)
+        {
+            if (releaseCapture)
+            {
+                _windowDragPointer?.Capture(null);
+            }
+
+            _pendingWindowTapCandidate = false;
+            _dragStartedForCurrentPress = false;
+            _windowDragPointer = null;
+            _pressEventForMoveDrag = null;
+            _isNativeWindowMoveDragActive = false;
+            _nativeMoveDragWatchdogTimer.Stop();
+            _currentExplorerSnapCandidate = null;
+            ResetSnapCandidateProbe();
+            SetSnapPreviewVisual(null);
+            _animationStateSource.SetDragging(false);
         }
 
         protected override void OnOpened(EventArgs e)
@@ -630,6 +969,7 @@ namespace FolderStyleEditorForWindows
             DebugRuntimeAnalysis.PauseAnimationsChanged -= DebugRuntimeAnalysis_PauseAnimationsChanged;
             _backgroundAmbientHandle?.SetEnabled(false);
             _pinGlowAmbientHandle?.SetEnabled(false);
+            _snapPreviewAmbientHandle?.SetEnabled(false);
             // 已经处于关闭流程中时，避免重复触发关闭逻辑
             if (_closingAnimating)
             {
@@ -1813,7 +2153,6 @@ namespace FolderStyleEditorForWindows
             }
 
             var snapshot = _animationStateSource.Snapshot();
-            _editView?.SetScrollPerformanceMode(snapshot.IsScrolling && _editView.IsVisible);
             _frameRateGovernor.Update(snapshot, _displayInfoService.CurrentRefreshRateHz);
             UpdateTransparencyModeForCurrentFrame(snapshot);
             var decision = _renderScheduler.Evaluate(
@@ -1879,6 +2218,68 @@ namespace FolderStyleEditorForWindows
             _isLowCostTransparencyActive = shouldUseLowCostTransparency;
             Background = shouldUseLowCostTransparency ? LowCostWindowBackground : ActiveWindowBackground;
             TransparencyLevelHint = GetWindowTransparencyHint(shouldUseLowCostTransparency);
+        }
+
+        private void NativeMoveDragWatchdogTimer_Tick(object? sender, EventArgs e)
+        {
+            if (!_isNativeWindowMoveDragActive)
+            {
+                _nativeMoveDragWatchdogTimer.Stop();
+                return;
+            }
+
+            UpdateNativeWindowMoveDragCandidate();
+            if (!IsLeftMouseButtonDown())
+            {
+                CompleteWindowDragInteraction();
+            }
+        }
+
+        private void StartNativeWindowMoveDrag()
+        {
+            var dragArgs = _pressEventForMoveDrag;
+            _pressEventForMoveDrag = null;
+            _isNativeWindowMoveDragActive = true;
+            _dragWindowSizePx = _lastKnownWindowPixelSize == default ? GetCurrentWindowPixelSize() : _lastKnownWindowPixelSize;
+            UpdateNativeWindowMoveDragCandidate(forceCandidateRefresh: true);
+            _nativeMoveDragWatchdogTimer.Start();
+
+            if (dragArgs == null)
+            {
+                CompleteWindowDragInteraction();
+                return;
+            }
+
+            BeginMoveDrag(dragArgs);
+        }
+
+        private void UpdateNativeWindowMoveDragCandidate(PixelPoint? positionPx = null, bool forceCandidateRefresh = false)
+        {
+            if (!_dragStartedForCurrentPress)
+            {
+                return;
+            }
+
+            var nextPosition = positionPx ?? Position;
+
+            if (forceCandidateRefresh || ShouldRefreshSnapCandidate(nextPosition))
+            {
+                var nextCandidate = _explorerSnapService.FindBestCandidate(
+                    nextPosition,
+                    _dragWindowSizePx,
+                    TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+                if (_currentExplorerSnapCandidate != nextCandidate)
+                {
+                    _currentExplorerSnapCandidate = nextCandidate;
+                    SetSnapPreviewVisual(_currentExplorerSnapCandidate);
+                    _animationStateSource.MarkStaticDirty();
+                }
+            }
+        }
+
+        private static bool IsLeftMouseButtonDown()
+        {
+            return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
         }
 
         private void SetWindowRuntimeSuspended(bool suspended)
@@ -2152,6 +2553,7 @@ namespace FolderStyleEditorForWindows
             else
             {
                 this.Topmost = !this.Topmost;
+                _explorerSnapService.NotifyHostWindowManualTopmostChanged(this.Topmost);
             }
 
             UpdatePinButtonIcon();
@@ -2204,9 +2606,7 @@ namespace FolderStyleEditorForWindows
         {
             if (TryHandleDebugComponentExcludeGesture(e))
             {
-                _pendingWindowTapCandidate = false;
-                _dragStartedForCurrentPress = false;
-                _pressEventForMoveDrag = null;
+                CancelWindowTapAndDragState(releaseCapture: true);
             }
         }
 
@@ -2450,6 +2850,11 @@ namespace FolderStyleEditorForWindows
             Canvas.SetRight(target, Canvas.GetRight(source));
             Canvas.SetBottom(target, Canvas.GetBottom(source));
         }
+
+        private const int VK_LBUTTON = 0x01;
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
 
     }
 }

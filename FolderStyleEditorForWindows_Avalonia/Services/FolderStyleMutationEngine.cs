@@ -37,10 +37,7 @@ namespace FolderStyleEditorForWindows.Services
                 var folderVisibilityChanged = await _folderHiddenVisibilityService.ApplyLevelAsync(
                     request.FolderPath,
                     request.FolderHiddenVisibilityLevel);
-                if (folderVisibilityChanged)
-                {
-                    ShellHelper.NotifyFolderStateChanged(request.FolderPath);
-                }
+                var shouldNotifyShell = folderVisibilityChanged;
 
                 if (request.ShouldUpdateAlias)
                 {
@@ -48,6 +45,7 @@ namespace FolderStyleEditorForWindows.Services
                         request.FolderPath,
                         "LocalizedResourceName",
                         request.IsAliasPlaceholder ? string.Empty : request.Alias);
+                    shouldNotifyShell = true;
                 }
 
                 if (request.ShouldUpdateIcon)
@@ -79,8 +77,18 @@ namespace FolderStyleEditorForWindows.Services
                         DesktopIniHelper.WriteValue(request.FolderPath, "IconIndex", null);
                         ShellHelper.RemoveFolderIcon(request.FolderPath);
                     }
+
+                    shouldNotifyShell = true;
                 }
+
+                ShellHelper.EnsureAliasShellState(request.FolderPath);
+                shouldNotifyShell = true;
+
                 RestoreFolderTimestamp(request.FolderPath, originalLastWriteTimeUtc);
+                if (shouldNotifyShell)
+                {
+                    ShellHelper.NotifyFolderStateChanged(request.FolderPath);
+                }
 
                 return new FolderStyleMutationResult
                 {

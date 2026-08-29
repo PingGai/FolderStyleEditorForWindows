@@ -46,6 +46,10 @@ if (-not $Version) {
     Write-Host "版本文件为空：$VersionFile" -ForegroundColor Red
     exit 1
 }
+if ($Version -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$') {
+    Write-Host "版本文件格式无效：$VersionFile：$Version" -ForegroundColor Red
+    exit 1
+}
 
 if ($Runtime -eq "all") {
     $rids = @("win-x64","win-x86")

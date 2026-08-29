@@ -209,6 +209,7 @@ namespace FolderStyleEditorForWindows.Services
     public sealed class InterruptDialogOptions
     {
         public string Title { get; init; } = string.Empty;
+        public string? VersionText { get; init; }
         public IBrush? TitleForeground { get; init; }
         public string? HeaderMeta { get; init; }
         public string? SectionTitle { get; init; }
@@ -277,6 +278,7 @@ namespace FolderStyleEditorForWindows.Services
         private bool _isActive;
         private bool _isHitTestVisible;
         private string _title = string.Empty;
+        private string? _versionText;
         private IBrush _titleForeground = DefaultTitleForegroundBrush;
         private string _content = string.Empty;
         private TextAlignment _contentTextAlignment = TextAlignment.Left;
@@ -354,6 +356,20 @@ namespace FolderStyleEditorForWindows.Services
         }
         public bool IsHitTestVisible { get => _isHitTestVisible; set => SetField(ref _isHitTestVisible, value); }
         public string Title { get => _title; set => SetField(ref _title, value); }
+        public string? VersionText
+        {
+            get => _versionText;
+            set
+            {
+                if (SetField(ref _versionText, value))
+                {
+                    OnPropertyChanged(nameof(HasVersionText));
+                    OnPropertyChanged(nameof(HasNoVersionText));
+                }
+            }
+        }
+        public bool HasVersionText => !string.IsNullOrWhiteSpace(VersionText);
+        public bool HasNoVersionText => !HasVersionText;
         public IBrush TitleForeground { get => _titleForeground; set => SetField(ref _titleForeground, value); }
         public string Content { get => _content; set => SetField(ref _content, value); }
         public TextAlignment ContentTextAlignment { get => _contentTextAlignment; set => SetField(ref _contentTextAlignment, value); }
@@ -819,6 +835,7 @@ namespace FolderStyleEditorForWindows.Services
         private readonly AnimationStateSource _animationStateSource;
         private readonly FrameRateSettings _frameRateSettings;
         private readonly PerformanceTelemetryService _performanceTelemetryService;
+        private readonly AppVersionService _appVersionService;
         private readonly DispatcherTimer _primaryCountdownTimer;
         private TaskCompletionSource<InterruptDialogResponse>? _pendingCompletion;
         private bool _isPassiveOverlayActive;
@@ -831,13 +848,15 @@ namespace FolderStyleEditorForWindows.Services
             IToastService toastService,
             AnimationStateSource animationStateSource,
             FrameRateSettings frameRateSettings,
-            PerformanceTelemetryService performanceTelemetryService)
+            PerformanceTelemetryService performanceTelemetryService,
+            AppVersionService appVersionService)
         {
             _licenseCatalogService = licenseCatalogService;
             _toastService = toastService;
             _animationStateSource = animationStateSource;
             _frameRateSettings = frameRateSettings;
             _performanceTelemetryService = performanceTelemetryService;
+            _appVersionService = appVersionService;
             State = new InterruptDialogState(Confirm, Cancel);
             State.ResetVisualState(false);
             _primaryCountdownTimer = new DispatcherTimer
@@ -860,6 +879,7 @@ namespace FolderStyleEditorForWindows.Services
             {
                 State.IsPassiveOverlay = false;
                 State.Title = options.Title ?? string.Empty;
+                State.VersionText = options.VersionText;
                 State.TitleForeground = options.TitleForeground ?? InterruptDialogState.DefaultTitleForegroundBrush;
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
@@ -936,6 +956,7 @@ namespace FolderStyleEditorForWindows.Services
             {
                 State.IsPassiveOverlay = true;
                 State.Title = options.Title ?? string.Empty;
+                State.VersionText = options.VersionText;
                 State.TitleForeground = options.TitleForeground ?? InterruptDialogState.DefaultTitleForegroundBrush;
                 State.HeaderMeta = options.HeaderMeta;
                 State.SectionTitle = options.SectionTitle;
@@ -1120,6 +1141,7 @@ namespace FolderStyleEditorForWindows.Services
             await ShowAsync(new InterruptDialogOptions
             {
                 Title = loc["Home_AboutDialog_Title"],
+                VersionText = $"{loc["Home_AboutDialog_VersionPrefix"]}{_appVersionService.Version}",
                 HeaderMeta = loc["Home_AboutDialog_Publisher"],
                 Content = loc["Home_AboutDialog_Content"],
                 WidthRatio = 1.10,

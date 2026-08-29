@@ -41,6 +41,10 @@ if (-not $Version) {
     Write-Host "Version file is empty: $VersionFile" -ForegroundColor Red
     exit 1
 }
+if ($Version -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$') {
+    Write-Host "Invalid version in $VersionFile: $Version" -ForegroundColor Red
+    exit 1
+}
 
 if ($Runtime -eq "all") {
     $rids = @("win-x64","win-x86")

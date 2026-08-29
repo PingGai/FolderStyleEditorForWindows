@@ -146,6 +146,7 @@ ImageToIco_Error_Content: "请检查文件格式是否正确，或图像内容�
 # Home Dialog
 Home_FolderPicker_Title: "选择文件夹"
 Home_AboutDialog_Title: "关于 FolderStyleEditor"
+Home_AboutDialog_VersionPrefix: "V"
 Home_AboutDialog_SectionTitle: "关于"
 Home_AboutDialog_Content: "可以快速修改 Windows 系统上文件夹别名，以及快速将一个应用的文件夹设置成它内部的应用图标的工具。"
 Home_AboutDialog_Publisher: "由 PING 提供"
