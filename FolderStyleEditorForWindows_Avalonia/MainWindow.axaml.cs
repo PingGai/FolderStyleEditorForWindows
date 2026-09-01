@@ -1016,6 +1016,17 @@ namespace FolderStyleEditorForWindows
                 return;
             }
 
+            if (e.Key == Key.S && e.KeyModifiers == KeyModifiers.Control && _editView?.IsVisible == true)
+            {
+                if (_viewModel.SaveCommand.CanExecute(null))
+                {
+                    _viewModel.SaveCommand.Execute(null);
+                }
+
+                e.Handled = true;
+                return;
+            }
+
             if (e.Key == Key.Escape && _editView?.IsVisible == true)
             {
                 GoToHomeView();

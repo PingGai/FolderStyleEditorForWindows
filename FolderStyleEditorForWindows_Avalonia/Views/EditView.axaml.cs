@@ -228,11 +228,6 @@ namespace FolderStyleEditorForWindows.Views
                     e.Handled = true;
                 }
             }
-            else if (e.Key == Key.S && e.KeyModifiers == KeyModifiers.Control)
-            {
-                if (DataContext is ViewModels.MainViewModel vm && vm.SaveCommand.CanExecute(null))
-                    vm.SaveCommand.Execute(null);
-            }
         }
 
         protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
