@@ -10,6 +10,8 @@
              x:DataType="local:TitleBarButtons"
              ClipToBounds="False">
     <Grid ColumnDefinitions="Auto,*,Auto"
+          Background="Transparent"
+          IsHitTestVisible="True"
           ClipToBounds="False">
         <Border Grid.Column="0"
                 Width="38"
