@@ -345,7 +345,7 @@
                          TextAlignment="Center"
                          TextWrapping="Wrap"/>
               <TextBlock Text="{Binding VersionText}"
-                         FontSize="9"
+                         FontSize="12"
                          HorizontalAlignment="Center"
                          Foreground="{StaticResource Fg2Brush}"
                          Opacity="0.58"
