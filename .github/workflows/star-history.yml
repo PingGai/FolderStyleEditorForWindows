@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare chart directory
+        run: mkdir -p assets
       - uses: xpzouying/star-history@v1
         with:
           branch: star-history
