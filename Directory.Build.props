@@ -1,20 +1,44 @@
 <Project>
-  <!-- Keep all SDK version metadata derived from the repository version file. -->
+  <!-- Keep all SDK version metadata derived from the repository version line. -->
   <PropertyGroup>
     <RepositoryVersionFile>$(MSBuildThisFileDirectory)build\version.txt</RepositoryVersionFile>
     <RepositoryVersionRaw Condition="Exists('$(RepositoryVersionFile)')">$([System.IO.File]::ReadAllText('$(RepositoryVersionFile)'))</RepositoryVersionRaw>
-    <RepositoryVersion Condition="'$(RepositoryVersionRaw)' != ''">$([System.String]::Copy('$(RepositoryVersionRaw)').Trim())</RepositoryVersion>
-    <RepositoryVersion Condition="$([System.String]::Copy('$(RepositoryVersion)').StartsWith('v'))">$([System.String]::Copy('$(RepositoryVersion)').Substring(1))</RepositoryVersion>
+    <RepositoryVersionFileValue Condition="'$(RepositoryVersionRaw)' != ''">$([System.String]::Copy('$(RepositoryVersionRaw)').Trim())</RepositoryVersionFileValue>
+    <RepositoryVersionInput Condition="'$(RepositoryVersionOverride)' != ''">$(RepositoryVersionOverride)</RepositoryVersionInput>
+    <RepositoryVersionInput Condition="'$(RepositoryVersionOverride)' == ''">$(RepositoryVersionFileValue)</RepositoryVersionInput>
+    <RepositoryVersionInput Condition="$([System.String]::Copy('$(RepositoryVersionInput)').StartsWith('v'))">$([System.String]::Copy('$(RepositoryVersionInput)').Substring(1))</RepositoryVersionInput>
 
-    <Version Condition="'$(RepositoryVersion)' != ''">$(RepositoryVersion)</Version>
-    <PackageVersion Condition="'$(RepositoryVersion)' != ''">$(RepositoryVersion)</PackageVersion>
+    <!-- A two-part line becomes a minute-stamped development snapshot unless release mode is requested. -->
+    <RepositoryVersion Condition="'$(RepositoryVersionMode)' == 'release'">$(RepositoryVersionInput)</RepositoryVersion>
+    <RepositoryVersion Condition="'$(RepositoryVersionMode)' != 'release' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(RepositoryVersionInput)', '^(0|[1-9]\d*)\.(0|[1-9]\d*)$'))">$(RepositoryVersionInput).$([System.DateTime]::Now.ToString('yyyyMMddHHmm'))</RepositoryVersion>
+    <RepositoryVersion Condition="'$(RepositoryVersion)' == ''">$(RepositoryVersionInput)</RepositoryVersion>
+
+    <RepositoryVersionKind Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(RepositoryVersion)', '^(0|[1-9]\d*)\.(0|[1-9]\d*)$'))">release</RepositoryVersionKind>
+    <RepositoryVersionKind Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(RepositoryVersion)', '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.\d{12}$'))">snapshot</RepositoryVersionKind>
+    <RepositoryVersionKind Condition="'$(RepositoryVersionKind)' == '' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(RepositoryVersion)', '^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$'))">legacy</RepositoryVersionKind>
+
+    <RepositoryReleaseLine Condition="'$(RepositoryVersionKind)' == 'release'">$(RepositoryVersion)</RepositoryReleaseLine>
+    <RepositoryReleaseLine Condition="'$(RepositoryVersionKind)' == 'snapshot'">$([System.Text.RegularExpressions.Regex]::Replace('$(RepositoryVersion)', '^(\d+\.\d+)\.\d{12}$', '$1'))</RepositoryReleaseLine>
+    <RepositoryReleaseLine Condition="'$(RepositoryVersionKind)' == 'legacy'">$([System.Text.RegularExpressions.Regex]::Replace('$(RepositoryVersion)', '^(\d+\.\d+)\.\d+(?:-.*)?$', '$1'))</RepositoryReleaseLine>
+
+    <!-- Assembly/FileVersion stay numeric and stable; the full product snapshot remains informational. -->
+    <RepositoryAssemblyVersion Condition="'$(RepositoryVersionKind)' == 'release' or '$(RepositoryVersionKind)' == 'snapshot'">$(RepositoryReleaseLine).0.0</RepositoryAssemblyVersion>
+    <RepositoryAssemblyVersion Condition="'$(RepositoryVersionKind)' == 'legacy'">$([System.Text.RegularExpressions.Regex]::Replace('$(RepositoryVersion)', '^(\d+\.\d+\.\d+).*$', '$1.0'))</RepositoryAssemblyVersion>
+    <RepositoryPackageVersion Condition="'$(RepositoryVersionKind)' == 'release'">$(RepositoryReleaseLine).0</RepositoryPackageVersion>
+    <RepositoryPackageVersion Condition="'$(RepositoryVersionKind)' == 'snapshot'">$(RepositoryReleaseLine).0-dev.$([System.Text.RegularExpressions.Regex]::Replace('$(RepositoryVersion)', '^\d+\.\d+\.(\d{12})$', '$1'))</RepositoryPackageVersion>
+    <RepositoryPackageVersion Condition="'$(RepositoryVersionKind)' == 'legacy'">$(RepositoryVersion)</RepositoryPackageVersion>
+
+    <Version Condition="'$(RepositoryPackageVersion)' != ''">$(RepositoryPackageVersion)</Version>
+    <PackageVersion Condition="'$(RepositoryPackageVersion)' != ''">$(RepositoryPackageVersion)</PackageVersion>
     <InformationalVersion Condition="'$(RepositoryVersion)' != ''">$(RepositoryVersion)</InformationalVersion>
+    <AssemblyVersion Condition="'$(RepositoryAssemblyVersion)' != ''">$(RepositoryAssemblyVersion)</AssemblyVersion>
+    <FileVersion Condition="'$(RepositoryAssemblyVersion)' != ''">$(RepositoryAssemblyVersion)</FileVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <Target Name="ValidateRepositoryVersion" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('$(RepositoryVersionFile)')" Text="Version file not found: $(RepositoryVersionFile)" />
-    <Error Condition="'$(RepositoryVersion)' == ''" Text="Version file is empty: $(RepositoryVersionFile)" />
-    <Error Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(RepositoryVersion)', '^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$')) != 'True'" Text="Invalid version in $(RepositoryVersionFile): $(RepositoryVersion)" />
+    <Error Condition="'$(RepositoryVersionInput)' == ''" Text="Version file is empty: $(RepositoryVersionFile)" />
+    <Error Condition="'$(RepositoryVersionKind)' == ''" Text="Invalid version in $(RepositoryVersionFile): $(RepositoryVersionInput)" />
   </Target>
 </Project>

@@ -3,7 +3,8 @@ param(
     [string]$Runtime = "all",
     [ValidateSet("Release","Debug")]
     [string]$Configuration = "Release",
-    [string]$BaseName = "FolderStyleEditorForWindows"
+    [string]$BaseName = "FolderStyleEditorForWindows",
+    [switch]$Release
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,9 +47,22 @@ if (-not $Version) {
     Write-Host "版本文件为空：$VersionFile" -ForegroundColor Red
     exit 1
 }
-if ($Version -notmatch '^v\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$') {
+if ($Version -notmatch '^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:\.(?:\d{12}|(?:0|[1-9]\d*))(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)?$') {
     Write-Host "版本文件格式无效：$VersionFile：$Version" -ForegroundColor Red
     exit 1
+}
+
+$VersionCore = $Version.Substring(1)
+$BuildVersionMode = "explicit"
+if ($Version -match '^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$') {
+    if ($Release) {
+        $BuildVersionMode = "release"
+    }
+    else {
+        $Version = "$Version.$(Get-Date -Format yyyyMMddHHmm)"
+        $VersionCore = $Version.Substring(1)
+        $BuildVersionMode = "snapshot"
+    }
 }
 
 if ($Runtime -eq "all") {
@@ -82,6 +96,8 @@ foreach ($rid in $rids) {
         -p:IncludeAllContentForSelfExtract=true `
         -p:EnableCompressionInSingleFile=true `
         -p:PublishTrimmed=false `
+        -p:RepositoryVersionOverride=$VersionCore `
+        -p:RepositoryVersionMode=$BuildVersionMode `
         -o $OutDir | Out-Host
 
     $srcExeName  = "$BaseName.exe"
