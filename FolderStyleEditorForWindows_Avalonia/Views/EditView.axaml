@@ -196,10 +196,6 @@
                                            IsVisible="{Binding IsEnabled}"/>
                 </Grid>
             </DockPanel>
-            <controls:WindowDragRegion Height="18"
-                                       HorizontalAlignment="Stretch"
-                                       VerticalAlignment="Bottom"
-                                       ZIndex="1"/>
         </Grid>
 
         <!-- Main Scrollable Content -->
