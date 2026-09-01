@@ -234,6 +234,15 @@ FolderStyleEditorForWindows 是一款基于 Avalonia UI 框架和 .NET 9.0 开�
 
 本项目版权归 PING 所有，Copyright 2025-2026 PING。项目自身源码与文档遵循 [Apache License 2.0](LICENSE)（Apache-2.0）。第三方依赖与资源仍按各自原始许可证分发，详见 [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)、[`LICENSES/`](LICENSES/) 目录与 [`NOTICE`](NOTICE) 文件。需要特别注意的是，当前 SVG 渲染链中包含 `Svg.Custom`，其许可证为 `MS-PL`；该组件并不改为 Apache-2.0，而是继续按其原始许可证保留。
 
-## Stars - 如果你喜欢，来为这个项目添加星标吧！
+## Star 趋势
 
-[![Star History Chart](https://api.star-history.com/svg?repos=PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)](https://www.star-history.com/#PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)
+<picture>
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="https://raw.githubusercontent.com/PingGai/FolderStyleEditorForWindows/star-history/assets/star-history-dark.svg"
+  />
+  <img
+    alt="Star History Chart"
+    src="https://raw.githubusercontent.com/PingGai/FolderStyleEditorForWindows/star-history/assets/star-history.svg"
+  />
+</picture>

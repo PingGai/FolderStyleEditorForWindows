@@ -224,6 +224,15 @@ If you are not opposed to the nature of this project, you are welcome to contrib
 
 Copyright 2025-2026 PING. The project's own source code and documentation are licensed under the [Apache License 2.0](LICENSE) (Apache-2.0). Third-party dependencies and assets remain under their respective original licenses; see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md), the [`LICENSES/`](LICENSES/) directory, and [`NOTICE`](NOTICE) for details. One important exception to note is the current SVG rendering chain, which includes `Svg.Custom` under the `MS-PL`; that component is not relicensed to Apache-2.0 and remains under its original license.
 
-## Stars — Support this project with a star if you like it!
+## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)](https://www.star-history.com/#PingGai/FolderStyleEditorForWindows&type=date&legend=top-left)
+<picture>
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="https://raw.githubusercontent.com/PingGai/FolderStyleEditorForWindows/star-history/assets/star-history-dark.svg"
+  />
+  <img
+    alt="Star History Chart"
+    src="https://raw.githubusercontent.com/PingGai/FolderStyleEditorForWindows/star-history/assets/star-history.svg"
+  />
+</picture>
