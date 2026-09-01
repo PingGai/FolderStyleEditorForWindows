@@ -138,6 +138,12 @@
             </Grid>
         </DockPanel>
 
+        <controls:WindowDragRegion Grid.Row="1"
+                                   Height="18"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Top"
+                                   ZIndex="20"/>
+
         <!-- Drop Zone Display-->
         <Border Grid.Row="1" Name="dropZone" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" Margin="0" Background="Transparent">
             <StackPanel Spacing="16" HorizontalAlignment="Center">
